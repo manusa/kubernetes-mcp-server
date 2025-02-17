@@ -9,6 +9,7 @@
     <img alt="GitHub release (latest SemVer)" src="https://img.shields.io/github/v/release/manusa/kubernetes-mcp-server?sort=semver" /></a>
   <a href="https://github.com/manusa/kubernetes-mcp-server/actions/workflows/build.yaml">
     <img src="https://github.com/manusa/kubernetes-mcp-server/actions/workflows/build.yaml/badge.svg" alt="Build status badge" /></a>
+  <a href="https://smithery.ai/server/@manusa/kubernetes-mcp-server"><img alt="Smithery Badge" src="https://smithery.ai/badge/@manusa/kubernetes-mcp-server"></a>
 </p>
 
 
@@ -49,5 +50,13 @@ Open your `claude_desktop_config.json` and add the mcp server to the list of `mc
       "args": ["-y", "kubernetes-mcp-server@latest"]
   }
 }
+```
+
+#### Installing via Smithery
+
+To install Kubernetes MCP Server for Claude Desktop automatically via [Smithery](https://smithery.ai/server/@manusa/kubernetes-mcp-server):
+
+```bash
+npx -y @smithery/cli install @manusa/kubernetes-mcp-server --client claude
 ```
 

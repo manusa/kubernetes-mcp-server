@@ -39,7 +39,11 @@ Open your `claude_desktop_config.json` and add the mcp server to the list of `mc
   "mcpServers": {
     "kubernetes": {
       "command": "npx",
-      "args": ["-y", "kubernetes-mcp-server@latest"]
+      "args": [
+        "-y",
+        "kubernetes-mcp-server@latest"
+      ]
+    }
   }
 }
 ```

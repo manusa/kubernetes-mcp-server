@@ -5,7 +5,7 @@ go 1.23.5
 require (
 	github.com/mark3labs/mcp-go v0.11.2
 	github.com/spf13/afero v1.12.0
-	github.com/spf13/cobra v1.8.1
+	github.com/spf13/cobra v1.9.1
 	github.com/spf13/viper v1.19.0
 	golang.org/x/net v0.33.0
 	k8s.io/api v0.32.2

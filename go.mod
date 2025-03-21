@@ -3,7 +3,7 @@ module github.com/manusa/kubernetes-mcp-server
 go 1.23.5
 
 require (
-	github.com/mark3labs/mcp-go v0.14.1
+	github.com/mark3labs/mcp-go v0.15.0
 	github.com/spf13/afero v1.14.0
 	github.com/spf13/cobra v1.9.1
 	github.com/spf13/viper v1.20.0

@@ -4,7 +4,7 @@ go 1.23.5
 
 require (
 	github.com/fsnotify/fsnotify v1.8.0
-	github.com/mark3labs/mcp-go v0.15.0
+	github.com/mark3labs/mcp-go v0.16.0
 	github.com/spf13/afero v1.14.0
 	github.com/spf13/cobra v1.9.1
 	github.com/spf13/viper v1.20.0

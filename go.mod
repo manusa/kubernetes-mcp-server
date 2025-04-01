@@ -3,7 +3,7 @@ module github.com/manusa/kubernetes-mcp-server
 go 1.24.1
 require (
 	github.com/fsnotify/fsnotify v1.8.0
-	github.com/mark3labs/mcp-go v0.16.0
+	github.com/mark3labs/mcp-go v0.17.0
 	github.com/spf13/afero v1.14.0
 	github.com/spf13/cobra v1.9.1
 	github.com/spf13/viper v1.20.1

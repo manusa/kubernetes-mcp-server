@@ -5,6 +5,7 @@ import (
 	"github.com/mark3labs/mcp-go/mcp"
 	"os"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strings"
 	"testing"
@@ -12,6 +13,9 @@ import (
 )
 
 func TestWatchKubeConfig(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("Skipping test on non-linux platforms")
+	}
 	testCase(t, func(c *mcpContext) {
 		// Given
 		withTimeout, cancel := context.WithTimeout(c.ctx, 5*time.Second)

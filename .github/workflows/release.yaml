@@ -13,6 +13,7 @@ concurrency:
 env:
   GO_VERSION: 1.23
   NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+  UV_PUBLISH_TOKEN: ${{ secrets.UV_PUBLISH_TOKEN }}
 
 permissions:
   contents: write
@@ -41,3 +42,13 @@ jobs:
       - name: Publish npm
         run:
           make npm-publish
+  python:
+    name: Release Python
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - name: Publish Python
+        run:
+          make python-publish

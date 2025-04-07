@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "kubernetes-mcp-server"
+version = "0.0.21-7-g869ebc2"
+description = "Kubernetes MCP Server (Model Context Protocol) with special support for OpenShift"
+readme = {file="README.md", content-type="text/markdown"}
+requires-python = ">=3.6"
+license = "Apache-2.0"
+authors = [
+    { name = "Marc Nuri", email = "marc@marcnuri.com" }
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+]
+
+[project.urls]
+Homepage = "https://github.com/manusa/kubernetes-mcp-server"
+Repository = "https://github.com/manusa/kubernetes-mcp-server"
+
+[project.scripts]
+kubernetes-mcp-server = "kubernetes_mcp_server:main"

@@ -77,10 +77,11 @@ func (k *Kubernetes) PodsDelete(ctx context.Context, namespace, name string) (st
 		k.clientSet.CoreV1().Pods(namespace).Delete(ctx, name, metav1.DeleteOptions{})
 }
 
-func (k *Kubernetes) PodsLog(ctx context.Context, namespace, name string) (string, error) {
+func (k *Kubernetes) PodsLog(ctx context.Context, namespace, name, container string) (string, error) {
 	tailLines := int64(256)
 	req := k.clientSet.CoreV1().Pods(namespaceOrDefault(namespace)).GetLogs(name, &v1.PodLogOptions{
 		TailLines: &tailLines,
+		Container: container,
 	})
 	res := req.Do(ctx)
 	if res.Error() != nil {

@@ -49,6 +49,7 @@ func (s *Server) initPods() []server.ServerTool {
 			mcp.WithDescription("Get the logs of a Kubernetes Pod in the current or provided namespace with the provided name"),
 			mcp.WithString("namespace", mcp.Description("Namespace to get the Pod logs from")),
 			mcp.WithString("name", mcp.Description("Name of the Pod to get the logs from"), mcp.Required()),
+			mcp.WithString("container", mcp.Description("Name of the Pod container to get the logs from (Optional)")),
 		), s.podsLog},
 		{mcp.NewTool("pods_run",
 			mcp.WithDescription("Run a Kubernetes Pod in the current or provided namespace with the provided container image and optional name"),
@@ -150,7 +151,11 @@ func (s *Server) podsLog(ctx context.Context, ctr mcp.CallToolRequest) (*mcp.Cal
 	if name == nil {
 		return NewTextResult("", errors.New("failed to get pod log, missing argument name")), nil
 	}
-	ret, err := s.k.PodsLog(ctx, ns.(string), name.(string))
+	container := ctr.Params.Arguments["container"]
+	if container == nil {
+		container = ""
+	}
+	ret, err := s.k.PodsLog(ctx, ns.(string), name.(string), container.(string))
 	if err != nil {
 		return NewTextResult("", fmt.Errorf("failed to get pod %s log in namespace %s: %v", name, ns, err)), nil
 	} else if ret == "" {

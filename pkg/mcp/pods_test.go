@@ -526,6 +526,36 @@ func TestPodsLog(t *testing.T) {
 				return
 			}
 		})
+		podsContainerLogInNamespace, err := c.callTool("pods_log", map[string]interface{}{
+			"namespace": "ns-1",
+			"name":      "a-pod-in-ns-1",
+			"container": "nginx",
+		})
+		t.Run("pods_log with name, container and namespace returns pod log", func(t *testing.T) {
+			if err != nil {
+				t.Fatalf("call tool failed %v", err)
+				return
+			}
+			if podsContainerLogInNamespace.IsError {
+				t.Fatalf("call tool failed")
+				return
+			}
+		})
+		toolResult, err := c.callTool("pods_log", map[string]interface{}{
+			"namespace": "ns-1",
+			"name":      "a-pod-in-ns-1",
+			"container": "a-not-existing-container",
+		})
+		t.Run("pods_log with non existing container returns error", func(t *testing.T) {
+			if toolResult.IsError != true {
+				t.Fatalf("call tool should fail")
+				return
+			}
+			if toolResult.Content[0].(mcp.TextContent).Text != "failed to get pod a-pod-in-ns-1 log in namespace ns-1: container a-not-existing-container is not valid for pod a-pod-in-ns-1" {
+				t.Fatalf("invalid error message, got %v", toolResult.Content[0].(mcp.TextContent).Text)
+				return
+			}
+		})
 	})
 }
 

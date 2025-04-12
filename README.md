@@ -95,6 +95,169 @@ extensions:
 
 ```
 
+## Tools
+
+### `configuration_view`
+
+Get the current Kubernetes configuration content as a kubeconfig YAML
+
+**Parameters:**
+- `minified` (`boolean`, optional, default: `true`)
+  - Return a minified version of the configuration
+  - If `true`, keeps only the current-context and relevant configuration pieces
+  - If `false`, returns all contexts, clusters, auth-infos, and users
+
+### `events_list`
+
+List all the Kubernetes events in the current cluster from all namespaces
+
+**Parameters:**
+- `namespace` (`string`, optional)
+  - Namespace to retrieve the events from. If not provided, will list events from all namespaces
+
+### `namespaces_list`
+
+List all the Kubernetes namespaces in the current cluster
+
+**Parameters:** None
+
+### `pods_delete`
+
+Delete a Kubernetes Pod in the current or provided namespace with the provided name
+
+**Parameters:**
+- `name` (`string`, required)
+  - Name of the Pod to delete
+- `namespace` (`string`, required)
+  - Namespace to delete the Pod from
+
+### `pods_exec`
+
+Execute a command in a Kubernetes Pod in the current or provided namespace with the provided name and command
+
+**Parameters:**
+- `command` (`string[]`, required)
+  - Command to execute in the Pod container
+  - First item is the command, rest are arguments
+  - Example: `["ls", "-l", "/tmp"]`
+- `name` (string, required)
+  - Name of the Pod
+- `namespace` (string, required)
+  - Namespace of the Pod
+
+### `pods_get`
+
+Get a Kubernetes Pod in the current or provided namespace with the provided name
+
+**Parameters:**
+- `name` (`string`, required)
+  - Name of the Pod
+- `namespace` (`string`, required)
+  - Namespace to get the Pod from
+
+### `pods_list`
+
+List all the Kubernetes pods in the current cluster from all namespaces
+
+**Parameters:** None
+
+### `pods_list_in_namespace`
+
+List all the Kubernetes pods in the specified namespace in the current cluster
+
+**Parameters:**
+- `namespace` (`string`, required)
+  - Namespace to list pods from
+
+### `pods_log`
+
+Get the logs of a Kubernetes Pod in the current or provided namespace with the provided name
+
+**Parameters:**
+- `name` (`string`, required)
+  - Name of the Pod to get logs from
+- `namespace` (`string`, required)
+  - Namespace to get the Pod logs from
+- `container` (`string`, optional)
+  - Name of the Pod container to get logs from
+
+### `pods_run`
+
+Run a Kubernetes Pod in the current or provided namespace with the provided container image and optional name
+
+**Parameters:**
+- `image` (`string`, required)
+  - Container Image to run in the Pod
+- `namespace` (`string`, required)
+  - Namespace to run the Pod in
+- `name` (`string`, optional)
+  - Name of the Pod (random name if not provided)
+- `port` (`number`, optional)
+  - TCP/IP port to expose from the Pod container
+  - No port exposed if not provided
+
+### `resources_create_or_update`
+
+Create or update a Kubernetes resource in the current cluster by providing a YAML or JSON representation of the resource
+
+**Parameters:**
+- `resource` (`string`, required)
+  - A JSON or YAML containing a representation of the Kubernetes resource
+  - Should include top-level fields such as apiVersion, kind, metadata, and spec
+
+**Common apiVersion and kind include:**
+- v1 Pod
+- v1 Service
+- v1 Node
+- apps/v1 Deployment
+- networking.k8s.io/v1 Ingress
+
+### `resources_delete`
+
+Delete a Kubernetes resource in the current cluster
+
+**Parameters:**
+- `apiVersion` (`string`, required)
+  - apiVersion of the resource (e.g., `v1`, `apps/v1`, `networking.k8s.io/v1`)
+- `kind` (`string`, required)
+  - kind of the resource (e.g., `Pod`, `Service`, `Deployment`, `Ingress`)
+- `name` (`string`, required)
+  - Name of the resource
+- `namespace` (`string`, optional)
+  - Namespace to delete the namespaced resource from
+  - Ignored for cluster-scoped resources
+  - Uses configured namespace if not provided
+
+### `resources_get`
+
+Get a Kubernetes resource in the current cluster
+
+**Parameters:**
+- `apiVersion` (`string`, required)
+  - apiVersion of the resource (e.g., `v1`, `apps/v1`, `networking.k8s.io/v1`)
+- `kind` (`string`, required)
+  - kind of the resource (e.g., `Pod`, `Service`, `Deployment`, `Ingress`)
+- `name` (`string`, required)
+  - Name of the resource
+- `namespace` (`string`, optional)
+  - Namespace to retrieve the namespaced resource from
+  - Ignored for cluster-scoped resources
+  - Uses configured namespace if not provided
+
+### `resources_list`
+
+List Kubernetes resources and objects in the current cluster
+
+**Parameters:**
+- `apiVersion` (`string`, required)
+  - apiVersion of the resources (e.g., `v1`, `apps/v1`, `networking.k8s.io/v1`)
+- `kind` (`string`, required)
+  - kind of the resources (e.g., `Pod`, `Service`, `Deployment`, `Ingress`)
+- `namespace` (`string`, optional)
+  - Namespace to retrieve the namespaced resources from
+  - Ignored for cluster-scoped resources
+  - Lists resources from all namespaces if not provided
+
 ## 🎥 Demos <a id="demos"></a>
 
 ### Diagnosing and automatically fixing an OpenShift Deployment

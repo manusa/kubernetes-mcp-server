@@ -1,6 +1,7 @@
 package mcp
 
 import (
+	"github.com/manusa/kubernetes-mcp-server/pkg/helm"
 	"github.com/manusa/kubernetes-mcp-server/pkg/kubernetes"
 	"github.com/manusa/kubernetes-mcp-server/pkg/version"
 	"github.com/mark3labs/mcp-go/mcp"
@@ -16,6 +17,7 @@ type Server struct {
 	configuration *Configuration
 	server        *server.MCPServer
 	k             *kubernetes.Kubernetes
+	helm          *helm.Helm
 }
 
 func NewSever(configuration Configuration) (*Server, error) {
@@ -29,6 +31,7 @@ func NewSever(configuration Configuration) (*Server, error) {
 			server.WithToolCapabilities(true),
 			server.WithLogging(),
 		),
+		helm: helm.NewHelm(),
 	}
 	if err := s.reloadKubernetesClient(); err != nil {
 		return nil, err
@@ -49,6 +52,7 @@ func (s *Server) reloadKubernetesClient() error {
 		s.initNamespaces(),
 		s.initPods(),
 		s.initResources(),
+		s.initHelm(),
 	)...)
 	return nil
 }

@@ -29,8 +29,8 @@ func (s *Server) initPods() []server.ServerTool {
 		), s.podsDelete},
 		{mcp.NewTool("pods_exec",
 			mcp.WithDescription("Execute a command in a Kubernetes Pod in the current or provided namespace with the provided name and command"),
-			mcp.WithString("namespace", mcp.Description("Namespace to get the Pod logs from")),
-			mcp.WithString("name", mcp.Description("Name of the Pod to get the logs from"), mcp.Required()),
+			mcp.WithString("namespace", mcp.Description("Namespace of the Pod where the command will be executed")),
+			mcp.WithString("name", mcp.Description("Name of the Pod where the command will be executed"), mcp.Required()),
 			mcp.WithArray("command", mcp.Description("Command to execute in the Pod container. "+
 				"The first item is the command to be run, and the rest are the arguments to that command. "+
 				`Example: ["ls", "-l", "/tmp"]`),
@@ -44,6 +44,7 @@ func (s *Server) initPods() []server.ServerTool {
 				},
 				mcp.Required(),
 			),
+			mcp.WithString("container", mcp.Description("Name of the Pod container where the command will be executed (Optional)")),
 		), s.podsExec},
 		{mcp.NewTool("pods_log",
 			mcp.WithDescription("Get the logs of a Kubernetes Pod in the current or provided namespace with the provided name"),
@@ -122,6 +123,10 @@ func (s *Server) podsExec(ctx context.Context, ctr mcp.CallToolRequest) (*mcp.Ca
 	if name == nil {
 		return NewTextResult("", errors.New("failed to exec in pod, missing argument name")), nil
 	}
+	container := ctr.Params.Arguments["container"]
+	if container == nil {
+		container = ""
+	}
 	commandArg := ctr.Params.Arguments["command"]
 	command := make([]string, 0)
 	if _, ok := commandArg.([]interface{}); ok {
@@ -133,7 +138,7 @@ func (s *Server) podsExec(ctx context.Context, ctr mcp.CallToolRequest) (*mcp.Ca
 	} else {
 		return NewTextResult("", errors.New("failed to exec in pod, invalid command argument")), nil
 	}
-	ret, err := s.k.PodsExec(ctx, ns.(string), name.(string), "", command)
+	ret, err := s.k.PodsExec(ctx, ns.(string), name.(string), container.(string), command)
 	if err != nil {
 		return NewTextResult("", fmt.Errorf("failed to exec in pod %s in namespace %s: %v", name, ns, err)), nil
 	} else if ret == "" {

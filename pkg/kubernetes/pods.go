@@ -184,17 +184,18 @@ func (k *Kubernetes) PodsExec(ctx context.Context, namespace, name, container st
 	if pod.Status.Phase == v1.PodSucceeded || pod.Status.Phase == v1.PodFailed {
 		return "", fmt.Errorf("cannot exec into a container in a completed pod; current phase is %s", pod.Status.Phase)
 	}
+	if container == "" {
+		container = pod.Spec.Containers[0].Name
+	}
 	podExecOptions := &v1.PodExecOptions{
-		Command: command,
-		Stdout:  true,
-		Stderr:  true,
+		Container: container,
+		Command:   command,
+		Stdout:    true,
+		Stderr:    true,
 	}
 	executor, err := k.createExecutor(namespace, name, podExecOptions)
 	if err != nil {
 		return "", err
-	}
-	if container == "" {
-		container = pod.Spec.Containers[0].Name
 	}
 	stdout := bytes.NewBuffer(make([]byte, 0))
 	stderr := bytes.NewBuffer(make([]byte, 0))

@@ -185,6 +185,8 @@ Execute a command in a Kubernetes Pod in the current or provided namespace with 
   - Name of the Pod
 - `namespace` (string, required)
   - Namespace of the Pod
+- `container` (`string`, optional)
+  - Name of the Pod container to get logs from
 
 ### `pods_get`
 

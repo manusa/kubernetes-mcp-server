@@ -30,9 +30,9 @@ func TestPodsExec(t *testing.T) {
 				_, _ = w.Write([]byte(err.Error()))
 				return
 			}
-			defer ctx.conn.Close()
-			_, _ = io.WriteString(ctx.stdoutStream, strings.Join(req.URL.Query()["command"], " "))
-			_, _ = io.WriteString(ctx.stdoutStream, "\ntotal 0\n")
+			defer func(conn io.Closer) { _ = conn.Close() }(ctx.conn)
+			_, _ = io.WriteString(ctx.stdoutStream, "command:"+strings.Join(req.URL.Query()["command"], " ")+"\n")
+			_, _ = io.WriteString(ctx.stdoutStream, "container:"+strings.Join(req.URL.Query()["container"], " ")+"\n")
 		}))
 		mockServer.Handle(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 			if req.URL.Path != "/api/v1/namespaces/default/pods/pod-to-exec" {
@@ -46,20 +46,55 @@ func TestPodsExec(t *testing.T) {
 				Spec: v1.PodSpec{Containers: []v1.Container{{Name: "container-to-exec"}}},
 			})
 		}))
-		toolResult, err := c.callTool("pods_exec", map[string]interface{}{
+		podsExecNilNamespace, err := c.callTool("pods_exec", map[string]interface{}{
+			"name":    "pod-to-exec",
+			"command": []interface{}{"ls", "-l"},
+		})
+		t.Run("pods_exec with name and nil namespace returns command output", func(t *testing.T) {
+			if err != nil {
+				t.Fatalf("call tool failed %v", err)
+			}
+			if podsExecNilNamespace.IsError {
+				t.Fatalf("call tool failed")
+			}
+			if !strings.Contains(podsExecNilNamespace.Content[0].(mcp.TextContent).Text, "command:ls -l\n") {
+				t.Errorf("unexpected result %v", podsExecNilNamespace.Content[0].(mcp.TextContent).Text)
+			}
+		})
+		podsExecInNamespace, err := c.callTool("pods_exec", map[string]interface{}{
 			"namespace": "default",
 			"name":      "pod-to-exec",
 			"command":   []interface{}{"ls", "-l"},
 		})
-		t.Run("pods_exec returns command output", func(t *testing.T) {
+		t.Run("pods_exec with name and namespace returns command output", func(t *testing.T) {
 			if err != nil {
 				t.Fatalf("call tool failed %v", err)
 			}
-			if toolResult.IsError {
+			if podsExecInNamespace.IsError {
 				t.Fatalf("call tool failed")
 			}
-			if toolResult.Content[0].(mcp.TextContent).Text != "ls -l\ntotal 0\n" {
-				t.Errorf("unexpected result %v", toolResult.Content[0].(mcp.TextContent).Text)
+			if !strings.Contains(podsExecNilNamespace.Content[0].(mcp.TextContent).Text, "command:ls -l\n") {
+				t.Errorf("unexpected result %v", podsExecInNamespace.Content[0].(mcp.TextContent).Text)
+			}
+		})
+		podsExecInNamespaceAndContainer, err := c.callTool("pods_exec", map[string]interface{}{
+			"namespace": "default",
+			"name":      "pod-to-exec",
+			"command":   []interface{}{"ls", "-l"},
+			"container": "a-specific-container",
+		})
+		t.Run("pods_exec with name, namespace, and container returns command output", func(t *testing.T) {
+			if err != nil {
+				t.Fatalf("call tool failed %v", err)
+			}
+			if podsExecInNamespaceAndContainer.IsError {
+				t.Fatalf("call tool failed")
+			}
+			if !strings.Contains(podsExecInNamespaceAndContainer.Content[0].(mcp.TextContent).Text, "command:ls -l\n") {
+				t.Errorf("unexpected result %v", podsExecInNamespaceAndContainer.Content[0].(mcp.TextContent).Text)
+			}
+			if !strings.Contains(podsExecInNamespaceAndContainer.Content[0].(mcp.TextContent).Text, "container:a-specific-container\n") {
+				t.Errorf("expected container name not found %v", podsExecInNamespaceAndContainer.Content[0].(mcp.TextContent).Text)
 			}
 		})
 

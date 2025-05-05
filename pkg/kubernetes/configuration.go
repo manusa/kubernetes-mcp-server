@@ -27,7 +27,7 @@ func resolveKubernetesConfigurations(kubernetes *Kubernetes) error {
 		pathOptions.LoadingRules.ExplicitPath = kubernetes.Kubeconfig
 	}
 	kubernetes.clientCmdConfig = clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
-		&clientcmd.ClientConfigLoadingRules{ExplicitPath: pathOptions.GetDefaultFilename()},
+		pathOptions.LoadingRules,
 		&clientcmd.ConfigOverrides{ClusterInfo: clientcmdapi.Cluster{Server: ""}})
 	var err error
 	if kubernetes.IsInCluster() {

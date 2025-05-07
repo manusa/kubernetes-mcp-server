@@ -16,11 +16,19 @@ type Helm struct {
 	settings *cli.EnvSettings
 }
 
-// NewHelm creates a new Helm instance (optionally for a specific kubeconfig)
-func NewHelm() *Helm {
-	return &Helm{
-		settings: cli.New(),
+// NewHelm creates a new Helm instance using kubeconfig, context, and namespace settings
+func NewHelm(kubeconfig, kubeContext, namespace string) *Helm {
+	settings := cli.New()
+	if kubeconfig != "" {
+		settings.KubeConfig = kubeconfig
 	}
+	if kubeContext != "" {
+		settings.KubeContext = kubeContext
+	}
+	if namespace != "" {
+		settings.SetNamespace(namespace)
+	}
+	return &Helm{settings: settings}
 }
 
 // ReleasesList lists Helm releases in a specific namespace (or all namespaces if namespace is empty)

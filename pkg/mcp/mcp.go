@@ -31,10 +31,16 @@ func NewSever(configuration Configuration) (*Server, error) {
 			server.WithToolCapabilities(true),
 			server.WithLogging(),
 		),
-		helm: helm.NewHelm(),
 	}
 	if err := s.reloadKubernetesClient(); err != nil {
 		return nil, err
+	}
+	// After Kubernetes client is initialized, set up Helm with the same config
+	if s.k != nil {
+		kubeconfig := s.k.KubeconfigPath()
+		kubeContext := s.k.CurrentContext()
+		namespace := s.k.ConfiguredNamespace()
+		s.helm = helm.NewHelm(kubeconfig, kubeContext, namespace)
 	}
 	s.k.WatchKubeConfig(s.reloadKubernetesClient)
 	return s, nil

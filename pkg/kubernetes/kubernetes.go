@@ -124,7 +124,27 @@ func marshal(v any) (string, error) {
 	return string(ret), nil
 }
 
-func (k *Kubernetes) configuredNamespace() string {
+// KubeconfigPath returns the kubeconfig path used by this Kubernetes client
+func (k *Kubernetes) KubeconfigPath() string {
+	return k.Kubeconfig
+}
+
+// CurrentContext returns the current context from the kubeconfig
+func (k *Kubernetes) CurrentContext() string {
+	if k.clientCmdConfig == nil {
+		return ""
+	}
+	if rawConfig, err := k.clientCmdConfig.RawConfig(); err == nil {
+		return rawConfig.CurrentContext
+	}
+	return ""
+}
+
+// ConfiguredNamespace returns the namespace configured in the kubeconfig/context
+func (k *Kubernetes) ConfiguredNamespace() string {
+	if k.clientCmdConfig == nil {
+		return ""
+	}
 	if ns, _, nsErr := k.clientCmdConfig.Namespace(); nsErr == nil {
 		return ns
 	}
@@ -133,7 +153,7 @@ func (k *Kubernetes) configuredNamespace() string {
 
 func (k *Kubernetes) namespaceOrDefault(namespace string) string {
 	if namespace == "" {
-		return k.configuredNamespace()
+		return k.ConfiguredNamespace()
 	}
 	return namespace
 }

@@ -77,7 +77,7 @@ func (k *Kubernetes) resourcesList(ctx context.Context, gvk *schema.GroupVersion
 	// Check if operation is allowed for all namespaces (applicable for namespaced resources)
 	isNamespaced, _ := k.isNamespaced(gvk)
 	if isNamespaced && !k.canIUse(ctx, gvr, namespace, "list") && namespace == "" {
-		namespace = k.configuredNamespace()
+		namespace = k.ConfiguredNamespace()
 	}
 	return k.dynamicClient.Resource(*gvr).Namespace(namespace).List(ctx, metav1.ListOptions{})
 }

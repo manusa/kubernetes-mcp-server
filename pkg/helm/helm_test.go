@@ -6,7 +6,7 @@ import (
 )
 
 func TestNewHelm(t *testing.T) {
-	h := NewHelm()
+	h := NewHelm("", "", "")
 	if h == nil {
 		t.Fatal("expected non-nil Helm instance")
 	}
@@ -16,7 +16,7 @@ func TestNewHelm(t *testing.T) {
 }
 
 func TestHelm_ReleasesList_DefaultNamespace(t *testing.T) {
-	h := NewHelm()
+	h := NewHelm("", "", "")
 	// Use a namespace that is likely to exist, or leave empty for default
 	releases, err := h.ReleasesList(context.Background(), "")
 	if err != nil {
@@ -29,7 +29,7 @@ func TestHelm_ReleasesList_DefaultNamespace(t *testing.T) {
 }
 
 func TestHelm_ReleasesList_AllNamespaces(t *testing.T) {
-	h := NewHelm()
+	h := NewHelm("", "", "")
 	releases, err := h.ReleasesList(context.Background(), "all")
 	if err != nil {
 		t.Skipf("skipping: could not list all releases (likely no cluster/helm configured): %v", err)

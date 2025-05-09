@@ -5,64 +5,33 @@ import (
 	"fmt"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
-	"gopkg.in/yaml.v3"
 )
 
 func (s *Server) initHelm() []server.ServerTool {
 	rets := make([]server.ServerTool, 0)
 	rets = append(rets, server.ServerTool{
 		Tool: mcp.NewTool("helm_list",
-			mcp.WithDescription("List all Helm releases in all namespaces."),
+			mcp.WithDescription("List all of the Helm releases in the current or provided namespace (or in all namespaces if specified)"),
+			mcp.WithString("namespace", mcp.Description("Namespace to list Helm releases from (Optional, all namespaces if not provided)")),
+			mcp.WithBoolean("all_namespaces", mcp.Description("If true, lists all Helm releases in all namespaces ignoring the namespace argument (Optional)")),
 		),
-		Handler: s.helmReleasesList,
-	})
-	rets = append(rets, server.ServerTool{
-		Tool: mcp.NewTool("helm_list_in_namespace",
-			mcp.WithDescription("List all Helm releases in the specified namespace."),
-			mcp.WithString("namespace", mcp.Description("Namespace to list Helm releases from."), mcp.Required()),
-		),
-		Handler: s.helmListInNamespace,
+		Handler: s.helmList,
 	})
 	return rets
 }
 
-func (s *Server) helmReleasesList(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	releases, err := s.helm.ReleasesList(ctx, "")
+func (s *Server) helmList(_ context.Context, ctr mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	allNamespaces := false
+	if v, ok := ctr.Params.Arguments["all_namespaces"].(bool); ok {
+		allNamespaces = v
+	}
+	namespace := ""
+	if v, ok := ctr.Params.Arguments["namespace"].(string); ok {
+		namespace = v
+	}
+	ret, err := s.k.Helm.ReleasesList(namespace, allNamespaces)
 	if err != nil {
-		return NewTextResult("", fmt.Errorf("failed to list helm releases: %w", err)), nil
+		return NewTextResult("", fmt.Errorf("failed to list helm releases in namespace '%s': %w", namespace, err)), nil
 	}
-	for _, r := range releases {
-		if r != nil && r.Chart != nil {
-			r.Chart.Templates = nil
-			r.Chart.Files = nil
-		}
-	}
-	out, err := yaml.Marshal(releases)
-	if err != nil {
-		return NewTextResult("", fmt.Errorf("failed to marshal helm releases: %w", err)), nil
-	}
-	return NewTextResult(string(out), nil), nil
-}
-
-// helmListInNamespace lists Helm releases in a specified namespace
-func (s *Server) helmListInNamespace(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	ns := req.Params.Arguments["namespace"]
-	if ns == nil || ns.(string) == "" {
-		return NewTextResult("", fmt.Errorf("missing required argument: namespace")), nil
-	}
-	releases, err := s.helm.ReleasesList(ctx, ns.(string))
-	if err != nil {
-		return NewTextResult("", fmt.Errorf("failed to list helm releases in namespace %s: %w", ns, err)), nil
-	}
-	for _, r := range releases {
-		if r != nil && r.Chart != nil {
-			r.Chart.Templates = nil
-			r.Chart.Files = nil
-		}
-	}
-	out, err := yaml.Marshal(releases)
-	if err != nil {
-		return NewTextResult("", fmt.Errorf("failed to marshal helm releases: %w", err)), nil
-	}
-	return NewTextResult(string(out), nil), nil
+	return NewTextResult(ret, err), nil
 }

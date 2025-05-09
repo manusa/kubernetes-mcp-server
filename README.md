@@ -28,6 +28,8 @@ A powerful and flexible Kubernetes [Model Context Protocol (MCP)](https://blog.m
 - **✅ Namespaces**: List Kubernetes Namespaces.
 - **✅ Events**: View Kubernetes events in all namespaces or in a specific namespace.
 - **✅ Projects**: List OpenShift Projects.
+- **☸️ Helm**:
+  - **List** Helm releases in all namespaces or in a specific namespace.
 
 Unlike other Kubernetes MCP server implementations, this **IS NOT** just a wrapper around `kubectl` or `helm` command-line tools.
 

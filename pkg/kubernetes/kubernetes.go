@@ -2,7 +2,9 @@ package kubernetes
 
 import (
 	"github.com/fsnotify/fsnotify"
+	"github.com/manusa/kubernetes-mcp-server/pkg/helm"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/discovery"
@@ -26,9 +28,10 @@ type Kubernetes struct {
 	scheme                      *runtime.Scheme
 	parameterCodec              runtime.ParameterCodec
 	clientSet                   kubernetes.Interface
-	discoveryClient             *discovery.DiscoveryClient
+	discoveryClient             discovery.CachedDiscoveryInterface
 	deferredDiscoveryRESTMapper *restmapper.DeferredDiscoveryRESTMapper
 	dynamicClient               *dynamic.DynamicClient
+	Helm                        *helm.Helm
 }
 
 func NewKubernetes(kubeconfig string) (*Kubernetes, error) {
@@ -43,10 +46,11 @@ func NewKubernetes(kubeconfig string) (*Kubernetes, error) {
 	if err != nil {
 		return nil, err
 	}
-	k8s.discoveryClient, err = discovery.NewDiscoveryClientForConfig(k8s.cfg)
+	discoveryClient, err := discovery.NewDiscoveryClientForConfig(k8s.cfg)
 	if err != nil {
 		return nil, err
 	}
+	k8s.discoveryClient = memory.NewMemCacheClient(discoveryClient)
 	k8s.deferredDiscoveryRESTMapper = restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(k8s.discoveryClient))
 	k8s.dynamicClient, err = dynamic.NewForConfig(k8s.cfg)
 	if err != nil {
@@ -57,6 +61,7 @@ func NewKubernetes(kubeconfig string) (*Kubernetes, error) {
 		return nil, err
 	}
 	k8s.parameterCodec = runtime.NewParameterCodec(k8s.scheme)
+	k8s.Helm = helm.NewHelm(k8s, "TODO")
 	return k8s, nil
 }
 
@@ -102,6 +107,14 @@ func (k *Kubernetes) Close() {
 	}
 }
 
+func (k *Kubernetes) ToDiscoveryClient() (discovery.CachedDiscoveryInterface, error) {
+	return k.discoveryClient, nil
+}
+
+func (k *Kubernetes) ToRESTMapper() (meta.RESTMapper, error) {
+	return k.deferredDiscoveryRESTMapper, nil
+}
+
 func marshal(v any) (string, error) {
 	switch t := v.(type) {
 	case []unstructured.Unstructured:
@@ -122,38 +135,4 @@ func marshal(v any) (string, error) {
 		return "", err
 	}
 	return string(ret), nil
-}
-
-// KubeconfigPath returns the kubeconfig path used by this Kubernetes client
-func (k *Kubernetes) KubeconfigPath() string {
-	return k.Kubeconfig
-}
-
-// CurrentContext returns the current context from the kubeconfig
-func (k *Kubernetes) CurrentContext() string {
-	if k.clientCmdConfig == nil {
-		return ""
-	}
-	if rawConfig, err := k.clientCmdConfig.RawConfig(); err == nil {
-		return rawConfig.CurrentContext
-	}
-	return ""
-}
-
-// ConfiguredNamespace returns the namespace configured in the kubeconfig/context
-func (k *Kubernetes) ConfiguredNamespace() string {
-	if k.clientCmdConfig == nil {
-		return ""
-	}
-	if ns, _, nsErr := k.clientCmdConfig.Namespace(); nsErr == nil {
-		return ns
-	}
-	return ""
-}
-
-func (k *Kubernetes) namespaceOrDefault(namespace string) string {
-	if namespace == "" {
-		return k.ConfiguredNamespace()
-	}
-	return namespace
 }

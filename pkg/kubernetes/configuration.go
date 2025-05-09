@@ -52,6 +52,30 @@ func (k *Kubernetes) IsInCluster() bool {
 	return err == nil && cfg != nil
 }
 
+func (k *Kubernetes) configuredNamespace() string {
+	if ns, _, nsErr := k.clientCmdConfig.Namespace(); nsErr == nil {
+		return ns
+	}
+	return ""
+}
+
+func (k *Kubernetes) NamespaceOrDefault(namespace string) string {
+	if namespace == "" {
+		return k.configuredNamespace()
+	}
+	return namespace
+}
+
+// ToRESTConfig returns the rest.Config object (genericclioptions.RESTClientGetter)
+func (k *Kubernetes) ToRESTConfig() (*rest.Config, error) {
+	return k.cfg, nil
+}
+
+// ToRawKubeConfigLoader returns the clientcmd.ClientConfig object (genericclioptions.RESTClientGetter)
+func (k *Kubernetes) ToRawKubeConfigLoader() clientcmd.ClientConfig {
+	return k.clientCmdConfig
+}
+
 func (k *Kubernetes) ConfigurationView(minify bool) (string, error) {
 	var cfg clientcmdapi.Config
 	var err error

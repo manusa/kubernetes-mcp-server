@@ -32,11 +32,11 @@ func (k *Kubernetes) PodsListInNamespace(ctx context.Context, namespace string) 
 func (k *Kubernetes) PodsGet(ctx context.Context, namespace, name string) (string, error) {
 	return k.ResourcesGet(ctx, &schema.GroupVersionKind{
 		Group: "", Version: "v1", Kind: "Pod",
-	}, k.namespaceOrDefault(namespace), name)
+	}, k.NamespaceOrDefault(namespace), name)
 }
 
 func (k *Kubernetes) PodsDelete(ctx context.Context, namespace, name string) (string, error) {
-	namespace = k.namespaceOrDefault(namespace)
+	namespace = k.NamespaceOrDefault(namespace)
 	pod, err := k.clientSet.CoreV1().Pods(namespace).Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
 		return "", err
@@ -79,7 +79,7 @@ func (k *Kubernetes) PodsDelete(ctx context.Context, namespace, name string) (st
 
 func (k *Kubernetes) PodsLog(ctx context.Context, namespace, name, container string) (string, error) {
 	tailLines := int64(256)
-	req := k.clientSet.CoreV1().Pods(k.namespaceOrDefault(namespace)).GetLogs(name, &v1.PodLogOptions{
+	req := k.clientSet.CoreV1().Pods(k.NamespaceOrDefault(namespace)).GetLogs(name, &v1.PodLogOptions{
 		TailLines: &tailLines,
 		Container: container,
 	})
@@ -108,7 +108,7 @@ func (k *Kubernetes) PodsRun(ctx context.Context, namespace, name, image string,
 	var resources []any
 	pod := &v1.Pod{
 		TypeMeta:   metav1.TypeMeta{APIVersion: "v1", Kind: "Pod"},
-		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: k.namespaceOrDefault(namespace), Labels: labels},
+		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: k.NamespaceOrDefault(namespace), Labels: labels},
 		Spec: v1.PodSpec{Containers: []v1.Container{{
 			Name:            name,
 			Image:           image,
@@ -120,7 +120,7 @@ func (k *Kubernetes) PodsRun(ctx context.Context, namespace, name, image string,
 		pod.Spec.Containers[0].Ports = []v1.ContainerPort{{ContainerPort: port}}
 		resources = append(resources, &v1.Service{
 			TypeMeta:   metav1.TypeMeta{APIVersion: "v1", Kind: "Service"},
-			ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: k.namespaceOrDefault(namespace), Labels: labels},
+			ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: k.NamespaceOrDefault(namespace), Labels: labels},
 			Spec: v1.ServiceSpec{
 				Selector: labels,
 				Type:     v1.ServiceTypeClusterIP,
@@ -135,7 +135,7 @@ func (k *Kubernetes) PodsRun(ctx context.Context, namespace, name, image string,
 				"kind":       "Route",
 				"metadata": map[string]interface{}{
 					"name":      name,
-					"namespace": k.namespaceOrDefault(namespace),
+					"namespace": k.NamespaceOrDefault(namespace),
 					"labels":    labels,
 				},
 				"spec": map[string]interface{}{
@@ -175,7 +175,7 @@ func (k *Kubernetes) PodsRun(ctx context.Context, namespace, name, image string,
 }
 
 func (k *Kubernetes) PodsExec(ctx context.Context, namespace, name, container string, command []string) (string, error) {
-	namespace = k.namespaceOrDefault(namespace)
+	namespace = k.NamespaceOrDefault(namespace)
 	pod, err := k.clientSet.CoreV1().Pods(namespace).Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
 		return "", err

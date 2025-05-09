@@ -54,6 +54,7 @@ func TestTools(t *testing.T) {
 	expectedNames := []string{
 		"configuration_view",
 		"events_list",
+		"helm_list",
 		"namespaces_list",
 		"pods_list",
 		"pods_list_in_namespace",
@@ -61,6 +62,7 @@ func TestTools(t *testing.T) {
 		"pods_delete",
 		"pods_log",
 		"pods_run",
+		"pods_exec",
 		"resources_list",
 		"resources_get",
 		"resources_create_or_update",

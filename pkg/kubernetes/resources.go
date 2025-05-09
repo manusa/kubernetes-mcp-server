@@ -34,7 +34,7 @@ func (k *Kubernetes) ResourcesGet(ctx context.Context, gvk *schema.GroupVersionK
 	}
 	// If it's a namespaced resource and namespace wasn't provided, try to use the default configured one
 	if namespaced, nsErr := k.isNamespaced(gvk); nsErr == nil && namespaced {
-		namespace = k.namespaceOrDefault(namespace)
+		namespace = k.NamespaceOrDefault(namespace)
 	}
 	rg, err := k.dynamicClient.Resource(*gvr).Namespace(namespace).Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
@@ -64,7 +64,7 @@ func (k *Kubernetes) ResourcesDelete(ctx context.Context, gvk *schema.GroupVersi
 	}
 	// If it's a namespaced resource and namespace wasn't provided, try to use the default configured one
 	if namespaced, nsErr := k.isNamespaced(gvk); nsErr == nil && namespaced {
-		namespace = k.namespaceOrDefault(namespace)
+		namespace = k.NamespaceOrDefault(namespace)
 	}
 	return k.dynamicClient.Resource(*gvr).Namespace(namespace).Delete(ctx, name, metav1.DeleteOptions{})
 }
@@ -77,7 +77,7 @@ func (k *Kubernetes) resourcesList(ctx context.Context, gvk *schema.GroupVersion
 	// Check if operation is allowed for all namespaces (applicable for namespaced resources)
 	isNamespaced, _ := k.isNamespaced(gvk)
 	if isNamespaced && !k.canIUse(ctx, gvr, namespace, "list") && namespace == "" {
-		namespace = k.ConfiguredNamespace()
+		namespace = k.configuredNamespace()
 	}
 	return k.dynamicClient.Resource(*gvr).Namespace(namespace).List(ctx, metav1.ListOptions{})
 }
@@ -92,7 +92,7 @@ func (k *Kubernetes) resourcesCreateOrUpdate(ctx context.Context, resources []*u
 		namespace := obj.GetNamespace()
 		// If it's a namespaced resource and namespace wasn't provided, try to use the default configured one
 		if namespaced, nsErr := k.isNamespaced(&gvk); nsErr == nil && namespaced {
-			namespace = k.namespaceOrDefault(namespace)
+			namespace = k.NamespaceOrDefault(namespace)
 		}
 		resources[i], rErr = k.dynamicClient.Resource(*gvr).Namespace(namespace).Apply(ctx, obj.GetName(), obj, metav1.ApplyOptions{
 			FieldManager: version.BinaryName,

@@ -1,7 +1,6 @@
 package mcp
 
 import (
-	"github.com/manusa/kubernetes-mcp-server/pkg/helm"
 	"github.com/manusa/kubernetes-mcp-server/pkg/kubernetes"
 	"github.com/manusa/kubernetes-mcp-server/pkg/version"
 	"github.com/mark3labs/mcp-go/mcp"
@@ -17,7 +16,6 @@ type Server struct {
 	configuration *Configuration
 	server        *server.MCPServer
 	k             *kubernetes.Kubernetes
-	helm          *helm.Helm
 }
 
 func NewSever(configuration Configuration) (*Server, error) {
@@ -34,13 +32,6 @@ func NewSever(configuration Configuration) (*Server, error) {
 	}
 	if err := s.reloadKubernetesClient(); err != nil {
 		return nil, err
-	}
-	// After Kubernetes client is initialized, set up Helm with the same config
-	if s.k != nil {
-		kubeconfig := s.k.KubeconfigPath()
-		kubeContext := s.k.CurrentContext()
-		namespace := s.k.ConfiguredNamespace()
-		s.helm = helm.NewHelm(kubeconfig, kubeContext, namespace)
 	}
 	s.k.WatchKubeConfig(s.reloadKubernetesClient)
 	return s, nil

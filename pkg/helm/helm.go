@@ -1,50 +1,52 @@
 package helm
 
 import (
-	"context"
-	"log"
-
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/cli"
-	"helm.sh/helm/v3/pkg/release"
+	"k8s.io/cli-runtime/pkg/genericclioptions"
+	"log"
+	"sigs.k8s.io/yaml"
 )
 
-// Helm provides methods to interact with Helm releases
-// Mirrors the abstraction style of pkg/kubernetes
-
-type Helm struct {
-	settings *cli.EnvSettings
+type Kubernetes interface {
+	genericclioptions.RESTClientGetter
+	NamespaceOrDefault(namespace string) string
 }
 
-// NewHelm creates a new Helm instance using kubeconfig, context, and namespace settings
-func NewHelm(kubeconfig, kubeContext, namespace string) *Helm {
+type Helm struct {
+	kubernetes Kubernetes
+}
+
+// NewHelm creates a new Helm instance
+func NewHelm(kubernetes Kubernetes, namespace string) *Helm {
 	settings := cli.New()
-	if kubeconfig != "" {
-		settings.KubeConfig = kubeconfig
-	}
-	if kubeContext != "" {
-		settings.KubeContext = kubeContext
-	}
 	if namespace != "" {
 		settings.SetNamespace(namespace)
 	}
-	return &Helm{settings: settings}
+	return &Helm{kubernetes: kubernetes}
 }
 
-// ReleasesList lists Helm releases in a specific namespace (or all namespaces if namespace is empty)
-func (h *Helm) ReleasesList(ctx context.Context, namespace string) ([]*release.Release, error) {
-	// If no namespace is given, use the default from kubeconfig
-	if namespace == "" {
-		namespace = h.settings.Namespace()
-	}
+// ReleasesList lists all the releases for the specified namespace (or current namespace if). Or allNamespaces is true, it lists all releases across all namespaces.
+func (h *Helm) ReleasesList(namespace string, allNamespaces bool) (string, error) {
 	cfg := new(action.Configuration)
-	if err := cfg.Init(h.settings.RESTClientGetter(), namespace, "", log.Printf); err != nil {
-		return nil, err
+	applicableNamespace := ""
+	if !allNamespaces {
+		applicableNamespace = h.kubernetes.NamespaceOrDefault(namespace)
+	}
+	if err := cfg.Init(h.kubernetes, applicableNamespace, "", log.Printf); err != nil {
+		return "", err
 	}
 	list := action.NewList(cfg)
-	// To list across all namespaces, set AllNamespaces to true
-	if namespace == "" || namespace == "all" {
-		list.AllNamespaces = true
+	list.AllNamespaces = allNamespaces
+	releases, err := list.Run()
+	if err != nil {
+		return "", err
+	} else if len(releases) == 0 {
+		return "No Helm releases found", nil
 	}
-	return list.Run()
+	ret, err := yaml.Marshal(releases)
+	if err != nil {
+		return "", err
+	}
+	return string(ret), nil
 }

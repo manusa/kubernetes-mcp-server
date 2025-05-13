@@ -1,14 +1,15 @@
 package mcp
 
 import (
+	"strings"
+	"testing"
+
 	"github.com/mark3labs/mcp-go/mcp"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 	"sigs.k8s.io/yaml"
-	"strings"
-	"testing"
 )
 
 func TestResourcesList(t *testing.T) {
@@ -80,6 +81,74 @@ func TestResourcesList(t *testing.T) {
 		t.Run("resources_list returns more than 2 items", func(t *testing.T) {
 			if len(decodedNamespaces) < 3 {
 				t.Fatalf("invalid namespace count, expected >2, got %v", len(decodedNamespaces))
+				return
+			}
+		})
+
+		// Test label selector functionality
+		t.Run("resources_list with label selector returns filtered pods", func(t *testing.T) {
+
+			// List pods with label selector
+			result, err := c.callTool("resources_list", map[string]interface{}{
+				"apiVersion":    "v1",
+				"kind":          "Pod",
+				"namespace":     "default",
+				"labelSelector": "app=nginx",
+			})
+
+			if err != nil {
+				t.Fatalf("call tool failed %v", err)
+				return
+			}
+			if result.IsError {
+				t.Fatalf("call tool failed")
+				return
+			}
+
+			var decodedPods []unstructured.Unstructured
+			err = yaml.Unmarshal([]byte(result.Content[0].(mcp.TextContent).Text), &decodedPods)
+			if err != nil {
+				t.Fatalf("invalid tool result content %v", err)
+				return
+			}
+
+			// Verify only the pod with matching label is returned
+			if len(decodedPods) != 1 {
+				t.Fatalf("expected 1 pod, got %d", len(decodedPods))
+				return
+			}
+
+			if decodedPods[0].GetName() != "a-pod-in-default" {
+				t.Fatalf("expected pod-with-label, got %s", decodedPods[0].GetName())
+				return
+			}
+
+			// Test that multiple label selectors work
+			result, err = c.callTool("resources_list", map[string]interface{}{
+				"apiVersion":    "v1",
+				"kind":          "Pod",
+				"namespace":     "default",
+				"labelSelector": "test-label=test-value,another=value",
+			})
+
+			if err != nil {
+				t.Fatalf("call tool failed %v", err)
+				return
+			}
+			if result.IsError {
+				t.Fatalf("call tool failed")
+				return
+			}
+
+			err = yaml.Unmarshal([]byte(result.Content[0].(mcp.TextContent).Text), &decodedPods)
+			if err != nil {
+				t.Fatalf("invalid tool result content %v", err)
+				return
+			}
+
+			// Verify no pods match multiple label selector
+			if len(decodedPods) != 0 {
+				t.Fatalf("expected 0 pods, got %d", len(decodedPods))
 				return
 			}
 		})

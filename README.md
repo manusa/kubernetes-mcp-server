@@ -241,7 +241,9 @@ Get a Kubernetes Pod in the current or provided namespace with the provided name
 
 List all the Kubernetes pods in the current cluster from all namespaces
 
-**Parameters:** None
+**Parameters:**
+- `labelSelector` (`string`, optional)
+  - Kubernetes label selector (e.g., 'app=myapp,env=prod' or 'app in (myapp,yourapp)'). Use this option to filter the pods by label
 
 ### `pods_list_in_namespace`
 
@@ -250,6 +252,8 @@ List all the Kubernetes pods in the specified namespace in the current cluster
 **Parameters:**
 - `namespace` (`string`, required)
   - Namespace to list pods from
+- `labelSelector` (`string`, optional)
+  - Kubernetes label selector (e.g., 'app=myapp,env=prod' or 'app in (myapp,yourapp)'). Use this option to filter the pods by label
 
 ### `pods_log`
 
@@ -343,6 +347,8 @@ List Kubernetes resources and objects in the current cluster
   - Namespace to retrieve the namespaced resources from
   - Ignored for cluster-scoped resources
   - Lists resources from all namespaces if not provided
+- `labelSelector` (`string`, optional)
+  - Kubernetes label selector (e.g., 'app=myapp,env=prod' or 'app in (myapp,yourapp)'). Use this option to filter the pods by label.
 
 ## 🧑‍💻 Development <a id="development"></a>
 

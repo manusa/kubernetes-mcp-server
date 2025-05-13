@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+
 	"github.com/manusa/kubernetes-mcp-server/pkg/version"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -17,16 +18,16 @@ import (
 	"k8s.io/client-go/tools/remotecommand"
 )
 
-func (k *Kubernetes) PodsListInAllNamespaces(ctx context.Context) (string, error) {
+func (k *Kubernetes) PodsListInAllNamespaces(ctx context.Context, labelSelector string) (string, error) {
 	return k.ResourcesList(ctx, &schema.GroupVersionKind{
 		Group: "", Version: "v1", Kind: "Pod",
-	}, "")
+	}, "", labelSelector)
 }
 
-func (k *Kubernetes) PodsListInNamespace(ctx context.Context, namespace string) (string, error) {
+func (k *Kubernetes) PodsListInNamespace(ctx context.Context, namespace string, labelSelector string) (string, error) {
 	return k.ResourcesList(ctx, &schema.GroupVersionKind{
 		Group: "", Version: "v1", Kind: "Pod",
-	}, namespace)
+	}, namespace, labelSelector)
 }
 
 func (k *Kubernetes) PodsGet(ctx context.Context, namespace, name string) (string, error) {

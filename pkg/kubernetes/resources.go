@@ -2,14 +2,15 @@ package kubernetes
 
 import (
 	"context"
+	"regexp"
+	"strings"
+
 	"github.com/manusa/kubernetes-mcp-server/pkg/version"
 	authv1 "k8s.io/api/authorization/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/yaml"
-	"regexp"
-	"strings"
 )
 
 const (
@@ -19,8 +20,12 @@ const (
 	AppKubernetesPartOf    = "app.kubernetes.io/part-of"
 )
 
-func (k *Kubernetes) ResourcesList(ctx context.Context, gvk *schema.GroupVersionKind, namespace string) (string, error) {
-	rl, err := k.resourcesList(ctx, gvk, namespace)
+func (k *Kubernetes) ResourcesList(ctx context.Context, gvk *schema.GroupVersionKind, namespace string, labelSelector ...string) (string, error) {
+	var selector string
+	if len(labelSelector) > 0 {
+		selector = labelSelector[0]
+	}
+	rl, err := k.resourcesList(ctx, gvk, namespace, selector)
 	if err != nil {
 		return "", err
 	}
@@ -69,7 +74,7 @@ func (k *Kubernetes) ResourcesDelete(ctx context.Context, gvk *schema.GroupVersi
 	return k.dynamicClient.Resource(*gvr).Namespace(namespace).Delete(ctx, name, metav1.DeleteOptions{})
 }
 
-func (k *Kubernetes) resourcesList(ctx context.Context, gvk *schema.GroupVersionKind, namespace string) (*unstructured.UnstructuredList, error) {
+func (k *Kubernetes) resourcesList(ctx context.Context, gvk *schema.GroupVersionKind, namespace string, labelSelector string) (*unstructured.UnstructuredList, error) {
 	gvr, err := k.resourceFor(gvk)
 	if err != nil {
 		return nil, err
@@ -79,7 +84,9 @@ func (k *Kubernetes) resourcesList(ctx context.Context, gvk *schema.GroupVersion
 	if isNamespaced && !k.canIUse(ctx, gvr, namespace, "list") && namespace == "" {
 		namespace = k.configuredNamespace()
 	}
-	return k.dynamicClient.Resource(*gvr).Namespace(namespace).List(ctx, metav1.ListOptions{})
+	return k.dynamicClient.Resource(*gvr).Namespace(namespace).List(ctx, metav1.ListOptions{
+		LabelSelector: labelSelector,
+	})
 }
 
 func (k *Kubernetes) resourcesCreateOrUpdate(ctx context.Context, resources []*unstructured.Unstructured) (string, error) {

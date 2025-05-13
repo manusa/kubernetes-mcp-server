@@ -12,7 +12,7 @@ import (
 func (k *Kubernetes) EventsList(ctx context.Context, namespace string) (string, error) {
 	unstructuredList, err := k.resourcesList(ctx, &schema.GroupVersionKind{
 		Group: "", Version: "v1", Kind: "Event",
-	}, namespace)
+	}, namespace, "")
 	if err != nil {
 		return "", err
 	}

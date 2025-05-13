@@ -262,6 +262,9 @@ func (c *mcpContext) crdWaitUntilReady(name string) {
 	watcher, err := c.newApiExtensionsClient().CustomResourceDefinitions().Watch(c.ctx, metav1.ListOptions{
 		FieldSelector: "metadata.name=" + name,
 	})
+	if err != nil {
+		panic(fmt.Errorf("failed to watch CRD %v", err))
+	}
 	_, err = toolswatch.UntilWithoutRetry(c.ctx, watcher, func(event watch.Event) (bool, error) {
 		for _, c := range event.Object.(*apiextensionsv1spec.CustomResourceDefinition).Status.Conditions {
 			if c.Type == apiextensionsv1spec.Established && c.Status == apiextensionsv1spec.ConditionTrue {
@@ -311,17 +314,45 @@ func createTestData(ctx context.Context) {
 	_, _ = kubernetesAdmin.CoreV1().Namespaces().
 		Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "ns-to-delete"}}, metav1.CreateOptions{})
 	_, _ = kubernetesAdmin.CoreV1().Pods("default").Create(ctx, &corev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{Name: "a-pod-in-default"},
-		Spec:       corev1.PodSpec{Containers: []corev1.Container{{Name: "nginx", Image: "nginx"}}},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   "a-pod-in-default",
+			Labels: map[string]string{"app": "nginx"},
+		},
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{
+				{
+					Name:  "nginx",
+					Image: "nginx",
+				},
+			},
+		},
 	}, metav1.CreateOptions{})
 	// Pods for listing
 	_, _ = kubernetesAdmin.CoreV1().Pods("ns-1").Create(ctx, &corev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{Name: "a-pod-in-ns-1"},
-		Spec:       corev1.PodSpec{Containers: []corev1.Container{{Name: "nginx", Image: "nginx"}}},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "a-pod-in-ns-1",
+		},
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{
+				{
+					Name:  "nginx",
+					Image: "nginx",
+				},
+			},
+		},
 	}, metav1.CreateOptions{})
 	_, _ = kubernetesAdmin.CoreV1().Pods("ns-2").Create(ctx, &corev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{Name: "a-pod-in-ns-2"},
-		Spec:       corev1.PodSpec{Containers: []corev1.Container{{Name: "nginx", Image: "nginx"}}},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "a-pod-in-ns-2",
+		},
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{
+				{
+					Name:  "nginx",
+					Image: "nginx",
+				},
+			},
+		},
 	}, metav1.CreateOptions{})
 	_, _ = kubernetesAdmin.CoreV1().ConfigMaps("default").
 		Create(ctx, &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: "a-configmap-to-delete"}}, metav1.CreateOptions{})

@@ -4,30 +4,33 @@ import (
 	"context"
 	"errors"
 	"fmt"
+
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 )
 
 func (s *Server) initPods() []server.ServerTool {
 	return []server.ServerTool{
-		{mcp.NewTool("pods_list",
+		{Tool: mcp.NewTool("pods_list",
 			mcp.WithDescription("List all the Kubernetes pods in the current cluster from all namespaces"),
-		), s.podsListInAllNamespaces},
-		{mcp.NewTool("pods_list_in_namespace",
+			mcp.WithString("labelSelector", mcp.Description("Optional Kubernetes label selector (e.g. 'app=myapp,env=prod' or 'app in (myapp,yourapp)'), use this option when you want to filter the pods by label"), mcp.Pattern("([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]")),
+		), Handler: s.podsListInAllNamespaces},
+		{Tool: mcp.NewTool("pods_list_in_namespace",
 			mcp.WithDescription("List all the Kubernetes pods in the specified namespace in the current cluster"),
 			mcp.WithString("namespace", mcp.Description("Namespace to list pods from"), mcp.Required()),
-		), s.podsListInNamespace},
-		{mcp.NewTool("pods_get",
+			mcp.WithString("labelSelector", mcp.Description("Optional Kubernetes label selector (e.g. 'app=myapp,env=prod' or 'app in (myapp,yourapp)'), use this option when you want to filter the pods by label"), mcp.Pattern("([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]")),
+		), Handler: s.podsListInNamespace},
+		{Tool: mcp.NewTool("pods_get",
 			mcp.WithDescription("Get a Kubernetes Pod in the current or provided namespace with the provided name"),
 			mcp.WithString("namespace", mcp.Description("Namespace to get the Pod from")),
 			mcp.WithString("name", mcp.Description("Name of the Pod"), mcp.Required()),
-		), s.podsGet},
-		{mcp.NewTool("pods_delete",
+		), Handler: s.podsGet},
+		{Tool: mcp.NewTool("pods_delete",
 			mcp.WithDescription("Delete a Kubernetes Pod in the current or provided namespace with the provided name"),
 			mcp.WithString("namespace", mcp.Description("Namespace to delete the Pod from")),
 			mcp.WithString("name", mcp.Description("Name of the Pod to delete"), mcp.Required()),
-		), s.podsDelete},
-		{mcp.NewTool("pods_exec",
+		), Handler: s.podsDelete},
+		{Tool: mcp.NewTool("pods_exec",
 			mcp.WithDescription("Execute a command in a Kubernetes Pod in the current or provided namespace with the provided name and command"),
 			mcp.WithString("namespace", mcp.Description("Namespace of the Pod where the command will be executed")),
 			mcp.WithString("name", mcp.Description("Name of the Pod where the command will be executed"), mcp.Required()),
@@ -45,25 +48,31 @@ func (s *Server) initPods() []server.ServerTool {
 				mcp.Required(),
 			),
 			mcp.WithString("container", mcp.Description("Name of the Pod container where the command will be executed (Optional)")),
-		), s.podsExec},
-		{mcp.NewTool("pods_log",
+		), Handler: s.podsExec},
+		{Tool: mcp.NewTool("pods_log",
 			mcp.WithDescription("Get the logs of a Kubernetes Pod in the current or provided namespace with the provided name"),
 			mcp.WithString("namespace", mcp.Description("Namespace to get the Pod logs from")),
 			mcp.WithString("name", mcp.Description("Name of the Pod to get the logs from"), mcp.Required()),
 			mcp.WithString("container", mcp.Description("Name of the Pod container to get the logs from (Optional)")),
-		), s.podsLog},
-		{mcp.NewTool("pods_run",
+		), Handler: s.podsLog},
+		{Tool: mcp.NewTool("pods_run",
 			mcp.WithDescription("Run a Kubernetes Pod in the current or provided namespace with the provided container image and optional name"),
 			mcp.WithString("namespace", mcp.Description("Namespace to run the Pod in")),
 			mcp.WithString("name", mcp.Description("Name of the Pod (Optional, random name if not provided)")),
 			mcp.WithString("image", mcp.Description("Container Image to run in the Pod"), mcp.Required()),
 			mcp.WithNumber("port", mcp.Description("TCP/IP port to expose from the Pod container (Optional, no port exposed if not provided)")),
-		), s.podsRun},
+		), Handler: s.podsRun},
 	}
 }
 
-func (s *Server) podsListInAllNamespaces(ctx context.Context, _ mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	ret, err := s.k.PodsListInAllNamespaces(ctx)
+func (s *Server) podsListInAllNamespaces(ctx context.Context, ctr mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	labelSelector := ctr.Params.Arguments["labelSelector"]
+	var selector string
+	if labelSelector != nil {
+		selector = labelSelector.(string)
+	}
+
+	ret, err := s.k.PodsListInAllNamespaces(ctx, selector)
 	if err != nil {
 		return NewTextResult("", fmt.Errorf("failed to list pods in all namespaces: %v", err)), nil
 	}
@@ -75,7 +84,12 @@ func (s *Server) podsListInNamespace(ctx context.Context, ctr mcp.CallToolReques
 	if ns == nil {
 		return NewTextResult("", errors.New("failed to list pods in namespace, missing argument namespace")), nil
 	}
-	ret, err := s.k.PodsListInNamespace(ctx, ns.(string))
+	labelSelector := ctr.Params.Arguments["labelSelector"]
+	var selector string
+	if labelSelector != nil {
+		selector = labelSelector.(string)
+	}
+	ret, err := s.k.PodsListInNamespace(ctx, ns.(string), selector)
 	if err != nil {
 		return NewTextResult("", fmt.Errorf("failed to list pods in namespace %s: %v", ns, err)), nil
 	}

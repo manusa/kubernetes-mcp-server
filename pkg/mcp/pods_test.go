@@ -1,6 +1,9 @@
 package mcp
 
 import (
+	"strings"
+	"testing"
+
 	"github.com/mark3labs/mcp-go/mcp"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -9,8 +12,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 	"sigs.k8s.io/yaml"
-	"strings"
-	"testing"
 )
 
 func TestPodsListInAllNamespaces(t *testing.T) {
@@ -739,6 +740,112 @@ func TestPodsRunInOpenShift(t *testing.T) {
 			targetPort := decodedPodServiceRoute[2].Object["spec"].(map[string]interface{})["port"].(map[string]interface{})["targetPort"].(int64)
 			if targetPort != 80 {
 				t.Errorf("invalid route target port, expected 80, got %v", targetPort)
+				return
+			}
+		})
+	})
+}
+
+func TestPodsListWithLabelSelector(t *testing.T) {
+	testCase(t, func(c *mcpContext) {
+		c.withEnvTest()
+		kc := c.newKubernetesClient()
+		// Create pods with labels
+		_, _ = kc.CoreV1().Pods("default").Create(c.ctx, &corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:   "pod-with-labels",
+				Labels: map[string]string{"app": "test", "env": "dev"},
+			},
+			Spec: corev1.PodSpec{Containers: []corev1.Container{{Name: "nginx", Image: "nginx"}}},
+		}, metav1.CreateOptions{})
+		_, _ = kc.CoreV1().Pods("ns-1").Create(c.ctx, &corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:   "another-pod-with-labels",
+				Labels: map[string]string{"app": "test", "env": "prod"},
+			},
+			Spec: corev1.PodSpec{Containers: []corev1.Container{{Name: "nginx", Image: "nginx"}}},
+		}, metav1.CreateOptions{})
+
+		// Test pods_list with label selector
+		t.Run("pods_list with label selector returns filtered pods", func(t *testing.T) {
+			toolResult, err := c.callTool("pods_list", map[string]interface{}{
+				"labelSelector": "app=test",
+			})
+			if err != nil {
+				t.Fatalf("call tool failed %v", err)
+				return
+			}
+			if toolResult.IsError {
+				t.Fatalf("call tool failed")
+				return
+			}
+			var decoded []unstructured.Unstructured
+			err = yaml.Unmarshal([]byte(toolResult.Content[0].(mcp.TextContent).Text), &decoded)
+			if err != nil {
+				t.Fatalf("invalid tool result content %v", err)
+				return
+			}
+			if len(decoded) != 2 {
+				t.Fatalf("invalid pods count, expected 2, got %v", len(decoded))
+				return
+			}
+		})
+
+		// Test pods_list_in_namespace with label selector
+		t.Run("pods_list_in_namespace with label selector returns filtered pods", func(t *testing.T) {
+			toolResult, err := c.callTool("pods_list_in_namespace", map[string]interface{}{
+				"namespace":     "ns-1",
+				"labelSelector": "env=prod",
+			})
+			if err != nil {
+				t.Fatalf("call tool failed %v", err)
+				return
+			}
+			if toolResult.IsError {
+				t.Fatalf("call tool failed")
+				return
+			}
+			var decoded []unstructured.Unstructured
+			err = yaml.Unmarshal([]byte(toolResult.Content[0].(mcp.TextContent).Text), &decoded)
+			if err != nil {
+				t.Fatalf("invalid tool result content %v", err)
+				return
+			}
+			if len(decoded) != 1 {
+				t.Fatalf("invalid pods count, expected 1, got %v", len(decoded))
+				return
+			}
+			if decoded[0].GetName() != "another-pod-with-labels" {
+				t.Fatalf("invalid pod name, expected another-pod-with-labels, got %v", decoded[0].GetName())
+				return
+			}
+		})
+
+		// Test multiple label selectors
+		t.Run("pods_list with multiple label selectors returns filtered pods", func(t *testing.T) {
+			toolResult, err := c.callTool("pods_list", map[string]interface{}{
+				"labelSelector": "app=test,env=prod",
+			})
+			if err != nil {
+				t.Fatalf("call tool failed %v", err)
+				return
+			}
+			if toolResult.IsError {
+				t.Fatalf("call tool failed")
+				return
+			}
+			var decoded []unstructured.Unstructured
+			err = yaml.Unmarshal([]byte(toolResult.Content[0].(mcp.TextContent).Text), &decoded)
+			if err != nil {
+				t.Fatalf("invalid tool result content %v", err)
+				return
+			}
+			if len(decoded) != 1 {
+				t.Fatalf("invalid pods count, expected 1, got %v", len(decoded))
+				return
+			}
+			if decoded[0].GetName() != "another-pod-with-labels" {
+				t.Fatalf("invalid pod name, expected another-pod-with-labels, got %v", decoded[0].GetName())
 				return
 			}
 		})

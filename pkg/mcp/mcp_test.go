@@ -56,6 +56,7 @@ func TestTools(t *testing.T) {
 		"events_list",
 		"helm_install",
 		"helm_list",
+		"helm_uninstall",
 		"namespaces_list",
 		"pods_list",
 		"pods_list_in_namespace",

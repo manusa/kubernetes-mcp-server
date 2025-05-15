@@ -2,6 +2,7 @@ package helm
 
 import (
 	"context"
+	"fmt"
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/chart/loader"
 	"helm.sh/helm/v3/pkg/cli"
@@ -28,7 +29,7 @@ func NewHelm(kubernetes Kubernetes) *Helm {
 }
 
 func (h *Helm) Install(ctx context.Context, chart string, values map[string]interface{}, name string, namespace string) (string, error) {
-	cfg, err := h.newAction(namespace, false)
+	cfg, err := h.newAction(h.kubernetes.NamespaceOrDefault(namespace), false)
 	if err != nil {
 		return "", err
 	}
@@ -80,6 +81,24 @@ func (h *Helm) List(namespace string, allNamespaces bool) (string, error) {
 		return "", err
 	}
 	return string(ret), nil
+}
+
+func (h *Helm) Uninstall(name string, namespace string) (string, error) {
+	cfg, err := h.newAction(h.kubernetes.NamespaceOrDefault(namespace), false)
+	if err != nil {
+		return "", err
+	}
+	uninstall := action.NewUninstall(cfg)
+	uninstall.IgnoreNotFound = true
+	uninstall.Wait = true
+	uninstall.Timeout = 5 * time.Minute
+	uninstalledRelease, err := uninstall.Run(name)
+	if uninstalledRelease == nil && err == nil {
+		return fmt.Sprintf("Release %s not found", name), nil
+	} else if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("Uninstalled release %s %s", uninstalledRelease.Release.Name, uninstalledRelease.Info), nil
 }
 
 func (h *Helm) newAction(namespace string, allNamespaces bool) (*action.Configuration, error) {

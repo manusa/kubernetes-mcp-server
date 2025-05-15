@@ -21,6 +21,11 @@ func (s *Server) initHelm() []server.ServerTool {
 			mcp.WithString("namespace", mcp.Description("Namespace to list Helm releases from (Optional, all namespaces if not provided)")),
 			mcp.WithBoolean("all_namespaces", mcp.Description("If true, lists all Helm releases in all namespaces ignoring the namespace argument (Optional)")),
 		), s.helmList},
+		{mcp.NewTool("helm_uninstall",
+			mcp.WithDescription("Uninstall a Helm release in the current or provided namespace"),
+			mcp.WithString("name", mcp.Description("Name of the Helm release to uninstall"), mcp.Required()),
+			mcp.WithString("namespace", mcp.Description("Namespace to uninstall the Helm release from (Optional, current namespace if not provided)")),
+		), s.helmUninstall},
 	}
 }
 
@@ -61,6 +66,23 @@ func (s *Server) helmList(_ context.Context, ctr mcp.CallToolRequest) (*mcp.Call
 	ret, err := s.k.Helm.List(namespace, allNamespaces)
 	if err != nil {
 		return NewTextResult("", fmt.Errorf("failed to list helm releases in namespace '%s': %w", namespace, err)), nil
+	}
+	return NewTextResult(ret, err), nil
+}
+
+func (s *Server) helmUninstall(_ context.Context, ctr mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	var name string
+	ok := false
+	if name, ok = ctr.Params.Arguments["name"].(string); !ok {
+		return NewTextResult("", fmt.Errorf("failed to uninstall helm chart, missing argument name")), nil
+	}
+	namespace := ""
+	if v, ok := ctr.Params.Arguments["namespace"].(string); ok {
+		namespace = v
+	}
+	ret, err := s.k.Helm.Uninstall(name, namespace)
+	if err != nil {
+		return NewTextResult("", fmt.Errorf("failed to uninstall helm chart '%s': %w", name, err)), nil
 	}
 	return NewTextResult(ret, err), nil
 }

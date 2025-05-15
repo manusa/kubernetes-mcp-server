@@ -1,10 +1,13 @@
 package mcp
 
 import (
+	"context"
 	"encoding/base64"
 	"github.com/mark3labs/mcp-go/mcp"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 	"path/filepath"
 	"runtime"
 	"sigs.k8s.io/yaml"
@@ -58,13 +61,7 @@ func TestHelmList(t *testing.T) {
 	testCase(t, func(c *mcpContext) {
 		c.withEnvTest()
 		kc := c.newKubernetesClient()
-		secrets, err := kc.CoreV1().Secrets("default").List(c.ctx, metav1.ListOptions{})
-		for _, secret := range secrets.Items {
-			if strings.HasPrefix(secret.Name, "sh.helm.release.v1.") {
-				_ = kc.CoreV1().Secrets("default").Delete(c.ctx, secret.Name, metav1.DeleteOptions{})
-			}
-		}
-		_ = kc.CoreV1().Secrets("default").Delete(c.ctx, "release-to-list", metav1.DeleteOptions{})
+		clearHelmReleases(c.ctx, kc)
 		toolResult, err := c.callTool("helm_list", map[string]interface{}{})
 		t.Run("helm_list with no releases, returns not found", func(t *testing.T) {
 			if err != nil {
@@ -79,8 +76,8 @@ func TestHelmList(t *testing.T) {
 		})
 		_, _ = kc.CoreV1().Secrets("default").Create(c.ctx, &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:   "release-to-list",
-				Labels: map[string]string{"owner": "helm"},
+				Name:   "sh.helm.release.v1.release-to-list",
+				Labels: map[string]string{"owner": "helm", "name": "release-to-list"},
 			},
 			Data: map[string][]byte{
 				"release": []byte(base64.StdEncoding.EncodeToString([]byte("{" +
@@ -148,4 +145,65 @@ func TestHelmList(t *testing.T) {
 			}
 		})
 	})
+}
+
+func TestHelmUninstall(t *testing.T) {
+	testCase(t, func(c *mcpContext) {
+		c.withEnvTest()
+		kc := c.newKubernetesClient()
+		clearHelmReleases(c.ctx, kc)
+		toolResult, err := c.callTool("helm_uninstall", map[string]interface{}{
+			"name": "release-to-uninstall",
+		})
+		t.Run("helm_uninstall with no releases, returns not found", func(t *testing.T) {
+			if err != nil {
+				t.Fatalf("call tool failed %v", err)
+			}
+			if toolResult.IsError {
+				t.Fatalf("call tool failed")
+			}
+			if toolResult.Content[0].(mcp.TextContent).Text != "Release release-to-uninstall not found" {
+				t.Fatalf("unexpected result %v", toolResult.Content[0].(mcp.TextContent).Text)
+			}
+		})
+		_, _ = kc.CoreV1().Secrets("default").Create(c.ctx, &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:   "sh.helm.release.v1.existent-release-to-uninstall.v0",
+				Labels: map[string]string{"owner": "helm", "name": "existent-release-to-uninstall"},
+			},
+			Data: map[string][]byte{
+				"release": []byte(base64.StdEncoding.EncodeToString([]byte("{" +
+					"\"name\":\"existent-release-to-uninstall\"," +
+					"\"info\":{\"status\":\"deployed\"}" +
+					"}"))),
+			},
+		}, metav1.CreateOptions{})
+		toolResult, err = c.callTool("helm_uninstall", map[string]interface{}{
+			"name": "existent-release-to-uninstall",
+		})
+		t.Run("helm_uninstall with deployed release, returns uninstalled", func(t *testing.T) {
+			if err != nil {
+				t.Fatalf("call tool failed %v", err)
+			}
+			if toolResult.IsError {
+				t.Fatalf("call tool failed")
+			}
+			if !strings.HasPrefix(toolResult.Content[0].(mcp.TextContent).Text, "Uninstalled release existent-release-to-uninstall") {
+				t.Fatalf("unexpected result %v", toolResult.Content[0].(mcp.TextContent).Text)
+			}
+			_, err = kc.CoreV1().Secrets("default").Get(c.ctx, "sh.helm.release.v1.existent-release-to-uninstall.v0", metav1.GetOptions{})
+			if !errors.IsNotFound(err) {
+				t.Fatalf("expected release to be deleted, but it still exists")
+			}
+		})
+	})
+}
+
+func clearHelmReleases(ctx context.Context, kc *kubernetes.Clientset) {
+	secrets, _ := kc.CoreV1().Secrets("default").List(ctx, metav1.ListOptions{})
+	for _, secret := range secrets.Items {
+		if strings.HasPrefix(secret.Name, "sh.helm.release.v1.") {
+			_ = kc.CoreV1().Secrets("default").Delete(ctx, secret.Name, metav1.DeleteOptions{})
+		}
+	}
 }

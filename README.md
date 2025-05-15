@@ -31,6 +31,7 @@ A powerful and flexible Kubernetes [Model Context Protocol (MCP)](https://blog.m
 - **☸️ Helm**:
   - **Install** a Helm chart in the current or provided namespace.
   - **List** Helm releases in all namespaces or in a specific namespace.
+  - **Uninstall** a Helm release in the current or provided namespace.
 
 Unlike other Kubernetes MCP server implementations, this **IS NOT** just a wrapper around `kubectl` or `helm` command-line tools.
 
@@ -194,6 +195,17 @@ List all the Helm releases in the current or provided namespace (or in all names
 - `all_namespaces` (`boolean`, optional)
   - If `true`, will list Helm releases from all namespaces
   - If `false`, will list Helm releases from the specified namespace
+
+### `helm_uninstall`
+
+Uninstall a Helm release in the current or provided namespace with the provided name
+
+**Parameters:**
+- `name` (`string`, required)
+  - Name of the Helm release to uninstall
+- `namespace` (`string`, optional)
+  - Namespace to uninstall the Helm release from
+  - If not provided, will use the configured namespace
 
 ### `namespaces_list`
 

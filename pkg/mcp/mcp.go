@@ -5,10 +5,10 @@ import (
 	"github.com/manusa/kubernetes-mcp-server/pkg/version"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
-	"slices"
 )
 
 type Configuration struct {
+	Profile    Profile
 	Kubeconfig string
 }
 
@@ -43,14 +43,7 @@ func (s *Server) reloadKubernetesClient() error {
 		return err
 	}
 	s.k = k
-	s.server.SetTools(slices.Concat(
-		s.initConfiguration(),
-		s.initEvents(),
-		s.initNamespaces(),
-		s.initPods(),
-		s.initResources(),
-		s.initHelm(),
-	)...)
+	s.server.SetTools(s.configuration.Profile.GetTools(s)...)
 	return nil
 }
 

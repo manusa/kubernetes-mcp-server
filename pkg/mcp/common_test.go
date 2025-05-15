@@ -105,7 +105,7 @@ func (c *mcpContext) beforeEach(t *testing.T) {
 	c.ctx, c.cancel = context.WithCancel(context.Background())
 	c.tempDir = t.TempDir()
 	c.withKubeConfig(nil)
-	if c.mcpServer, err = NewSever(Configuration{}); err != nil {
+	if c.mcpServer, err = NewSever(Configuration{Profile: &FullProfile{}}); err != nil {
 		t.Fatal(err)
 		return
 	}

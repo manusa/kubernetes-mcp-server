@@ -40,12 +40,18 @@ Kubernetes Model Context Protocol (MCP) server
   # TODO: add more examples`,
 	Run: func(cmd *cobra.Command, args []string) {
 		initLogging()
-		klog.V(5).Infof("Starting kubernetes-mcp-server")
+		profile := mcp.ProfileFromString(viper.GetString("profile"))
+		if profile == nil {
+			fmt.Printf("Invalid profile name: %s, valid names are: %s\n", viper.GetString("profile"), mcp.ProfileNames)
+			os.Exit(1)
+		}
+		klog.V(1).Infof("Starting kubernetes-mcp-server with profile: %s", profile.GetName())
 		if viper.GetBool("version") {
 			fmt.Println(version.Version)
 			return
 		}
 		mcpServer, err := mcp.NewSever(mcp.Configuration{
+			Profile:    profile,
 			Kubeconfig: viper.GetString("kubeconfig"),
 		})
 		if err != nil {
@@ -70,27 +76,51 @@ Kubernetes Model Context Protocol (MCP) server
 	},
 }
 
+func Execute() {
+	if err := rootCmd.Execute(); err != nil {
+		klog.Errorf("Failed to execute command: %s", err)
+		os.Exit(1)
+	}
+}
+
+func initLogging() {
+	flagSet := flag.NewFlagSet("kubernetes-mcp-server", flag.ContinueOnError)
+	klog.InitFlags(flagSet)
+	loggerOptions := []textlogger.ConfigOption{textlogger.Output(os.Stdout)}
+	if logLevel := viper.GetInt("log-level"); logLevel >= 0 {
+		loggerOptions = append(loggerOptions, textlogger.Verbosity(logLevel))
+		_ = flagSet.Parse([]string{"--v", strconv.Itoa(logLevel)})
+	}
+	logger := textlogger.NewLogger(textlogger.NewConfig(loggerOptions...))
+	klog.SetLoggerWithOptions(logger)
+}
+
+type profileFlag struct {
+	mcp.Profile
+}
+
+func (p *profileFlag) String() string {
+	return p.GetName()
+}
+
+func (p *profileFlag) Set(v string) error {
+	p.Profile = mcp.ProfileFromString(v)
+	if p.Profile != nil {
+		return nil
+	}
+	return fmt.Errorf("invalid profile name: %s, valid names are: %s", v, mcp.ProfileNames)
+}
+
+func (p *profileFlag) Type() string {
+	return "profile"
+}
+
 func init() {
 	rootCmd.Flags().BoolP("version", "v", false, "Print version information and quit")
 	rootCmd.Flags().IntP("log-level", "", 0, "Set the log level (from 0 to 9)")
 	rootCmd.Flags().IntP("sse-port", "", 0, "Start a SSE server on the specified port")
 	rootCmd.Flags().StringP("sse-base-url", "", "", "SSE public base URL to use when sending the endpoint message (e.g. https://example.com)")
 	rootCmd.Flags().StringP("kubeconfig", "", "", "Path to the kubeconfig file to use for authentication")
+	rootCmd.Flags().Var(&profileFlag{&mcp.FullProfile{}}, "profile", "MCP profile to use")
 	_ = viper.BindPFlags(rootCmd.Flags())
-}
-
-func Execute() {
-	if err := rootCmd.Execute(); err != nil {
-		panic(err)
-	}
-}
-
-func initLogging() {
-	logger := textlogger.NewLogger(textlogger.NewConfig(textlogger.Output(os.Stdout)))
-	klog.SetLoggerWithOptions(logger)
-	flagSet := flag.NewFlagSet("kubernetes-mcp-server", flag.ContinueOnError)
-	klog.InitFlags(flagSet)
-	if logLevel := viper.GetInt("log-level"); logLevel >= 0 {
-		_ = flagSet.Parse([]string{"--v", strconv.Itoa(logLevel)})
-	}
 }

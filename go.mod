@@ -13,7 +13,7 @@ require (
 	k8s.io/api v0.33.1
 	k8s.io/apiextensions-apiserver v0.33.0
 	k8s.io/apimachinery v0.33.1
-	k8s.io/cli-runtime v0.33.0
+	k8s.io/cli-runtime v0.33.1
 	k8s.io/client-go v0.33.1
 	k8s.io/klog/v2 v2.130.1
 	k8s.io/utils v0.0.0-20241104100929-3ea5e8cea738

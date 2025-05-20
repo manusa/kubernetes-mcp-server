@@ -12,7 +12,7 @@ import (
 
 func TestWatchKubeConfig(t *testing.T) {
 	if runtime.GOOS != "linux" && runtime.GOOS != "darwin" {
-		t.Skip("Skipping test on non-linux platforms")
+		t.Skip("Skipping test on non-Unix-like platforms")
 	}
 	testCase(t, func(c *mcpContext) {
 		// Given

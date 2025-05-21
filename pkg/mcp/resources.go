@@ -97,15 +97,15 @@ func (s *Server) initResources() []server.ServerTool {
 }
 
 func (s *Server) resourcesList(ctx context.Context, ctr mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	namespace := ctr.Params.Arguments["namespace"]
+	namespace := ctr.GetArguments()["namespace"]
 	if namespace == nil {
 		namespace = ""
 	}
-	labelSelector := ctr.Params.Arguments["labelSelector"]
+	labelSelector := ctr.GetArguments()["labelSelector"]
 	if labelSelector == nil {
 		labelSelector = ""
 	}
-	gvk, err := parseGroupVersionKind(ctr.Params.Arguments)
+	gvk, err := parseGroupVersionKind(ctr.GetArguments())
 	if err != nil {
 		return NewTextResult("", fmt.Errorf("failed to list resources, %s", err)), nil
 	}
@@ -117,15 +117,15 @@ func (s *Server) resourcesList(ctx context.Context, ctr mcp.CallToolRequest) (*m
 }
 
 func (s *Server) resourcesGet(ctx context.Context, ctr mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	namespace := ctr.Params.Arguments["namespace"]
+	namespace := ctr.GetArguments()["namespace"]
 	if namespace == nil {
 		namespace = ""
 	}
-	gvk, err := parseGroupVersionKind(ctr.Params.Arguments)
+	gvk, err := parseGroupVersionKind(ctr.GetArguments())
 	if err != nil {
 		return NewTextResult("", fmt.Errorf("failed to get resource, %s", err)), nil
 	}
-	name := ctr.Params.Arguments["name"]
+	name := ctr.GetArguments()["name"]
 	if name == nil {
 		return NewTextResult("", errors.New("failed to get resource, missing argument name")), nil
 	}
@@ -137,7 +137,7 @@ func (s *Server) resourcesGet(ctx context.Context, ctr mcp.CallToolRequest) (*mc
 }
 
 func (s *Server) resourcesCreateOrUpdate(ctx context.Context, ctr mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	resource := ctr.Params.Arguments["resource"]
+	resource := ctr.GetArguments()["resource"]
 	if resource == nil || resource == "" {
 		return NewTextResult("", errors.New("failed to create or update resources, missing argument resource")), nil
 	}
@@ -149,15 +149,15 @@ func (s *Server) resourcesCreateOrUpdate(ctx context.Context, ctr mcp.CallToolRe
 }
 
 func (s *Server) resourcesDelete(ctx context.Context, ctr mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	namespace := ctr.Params.Arguments["namespace"]
+	namespace := ctr.GetArguments()["namespace"]
 	if namespace == nil {
 		namespace = ""
 	}
-	gvk, err := parseGroupVersionKind(ctr.Params.Arguments)
+	gvk, err := parseGroupVersionKind(ctr.GetArguments())
 	if err != nil {
 		return NewTextResult("", fmt.Errorf("failed to delete resource, %s", err)), nil
 	}
-	name := ctr.Params.Arguments["name"]
+	name := ctr.GetArguments()["name"]
 	if name == nil {
 		return NewTextResult("", errors.New("failed to delete resource, missing argument name")), nil
 	}

@@ -22,7 +22,7 @@ func (s *Server) initEvents() []server.ServerTool {
 }
 
 func (s *Server) eventsList(ctx context.Context, ctr mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	namespace := ctr.Params.Arguments["namespace"]
+	namespace := ctr.GetArguments()["namespace"]
 	if namespace == nil {
 		namespace = ""
 	}

@@ -48,19 +48,19 @@ func (s *Server) initHelm() []server.ServerTool {
 func (s *Server) helmInstall(ctx context.Context, ctr mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	var chart string
 	ok := false
-	if chart, ok = ctr.Params.Arguments["chart"].(string); !ok {
+	if chart, ok = ctr.GetArguments()["chart"].(string); !ok {
 		return NewTextResult("", fmt.Errorf("failed to install helm chart, missing argument chart")), nil
 	}
 	values := map[string]interface{}{}
-	if v, ok := ctr.Params.Arguments["values"].(map[string]interface{}); ok {
+	if v, ok := ctr.GetArguments()["values"].(map[string]interface{}); ok {
 		values = v
 	}
 	name := ""
-	if v, ok := ctr.Params.Arguments["name"].(string); ok {
+	if v, ok := ctr.GetArguments()["name"].(string); ok {
 		name = v
 	}
 	namespace := ""
-	if v, ok := ctr.Params.Arguments["namespace"].(string); ok {
+	if v, ok := ctr.GetArguments()["namespace"].(string); ok {
 		namespace = v
 	}
 	ret, err := s.k.Helm.Install(ctx, chart, values, name, namespace)
@@ -72,11 +72,11 @@ func (s *Server) helmInstall(ctx context.Context, ctr mcp.CallToolRequest) (*mcp
 
 func (s *Server) helmList(_ context.Context, ctr mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	allNamespaces := false
-	if v, ok := ctr.Params.Arguments["all_namespaces"].(bool); ok {
+	if v, ok := ctr.GetArguments()["all_namespaces"].(bool); ok {
 		allNamespaces = v
 	}
 	namespace := ""
-	if v, ok := ctr.Params.Arguments["namespace"].(string); ok {
+	if v, ok := ctr.GetArguments()["namespace"].(string); ok {
 		namespace = v
 	}
 	ret, err := s.k.Helm.List(namespace, allNamespaces)
@@ -89,11 +89,11 @@ func (s *Server) helmList(_ context.Context, ctr mcp.CallToolRequest) (*mcp.Call
 func (s *Server) helmUninstall(_ context.Context, ctr mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	var name string
 	ok := false
-	if name, ok = ctr.Params.Arguments["name"].(string); !ok {
+	if name, ok = ctr.GetArguments()["name"].(string); !ok {
 		return NewTextResult("", fmt.Errorf("failed to uninstall helm chart, missing argument name")), nil
 	}
 	namespace := ""
-	if v, ok := ctr.Params.Arguments["namespace"].(string); ok {
+	if v, ok := ctr.GetArguments()["namespace"].(string); ok {
 		namespace = v
 	}
 	ret, err := s.k.Helm.Uninstall(name, namespace)

@@ -100,7 +100,7 @@ func (s *Server) initPods() []server.ServerTool {
 }
 
 func (s *Server) podsListInAllNamespaces(ctx context.Context, ctr mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	labelSelector := ctr.Params.Arguments["labelSelector"]
+	labelSelector := ctr.GetArguments()["labelSelector"]
 	var selector string
 	if labelSelector != nil {
 		selector = labelSelector.(string)
@@ -114,11 +114,11 @@ func (s *Server) podsListInAllNamespaces(ctx context.Context, ctr mcp.CallToolRe
 }
 
 func (s *Server) podsListInNamespace(ctx context.Context, ctr mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	ns := ctr.Params.Arguments["namespace"]
+	ns := ctr.GetArguments()["namespace"]
 	if ns == nil {
 		return NewTextResult("", errors.New("failed to list pods in namespace, missing argument namespace")), nil
 	}
-	labelSelector := ctr.Params.Arguments["labelSelector"]
+	labelSelector := ctr.GetArguments()["labelSelector"]
 	var selector string
 	if labelSelector != nil {
 		selector = labelSelector.(string)
@@ -131,11 +131,11 @@ func (s *Server) podsListInNamespace(ctx context.Context, ctr mcp.CallToolReques
 }
 
 func (s *Server) podsGet(ctx context.Context, ctr mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	ns := ctr.Params.Arguments["namespace"]
+	ns := ctr.GetArguments()["namespace"]
 	if ns == nil {
 		ns = ""
 	}
-	name := ctr.Params.Arguments["name"]
+	name := ctr.GetArguments()["name"]
 	if name == nil {
 		return NewTextResult("", errors.New("failed to get pod, missing argument name")), nil
 	}
@@ -147,11 +147,11 @@ func (s *Server) podsGet(ctx context.Context, ctr mcp.CallToolRequest) (*mcp.Cal
 }
 
 func (s *Server) podsDelete(ctx context.Context, ctr mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	ns := ctr.Params.Arguments["namespace"]
+	ns := ctr.GetArguments()["namespace"]
 	if ns == nil {
 		ns = ""
 	}
-	name := ctr.Params.Arguments["name"]
+	name := ctr.GetArguments()["name"]
 	if name == nil {
 		return NewTextResult("", errors.New("failed to delete pod, missing argument name")), nil
 	}
@@ -163,19 +163,19 @@ func (s *Server) podsDelete(ctx context.Context, ctr mcp.CallToolRequest) (*mcp.
 }
 
 func (s *Server) podsExec(ctx context.Context, ctr mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	ns := ctr.Params.Arguments["namespace"]
+	ns := ctr.GetArguments()["namespace"]
 	if ns == nil {
 		ns = ""
 	}
-	name := ctr.Params.Arguments["name"]
+	name := ctr.GetArguments()["name"]
 	if name == nil {
 		return NewTextResult("", errors.New("failed to exec in pod, missing argument name")), nil
 	}
-	container := ctr.Params.Arguments["container"]
+	container := ctr.GetArguments()["container"]
 	if container == nil {
 		container = ""
 	}
-	commandArg := ctr.Params.Arguments["command"]
+	commandArg := ctr.GetArguments()["command"]
 	command := make([]string, 0)
 	if _, ok := commandArg.([]interface{}); ok {
 		for _, cmd := range commandArg.([]interface{}) {
@@ -196,15 +196,15 @@ func (s *Server) podsExec(ctx context.Context, ctr mcp.CallToolRequest) (*mcp.Ca
 }
 
 func (s *Server) podsLog(ctx context.Context, ctr mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	ns := ctr.Params.Arguments["namespace"]
+	ns := ctr.GetArguments()["namespace"]
 	if ns == nil {
 		ns = ""
 	}
-	name := ctr.Params.Arguments["name"]
+	name := ctr.GetArguments()["name"]
 	if name == nil {
 		return NewTextResult("", errors.New("failed to get pod log, missing argument name")), nil
 	}
-	container := ctr.Params.Arguments["container"]
+	container := ctr.GetArguments()["container"]
 	if container == nil {
 		container = ""
 	}
@@ -218,19 +218,19 @@ func (s *Server) podsLog(ctx context.Context, ctr mcp.CallToolRequest) (*mcp.Cal
 }
 
 func (s *Server) podsRun(ctx context.Context, ctr mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	ns := ctr.Params.Arguments["namespace"]
+	ns := ctr.GetArguments()["namespace"]
 	if ns == nil {
 		ns = ""
 	}
-	name := ctr.Params.Arguments["name"]
+	name := ctr.GetArguments()["name"]
 	if name == nil {
 		name = ""
 	}
-	image := ctr.Params.Arguments["image"]
+	image := ctr.GetArguments()["image"]
 	if image == nil {
 		return NewTextResult("", errors.New("failed to run pod, missing argument image")), nil
 	}
-	port := ctr.Params.Arguments["port"]
+	port := ctr.GetArguments()["port"]
 	if port == nil {
 		port = float64(0)
 	}

@@ -26,7 +26,7 @@ func (s *Server) initConfiguration() []server.ServerTool {
 
 func (s *Server) configurationView(_ context.Context, ctr mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	minify := true
-	minified := ctr.Params.Arguments["minified"]
+	minified := ctr.GetArguments()["minified"]
 	if _, ok := minified.(bool); ok {
 		minify = minified.(bool)
 	}

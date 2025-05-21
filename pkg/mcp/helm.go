@@ -15,16 +15,32 @@ func (s *Server) initHelm() []server.ServerTool {
 			mcp.WithObject("values", mcp.Description("Values to pass to the Helm chart (Optional)")),
 			mcp.WithString("name", mcp.Description("Name of the Helm release (Optional, random name if not provided)")),
 			mcp.WithString("namespace", mcp.Description("Namespace to install the Helm chart in (Optional, current namespace if not provided)")),
+			// Tool annotations
+			mcp.WithTitleAnnotation("Helm: Install"),
+			mcp.WithReadOnlyHintAnnotation(false),
+			mcp.WithDestructiveHintAnnotation(false),
+			mcp.WithIdempotentHintAnnotation(false), // TODO: consider replacing implementation with equivalent to: helm upgrade --install
+			mcp.WithOpenWorldHintAnnotation(true),
 		), s.helmInstall},
 		{mcp.NewTool("helm_list",
 			mcp.WithDescription("List all the Helm releases in the current or provided namespace (or in all namespaces if specified)"),
 			mcp.WithString("namespace", mcp.Description("Namespace to list Helm releases from (Optional, all namespaces if not provided)")),
 			mcp.WithBoolean("all_namespaces", mcp.Description("If true, lists all Helm releases in all namespaces ignoring the namespace argument (Optional)")),
+			// Tool annotations
+			mcp.WithTitleAnnotation("Helm: List"),
+			mcp.WithReadOnlyHintAnnotation(true),
+			mcp.WithOpenWorldHintAnnotation(true),
 		), s.helmList},
 		{mcp.NewTool("helm_uninstall",
 			mcp.WithDescription("Uninstall a Helm release in the current or provided namespace"),
 			mcp.WithString("name", mcp.Description("Name of the Helm release to uninstall"), mcp.Required()),
 			mcp.WithString("namespace", mcp.Description("Namespace to uninstall the Helm release from (Optional, current namespace if not provided)")),
+			// Tool annotations
+			mcp.WithTitleAnnotation("Helm: Uninstall"),
+			mcp.WithReadOnlyHintAnnotation(false),
+			mcp.WithDestructiveHintAnnotation(true),
+			mcp.WithIdempotentHintAnnotation(true),
+			mcp.WithOpenWorldHintAnnotation(true),
 		), s.helmUninstall},
 	}
 }

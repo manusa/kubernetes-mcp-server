@@ -476,6 +476,17 @@ func TestResourcesDelete(t *testing.T) {
 				return
 			}
 		})
+		t.Run("resources_delete with nonexistent resource returns error", func(t *testing.T) {
+			toolResult, _ := c.callTool("resources_delete", map[string]interface{}{"apiVersion": "v1", "kind": "ConfigMap", "name": "nonexistent-configmap"})
+			if !toolResult.IsError {
+				t.Fatalf("call tool should fail")
+				return
+			}
+			if toolResult.Content[0].(mcp.TextContent).Text != `failed to delete resource: configmaps "nonexistent-configmap" not found` {
+				t.Fatalf("invalid error message, got %v", toolResult.Content[0].(mcp.TextContent).Text)
+				return
+			}
+		})
 		resourcesDeleteCm, err := c.callTool("resources_delete", map[string]interface{}{"apiVersion": "v1", "kind": "ConfigMap", "name": "a-configmap-to-delete"})
 		t.Run("resources_delete with valid namespaced resource returns success", func(t *testing.T) {
 			if err != nil {

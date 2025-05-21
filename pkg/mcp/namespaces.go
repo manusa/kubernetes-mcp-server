@@ -12,12 +12,20 @@ func (s *Server) initNamespaces() []server.ServerTool {
 	ret = append(ret, server.ServerTool{
 		Tool: mcp.NewTool("namespaces_list",
 			mcp.WithDescription("List all the Kubernetes namespaces in the current cluster"),
+			// Tool annotations
+			mcp.WithTitleAnnotation("Namespaces: List"),
+			mcp.WithReadOnlyHintAnnotation(true),
+			mcp.WithOpenWorldHintAnnotation(true),
 		), Handler: s.namespacesList,
 	})
 	if s.k.IsOpenShift(context.Background()) {
 		ret = append(ret, server.ServerTool{
 			Tool: mcp.NewTool("projects_list",
 				mcp.WithDescription("List all the OpenShift projects in the current cluster"),
+				// Tool annotations
+				mcp.WithTitleAnnotation("Projects: List"),
+				mcp.WithReadOnlyHintAnnotation(true),
+				mcp.WithOpenWorldHintAnnotation(true),
 			), Handler: s.projectsList,
 		})
 	}

@@ -15,6 +15,10 @@ func (s *Server) initConfiguration() []server.ServerTool {
 				"If set to true, keeps only the current-context and the relevant pieces of the configuration for that context. "+
 				"If set to false, all contexts, clusters, auth-infos, and users are returned in the configuration. "+
 				"(Optional, default true)")),
+			// Tool annotations
+			mcp.WithTitleAnnotation("Configuration: View"),
+			mcp.WithReadOnlyHintAnnotation(true),
+			mcp.WithOpenWorldHintAnnotation(true),
 		), s.configurationView},
 	}
 	return tools

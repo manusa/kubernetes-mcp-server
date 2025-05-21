@@ -13,6 +13,10 @@ func (s *Server) initEvents() []server.ServerTool {
 			mcp.WithDescription("List all the Kubernetes events in the current cluster from all namespaces"),
 			mcp.WithString("namespace",
 				mcp.Description("Optional Namespace to retrieve the events from. If not provided, will list events from all namespaces")),
+			// Tool annotations
+			mcp.WithTitleAnnotation("Events: List"),
+			mcp.WithReadOnlyHintAnnotation(true),
+			mcp.WithOpenWorldHintAnnotation(true),
 		), s.eventsList},
 	}
 }

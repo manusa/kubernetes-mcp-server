@@ -31,8 +31,12 @@ func (s *Server) initResources() []server.ServerTool {
 			mcp.WithString("namespace",
 				mcp.Description("Optional Namespace to retrieve the namespaced resources from (ignored in case of cluster scoped resources). If not provided, will list resources from all namespaces")),
 			mcp.WithString("labelSelector",
-			mcp.Description("Optional Kubernetes label selector (e.g. 'app=myapp,env=prod' or 'app in (myapp,yourapp)'), use this option when you want to filter the pods by label"), mcp.Pattern("([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]"))),
-			Handler: s.resourcesList},
+				mcp.Description("Optional Kubernetes label selector (e.g. 'app=myapp,env=prod' or 'app in (myapp,yourapp)'), use this option when you want to filter the pods by label"), mcp.Pattern("([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]")),
+			// Tool annotations
+			mcp.WithTitleAnnotation("Resources: List"),
+			mcp.WithReadOnlyHintAnnotation(true),
+			mcp.WithOpenWorldHintAnnotation(true),
+		), Handler: s.resourcesList},
 		{Tool: mcp.NewTool("resources_get",
 			mcp.WithDescription("Get a Kubernetes resource in the current cluster by providing its apiVersion, kind, optionally the namespace, and its name\n"+
 				commonApiVersion),
@@ -48,6 +52,10 @@ func (s *Server) initResources() []server.ServerTool {
 				mcp.Description("Optional Namespace to retrieve the namespaced resource from (ignored in case of cluster scoped resources). If not provided, will get resource from configured namespace"),
 			),
 			mcp.WithString("name", mcp.Description("Name of the resource"), mcp.Required()),
+			// Tool annotations
+			mcp.WithTitleAnnotation("Resources: Get"),
+			mcp.WithReadOnlyHintAnnotation(true),
+			mcp.WithOpenWorldHintAnnotation(true),
 		), Handler: s.resourcesGet},
 		{Tool: mcp.NewTool("resources_create_or_update",
 			mcp.WithDescription("Create or update a Kubernetes resource in the current cluster by providing a YAML or JSON representation of the resource\n"+
@@ -56,6 +64,12 @@ func (s *Server) initResources() []server.ServerTool {
 				mcp.Description("A JSON or YAML containing a representation of the Kubernetes resource. Should include top-level fields such as apiVersion,kind,metadata, and spec"),
 				mcp.Required(),
 			),
+			// Tool annotations
+			mcp.WithTitleAnnotation("Resources: Create or Update"),
+			mcp.WithReadOnlyHintAnnotation(false),
+			mcp.WithDestructiveHintAnnotation(true),
+			mcp.WithIdempotentHintAnnotation(true),
+			mcp.WithOpenWorldHintAnnotation(true),
 		), Handler: s.resourcesCreateOrUpdate},
 		{Tool: mcp.NewTool("resources_delete",
 			mcp.WithDescription("Delete a Kubernetes resource in the current cluster by providing its apiVersion, kind, optionally the namespace, and its name\n"+
@@ -72,6 +86,12 @@ func (s *Server) initResources() []server.ServerTool {
 				mcp.Description("Optional Namespace to delete the namespaced resource from (ignored in case of cluster scoped resources). If not provided, will delete resource from configured namespace"),
 			),
 			mcp.WithString("name", mcp.Description("Name of the resource"), mcp.Required()),
+			// Tool annotations
+			mcp.WithTitleAnnotation("Resources: Delete"),
+			mcp.WithReadOnlyHintAnnotation(false),
+			mcp.WithDestructiveHintAnnotation(true),
+			mcp.WithIdempotentHintAnnotation(true),
+			mcp.WithOpenWorldHintAnnotation(true),
 		), Handler: s.resourcesDelete},
 	}
 }

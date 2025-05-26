@@ -35,6 +35,7 @@ func (s *Server) initResources() []server.ServerTool {
 			// Tool annotations
 			mcp.WithTitleAnnotation("Resources: List"),
 			mcp.WithReadOnlyHintAnnotation(true),
+			mcp.WithDestructiveHintAnnotation(false),
 			mcp.WithOpenWorldHintAnnotation(true),
 		), Handler: s.resourcesList},
 		{Tool: mcp.NewTool("resources_get",
@@ -55,6 +56,7 @@ func (s *Server) initResources() []server.ServerTool {
 			// Tool annotations
 			mcp.WithTitleAnnotation("Resources: Get"),
 			mcp.WithReadOnlyHintAnnotation(true),
+			mcp.WithDestructiveHintAnnotation(false),
 			mcp.WithOpenWorldHintAnnotation(true),
 		), Handler: s.resourcesGet},
 		{Tool: mcp.NewTool("resources_create_or_update",

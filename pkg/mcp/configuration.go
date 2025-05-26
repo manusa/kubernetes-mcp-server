@@ -18,6 +18,7 @@ func (s *Server) initConfiguration() []server.ServerTool {
 			// Tool annotations
 			mcp.WithTitleAnnotation("Configuration: View"),
 			mcp.WithReadOnlyHintAnnotation(true),
+			mcp.WithDestructiveHintAnnotation(false),
 			mcp.WithOpenWorldHintAnnotation(true),
 		), s.configurationView},
 	}

@@ -49,14 +49,16 @@ Kubernetes Model Context Protocol (MCP) server
 		klog.V(1).Info("Starting kubernetes-mcp-server")
 		klog.V(1).Infof(" - Profile: %s", profile.GetName())
 		klog.V(1).Infof(" - Read-only mode: %t", viper.GetBool("read-only"))
+		klog.V(1).Infof(" - Disable destructive tools: %t", viper.GetBool("disable-destructive"))
 		if viper.GetBool("version") {
 			fmt.Println(version.Version)
 			return
 		}
 		mcpServer, err := mcp.NewSever(mcp.Configuration{
-			Profile:    profile,
-			ReadOnly:   viper.GetBool("read-only"),
-			Kubeconfig: viper.GetString("kubeconfig"),
+			Profile:            profile,
+			ReadOnly:           viper.GetBool("read-only"),
+			DisableDestructive: viper.GetBool("disable-destructive"),
+			Kubeconfig:         viper.GetString("kubeconfig"),
 		})
 		if err != nil {
 			fmt.Printf("Failed to initialize MCP server: %v\n", err)
@@ -127,5 +129,6 @@ func init() {
 	rootCmd.Flags().StringP("kubeconfig", "", "", "Path to the kubeconfig file to use for authentication")
 	rootCmd.Flags().String("profile", "full", "MCP profile to use (one of: "+strings.Join(mcp.ProfileNames, ", ")+")")
 	rootCmd.Flags().Bool("read-only", false, "If true, only tools annotated with readOnlyHint=true are exposed")
+	rootCmd.Flags().Bool("disable-destructive", false, "If true, tools annotated with destructiveHint=true are disabled")
 	_ = viper.BindPFlags(rootCmd.Flags())
 }

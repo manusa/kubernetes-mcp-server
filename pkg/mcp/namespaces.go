@@ -15,6 +15,7 @@ func (s *Server) initNamespaces() []server.ServerTool {
 			// Tool annotations
 			mcp.WithTitleAnnotation("Namespaces: List"),
 			mcp.WithReadOnlyHintAnnotation(true),
+			mcp.WithDestructiveHintAnnotation(false),
 			mcp.WithOpenWorldHintAnnotation(true),
 		), Handler: s.namespacesList,
 	})
@@ -25,6 +26,7 @@ func (s *Server) initNamespaces() []server.ServerTool {
 				// Tool annotations
 				mcp.WithTitleAnnotation("Projects: List"),
 				mcp.WithReadOnlyHintAnnotation(true),
+				mcp.WithDestructiveHintAnnotation(false),
 				mcp.WithOpenWorldHintAnnotation(true),
 			), Handler: s.projectsList,
 		})

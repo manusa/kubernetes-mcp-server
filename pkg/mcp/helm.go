@@ -29,6 +29,7 @@ func (s *Server) initHelm() []server.ServerTool {
 			// Tool annotations
 			mcp.WithTitleAnnotation("Helm: List"),
 			mcp.WithReadOnlyHintAnnotation(true),
+			mcp.WithDestructiveHintAnnotation(false),
 			mcp.WithOpenWorldHintAnnotation(true),
 		), s.helmList},
 		{mcp.NewTool("helm_uninstall",

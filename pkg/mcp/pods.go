@@ -17,6 +17,7 @@ func (s *Server) initPods() []server.ServerTool {
 			// Tool annotations
 			mcp.WithTitleAnnotation("Pods: List"),
 			mcp.WithReadOnlyHintAnnotation(true),
+			mcp.WithDestructiveHintAnnotation(false),
 			mcp.WithOpenWorldHintAnnotation(true),
 		), Handler: s.podsListInAllNamespaces},
 		{Tool: mcp.NewTool("pods_list_in_namespace",
@@ -26,6 +27,7 @@ func (s *Server) initPods() []server.ServerTool {
 			// Tool annotations
 			mcp.WithTitleAnnotation("Pods: List in Namespace"),
 			mcp.WithReadOnlyHintAnnotation(true),
+			mcp.WithDestructiveHintAnnotation(false),
 			mcp.WithOpenWorldHintAnnotation(true),
 		), Handler: s.podsListInNamespace},
 		{Tool: mcp.NewTool("pods_get",
@@ -35,6 +37,7 @@ func (s *Server) initPods() []server.ServerTool {
 			// Tool annotations
 			mcp.WithTitleAnnotation("Pods: Get"),
 			mcp.WithReadOnlyHintAnnotation(true),
+			mcp.WithDestructiveHintAnnotation(false),
 			mcp.WithOpenWorldHintAnnotation(true),
 		), Handler: s.podsGet},
 		{Tool: mcp.NewTool("pods_delete",
@@ -81,6 +84,7 @@ func (s *Server) initPods() []server.ServerTool {
 			// Tool annotations
 			mcp.WithTitleAnnotation("Pods: Log"),
 			mcp.WithReadOnlyHintAnnotation(true),
+			mcp.WithDestructiveHintAnnotation(false),
 			mcp.WithOpenWorldHintAnnotation(true),
 		), Handler: s.podsLog},
 		{Tool: mcp.NewTool("pods_run",

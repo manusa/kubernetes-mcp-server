@@ -62,6 +62,28 @@ func TestReadOnly(t *testing.T) {
 				if tool.Annotations.ReadOnlyHint == nil || !*tool.Annotations.ReadOnlyHint {
 					t.Errorf("Tool %s is not read-only but should be", tool.Name)
 				}
+				if tool.Annotations.DestructiveHint != nil && *tool.Annotations.DestructiveHint {
+					t.Errorf("Tool %s is destructive but should not be in read-only mode", tool.Name)
+				}
+			}
+		})
+	})
+}
+
+func TestDisableDestructive(t *testing.T) {
+	disableDestructiveServer := func(c *mcpContext) { c.disableDestructive = true }
+	testCaseWithContext(t, &mcpContext{before: disableDestructiveServer}, func(c *mcpContext) {
+		tools, err := c.mcpClient.ListTools(c.ctx, mcp.ListToolsRequest{})
+		t.Run("ListTools returns tools", func(t *testing.T) {
+			if err != nil {
+				t.Fatalf("call ListTools failed %v", err)
+			}
+		})
+		t.Run("ListTools does not return destructive tools", func(t *testing.T) {
+			for _, tool := range tools.Tools {
+				if tool.Annotations.DestructiveHint != nil && *tool.Annotations.DestructiveHint {
+					t.Errorf("Tool %s is destructive but should not be", tool.Name)
+				}
 			}
 		})
 	})

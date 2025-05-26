@@ -10,8 +10,10 @@ import (
 type Configuration struct {
 	Profile Profile
 	// When true, expose only tools annotated with readOnlyHint=true
-	ReadOnly   bool
-	Kubeconfig string
+	ReadOnly bool
+	// When true, disable tools annotated with destructiveHint=true
+	DisableDestructive bool
+	Kubeconfig         string
 }
 
 type Server struct {
@@ -39,6 +41,10 @@ func NewSever(configuration Configuration) (*Server, error) {
 	return s, nil
 }
 
+func isFalse(value *bool) bool {
+	return value == nil || !*value
+}
+
 func (s *Server) reloadKubernetesClient() error {
 	k, err := kubernetes.NewKubernetes(s.configuration.Kubeconfig)
 	if err != nil {
@@ -47,7 +53,10 @@ func (s *Server) reloadKubernetesClient() error {
 	s.k = k
 	applicableTools := make([]server.ServerTool, 0)
 	for _, tool := range s.configuration.Profile.GetTools(s) {
-		if s.configuration.ReadOnly && (tool.Tool.Annotations.ReadOnlyHint == nil || !*tool.Tool.Annotations.ReadOnlyHint) {
+		if s.configuration.ReadOnly && isFalse(tool.Tool.Annotations.ReadOnlyHint) {
+			continue
+		}
+		if s.configuration.DisableDestructive && isFalse(tool.Tool.Annotations.ReadOnlyHint) && !isFalse(tool.Tool.Annotations.DestructiveHint) {
 			continue
 		}
 		applicableTools = append(applicableTools, tool)

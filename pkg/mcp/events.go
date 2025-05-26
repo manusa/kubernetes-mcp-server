@@ -16,6 +16,7 @@ func (s *Server) initEvents() []server.ServerTool {
 			// Tool annotations
 			mcp.WithTitleAnnotation("Events: List"),
 			mcp.WithReadOnlyHintAnnotation(true),
+			mcp.WithDestructiveHintAnnotation(false),
 			mcp.WithOpenWorldHintAnnotation(true),
 		), s.eventsList},
 	}

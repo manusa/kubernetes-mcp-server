@@ -43,3 +43,11 @@ func TestDefaultReadOnly(t *testing.T) {
 		t.Fatalf("Expected read-only mode false, got %s %v", out, err)
 	}
 }
+
+func TestDefaultDisableDestructive(t *testing.T) {
+	rootCmd.SetArgs([]string{"--version", "--log-level=1"})
+	out, err := captureOutput(rootCmd.Execute)
+	if !strings.Contains(out, " - Disable destructive tools: false") {
+		t.Fatalf("Expected disable destructive false, got %s %v", out, err)
+	}
+}

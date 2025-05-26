@@ -94,16 +94,17 @@ func TestMain(m *testing.M) {
 }
 
 type mcpContext struct {
-	profile       Profile
-	readOnly      bool
-	before        func(*mcpContext)
-	after         func(*mcpContext)
-	ctx           context.Context
-	tempDir       string
-	cancel        context.CancelFunc
-	mcpServer     *Server
-	mcpHttpServer *httptest.Server
-	mcpClient     *client.Client
+	profile            Profile
+	readOnly           bool
+	disableDestructive bool
+	before             func(*mcpContext)
+	after              func(*mcpContext)
+	ctx                context.Context
+	tempDir            string
+	cancel             context.CancelFunc
+	mcpServer          *Server
+	mcpHttpServer      *httptest.Server
+	mcpClient          *client.Client
 }
 
 func (c *mcpContext) beforeEach(t *testing.T) {
@@ -117,7 +118,9 @@ func (c *mcpContext) beforeEach(t *testing.T) {
 	if c.before != nil {
 		c.before(c)
 	}
-	if c.mcpServer, err = NewSever(Configuration{Profile: c.profile, ReadOnly: c.readOnly}); err != nil {
+	if c.mcpServer, err = NewSever(Configuration{
+		Profile: c.profile, ReadOnly: c.readOnly, DisableDestructive: c.disableDestructive,
+	}); err != nil {
 		t.Fatal(err)
 		return
 	}

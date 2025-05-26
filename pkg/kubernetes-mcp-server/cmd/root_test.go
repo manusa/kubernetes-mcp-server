@@ -31,7 +31,15 @@ func TestVersion(t *testing.T) {
 func TestDefaultProfile(t *testing.T) {
 	rootCmd.SetArgs([]string{"--version", "--log-level=1"})
 	out, err := captureOutput(rootCmd.Execute)
-	if !strings.Contains(out, "Starting kubernetes-mcp-server with profile: full") {
+	if !strings.Contains(out, "- Profile: full") {
 		t.Fatalf("Expected profile 'full', got %s %v", out, err)
+	}
+}
+
+func TestDefaultReadOnly(t *testing.T) {
+	rootCmd.SetArgs([]string{"--version", "--log-level=1"})
+	out, err := captureOutput(rootCmd.Execute)
+	if !strings.Contains(out, " - Read-only mode: false") {
+		t.Fatalf("Expected read-only mode false, got %s %v", out, err)
 	}
 }

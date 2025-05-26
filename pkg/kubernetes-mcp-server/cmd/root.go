@@ -46,13 +46,16 @@ Kubernetes Model Context Protocol (MCP) server
 			fmt.Printf("Invalid profile name: %s, valid names are: %s\n", viper.GetString("profile"), strings.Join(mcp.ProfileNames, ", "))
 			os.Exit(1)
 		}
-		klog.V(1).Infof("Starting kubernetes-mcp-server with profile: %s", profile.GetName())
+		klog.V(1).Info("Starting kubernetes-mcp-server")
+		klog.V(1).Infof(" - Profile: %s", profile.GetName())
+		klog.V(1).Infof(" - Read-only mode: %t", viper.GetBool("read-only"))
 		if viper.GetBool("version") {
 			fmt.Println(version.Version)
 			return
 		}
 		mcpServer, err := mcp.NewSever(mcp.Configuration{
 			Profile:    profile,
+			ReadOnly:   viper.GetBool("read-only"),
 			Kubeconfig: viper.GetString("kubeconfig"),
 		})
 		if err != nil {
@@ -123,5 +126,6 @@ func init() {
 	rootCmd.Flags().StringP("sse-base-url", "", "", "SSE public base URL to use when sending the endpoint message (e.g. https://example.com)")
 	rootCmd.Flags().StringP("kubeconfig", "", "", "Path to the kubeconfig file to use for authentication")
 	rootCmd.Flags().String("profile", "full", "MCP profile to use (one of: "+strings.Join(mcp.ProfileNames, ", ")+")")
+	rootCmd.Flags().Bool("read-only", false, "If true, only tools annotated with readOnlyHint=true are exposed")
 	_ = viper.BindPFlags(rootCmd.Flags())
 }

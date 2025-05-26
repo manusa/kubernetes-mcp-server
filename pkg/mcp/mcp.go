@@ -8,7 +8,9 @@ import (
 )
 
 type Configuration struct {
-	Profile    Profile
+	Profile Profile
+	// When true, expose only tools annotated with readOnlyHint=true
+	ReadOnly   bool
 	Kubeconfig string
 }
 
@@ -43,7 +45,14 @@ func (s *Server) reloadKubernetesClient() error {
 		return err
 	}
 	s.k = k
-	s.server.SetTools(s.configuration.Profile.GetTools(s)...)
+	applicableTools := make([]server.ServerTool, 0)
+	for _, tool := range s.configuration.Profile.GetTools(s) {
+		if s.configuration.ReadOnly && (tool.Tool.Annotations.ReadOnlyHint == nil || !*tool.Tool.Annotations.ReadOnlyHint) {
+			continue
+		}
+		applicableTools = append(applicableTools, tool)
+	}
+	s.server.SetTools(applicableTools...)
 	return nil
 }
 

@@ -95,6 +95,7 @@ func TestMain(m *testing.M) {
 
 type mcpContext struct {
 	profile       Profile
+	readOnly      bool
 	before        func(*mcpContext)
 	after         func(*mcpContext)
 	ctx           context.Context
@@ -116,7 +117,7 @@ func (c *mcpContext) beforeEach(t *testing.T) {
 	if c.before != nil {
 		c.before(c)
 	}
-	if c.mcpServer, err = NewSever(Configuration{Profile: c.profile}); err != nil {
+	if c.mcpServer, err = NewSever(Configuration{Profile: c.profile, ReadOnly: c.readOnly}); err != nil {
 		t.Fatal(err)
 		return
 	}

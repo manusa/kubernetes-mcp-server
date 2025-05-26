@@ -47,3 +47,22 @@ func TestWatchKubeConfig(t *testing.T) {
 		})
 	})
 }
+
+func TestReadOnly(t *testing.T) {
+	readOnlyServer := func(c *mcpContext) { c.readOnly = true }
+	testCaseWithContext(t, &mcpContext{before: readOnlyServer}, func(c *mcpContext) {
+		tools, err := c.mcpClient.ListTools(c.ctx, mcp.ListToolsRequest{})
+		t.Run("ListTools returns tools", func(t *testing.T) {
+			if err != nil {
+				t.Fatalf("call ListTools failed %v", err)
+			}
+		})
+		t.Run("ListTools returns only read-only tools", func(t *testing.T) {
+			for _, tool := range tools.Tools {
+				if tool.Annotations.ReadOnlyHint == nil || !*tool.Annotations.ReadOnlyHint {
+					t.Errorf("Tool %s is not read-only but should be", tool.Name)
+				}
+			}
+		})
+	})
+}

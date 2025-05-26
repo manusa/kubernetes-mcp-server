@@ -153,6 +153,7 @@ uvx kubernetes-mcp-server@latest --help
 | `--sse-port`   | Starts the MCP server in Server-Sent Event (SSE) mode and listens on the specified port.                                                                                                                                                                                                      |
 | `--log-level`  | Sets the logging level (values [from 0-9](https://github.com/kubernetes/community/blob/master/contributors/devel/sig-instrumentation/logging.md)). Similar to [kubectl logging levels](https://kubernetes.io/docs/reference/kubectl/quick-reference/#kubectl-output-verbosity-and-debugging). |
 | `--kubeconfig` | Path to the Kubernetes configuration file. If not provided, it will try to resolve the configuration (in-cluster, default location, etc.).                                                                                                                                                    |
+| `--read-only`  | If set, the MCP server will run in read-only mode, meaning it will not allow any write operations (create, update, delete) on the Kubernetes cluster. This is useful for debugging or inspecting the cluster without making changes.                                                          |
 
 ## 🛠️ Tools <a id="tools"></a>
 

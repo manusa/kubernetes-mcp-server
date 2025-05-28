@@ -64,14 +64,14 @@ func (s *Server) helmInstall(ctx context.Context, ctr mcp.CallToolRequest) (*mcp
 	if v, ok := ctr.GetArguments()["namespace"].(string); ok {
 		namespace = v
 	}
-	ret, err := s.k.Helm.Install(ctx, chart, values, name, namespace)
+	ret, err := s.k.Derived(ctx).Helm.Install(ctx, chart, values, name, namespace)
 	if err != nil {
 		return NewTextResult("", fmt.Errorf("failed to install helm chart '%s': %w", chart, err)), nil
 	}
 	return NewTextResult(ret, err), nil
 }
 
-func (s *Server) helmList(_ context.Context, ctr mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+func (s *Server) helmList(ctx context.Context, ctr mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	allNamespaces := false
 	if v, ok := ctr.GetArguments()["all_namespaces"].(bool); ok {
 		allNamespaces = v
@@ -80,14 +80,14 @@ func (s *Server) helmList(_ context.Context, ctr mcp.CallToolRequest) (*mcp.Call
 	if v, ok := ctr.GetArguments()["namespace"].(string); ok {
 		namespace = v
 	}
-	ret, err := s.k.Helm.List(namespace, allNamespaces)
+	ret, err := s.k.Derived(ctx).Helm.List(namespace, allNamespaces)
 	if err != nil {
 		return NewTextResult("", fmt.Errorf("failed to list helm releases in namespace '%s': %w", namespace, err)), nil
 	}
 	return NewTextResult(ret, err), nil
 }
 
-func (s *Server) helmUninstall(_ context.Context, ctr mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+func (s *Server) helmUninstall(ctx context.Context, ctr mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	var name string
 	ok := false
 	if name, ok = ctr.GetArguments()["name"].(string); !ok {
@@ -97,7 +97,7 @@ func (s *Server) helmUninstall(_ context.Context, ctr mcp.CallToolRequest) (*mcp
 	if v, ok := ctr.GetArguments()["namespace"].(string); ok {
 		namespace = v
 	}
-	ret, err := s.k.Helm.Uninstall(name, namespace)
+	ret, err := s.k.Derived(ctx).Helm.Uninstall(name, namespace)
 	if err != nil {
 		return NewTextResult("", fmt.Errorf("failed to uninstall helm chart '%s': %w", name, err)), nil
 	}

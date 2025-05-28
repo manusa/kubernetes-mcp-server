@@ -110,7 +110,7 @@ func (s *Server) podsListInAllNamespaces(ctx context.Context, ctr mcp.CallToolRe
 		selector = labelSelector.(string)
 	}
 
-	ret, err := s.k.PodsListInAllNamespaces(ctx, selector)
+	ret, err := s.k.Derived(ctx).PodsListInAllNamespaces(ctx, selector)
 	if err != nil {
 		return NewTextResult("", fmt.Errorf("failed to list pods in all namespaces: %v", err)), nil
 	}
@@ -127,7 +127,7 @@ func (s *Server) podsListInNamespace(ctx context.Context, ctr mcp.CallToolReques
 	if labelSelector != nil {
 		selector = labelSelector.(string)
 	}
-	ret, err := s.k.PodsListInNamespace(ctx, ns.(string), selector)
+	ret, err := s.k.Derived(ctx).PodsListInNamespace(ctx, ns.(string), selector)
 	if err != nil {
 		return NewTextResult("", fmt.Errorf("failed to list pods in namespace %s: %v", ns, err)), nil
 	}
@@ -143,7 +143,7 @@ func (s *Server) podsGet(ctx context.Context, ctr mcp.CallToolRequest) (*mcp.Cal
 	if name == nil {
 		return NewTextResult("", errors.New("failed to get pod, missing argument name")), nil
 	}
-	ret, err := s.k.PodsGet(ctx, ns.(string), name.(string))
+	ret, err := s.k.Derived(ctx).PodsGet(ctx, ns.(string), name.(string))
 	if err != nil {
 		return NewTextResult("", fmt.Errorf("failed to get pod %s in namespace %s: %v", name, ns, err)), nil
 	}
@@ -159,7 +159,7 @@ func (s *Server) podsDelete(ctx context.Context, ctr mcp.CallToolRequest) (*mcp.
 	if name == nil {
 		return NewTextResult("", errors.New("failed to delete pod, missing argument name")), nil
 	}
-	ret, err := s.k.PodsDelete(ctx, ns.(string), name.(string))
+	ret, err := s.k.Derived(ctx).PodsDelete(ctx, ns.(string), name.(string))
 	if err != nil {
 		return NewTextResult("", fmt.Errorf("failed to delete pod %s in namespace %s: %v", name, ns, err)), nil
 	}
@@ -190,7 +190,7 @@ func (s *Server) podsExec(ctx context.Context, ctr mcp.CallToolRequest) (*mcp.Ca
 	} else {
 		return NewTextResult("", errors.New("failed to exec in pod, invalid command argument")), nil
 	}
-	ret, err := s.k.PodsExec(ctx, ns.(string), name.(string), container.(string), command)
+	ret, err := s.k.Derived(ctx).PodsExec(ctx, ns.(string), name.(string), container.(string), command)
 	if err != nil {
 		return NewTextResult("", fmt.Errorf("failed to exec in pod %s in namespace %s: %v", name, ns, err)), nil
 	} else if ret == "" {
@@ -212,7 +212,7 @@ func (s *Server) podsLog(ctx context.Context, ctr mcp.CallToolRequest) (*mcp.Cal
 	if container == nil {
 		container = ""
 	}
-	ret, err := s.k.PodsLog(ctx, ns.(string), name.(string), container.(string))
+	ret, err := s.k.Derived(ctx).PodsLog(ctx, ns.(string), name.(string), container.(string))
 	if err != nil {
 		return NewTextResult("", fmt.Errorf("failed to get pod %s log in namespace %s: %v", name, ns, err)), nil
 	} else if ret == "" {
@@ -238,7 +238,7 @@ func (s *Server) podsRun(ctx context.Context, ctr mcp.CallToolRequest) (*mcp.Cal
 	if port == nil {
 		port = float64(0)
 	}
-	ret, err := s.k.PodsRun(ctx, ns.(string), name.(string), image.(string), int32(port.(float64)))
+	ret, err := s.k.Derived(ctx).PodsRun(ctx, ns.(string), name.(string), image.(string), int32(port.(float64)))
 	if err != nil {
 		return NewTextResult("", fmt.Errorf("failed to get pod %s log in namespace %s: %v", name, ns, err)), nil
 	}

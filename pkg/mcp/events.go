@@ -27,7 +27,7 @@ func (s *Server) eventsList(ctx context.Context, ctr mcp.CallToolRequest) (*mcp.
 	if namespace == nil {
 		namespace = ""
 	}
-	ret, err := s.k.EventsList(ctx, namespace.(string))
+	ret, err := s.k.Derived(ctx).EventsList(ctx, namespace.(string))
 	if err != nil {
 		return NewTextResult("", fmt.Errorf("failed to list events in all namespaces: %v", err)), nil
 	}

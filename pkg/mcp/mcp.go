@@ -1,10 +1,12 @@
 package mcp
 
 import (
+	"context"
 	"github.com/manusa/kubernetes-mcp-server/pkg/kubernetes"
 	"github.com/manusa/kubernetes-mcp-server/pkg/version"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
+	"net/http"
 )
 
 type Configuration struct {
@@ -71,6 +73,7 @@ func (s *Server) ServeStdio() error {
 
 func (s *Server) ServeSse(baseUrl string) *server.SSEServer {
 	options := make([]server.SSEOption, 0)
+	options = append(options, server.WithSSEContextFunc(contextFunc))
 	if baseUrl != "" {
 		options = append(options, server.WithBaseURL(baseUrl))
 	}
@@ -103,4 +106,9 @@ func NewTextResult(content string, err error) *mcp.CallToolResult {
 			},
 		},
 	}
+}
+
+func contextFunc(ctx context.Context, r *http.Request) context.Context {
+	//return context.WithValue(ctx, kubernetes.AuthorizationHeader, r.Header.Get(kubernetes.AuthorizationHeader))
+	return context.WithValue(ctx, kubernetes.AuthorizationBearerTokenHeader, r.Header.Get(kubernetes.AuthorizationBearerTokenHeader))
 }

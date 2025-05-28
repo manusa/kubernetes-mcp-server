@@ -111,7 +111,7 @@ func (s *Server) resourcesList(ctx context.Context, ctr mcp.CallToolRequest) (*m
 	if err != nil {
 		return NewTextResult("", fmt.Errorf("failed to list resources, %s", err)), nil
 	}
-	ret, err := s.k.ResourcesList(ctx, gvk, namespace.(string), labelSelector.(string))
+	ret, err := s.k.Derived(ctx).ResourcesList(ctx, gvk, namespace.(string), labelSelector.(string))
 	if err != nil {
 		return NewTextResult("", fmt.Errorf("failed to list resources: %v", err)), nil
 	}
@@ -131,7 +131,7 @@ func (s *Server) resourcesGet(ctx context.Context, ctr mcp.CallToolRequest) (*mc
 	if name == nil {
 		return NewTextResult("", errors.New("failed to get resource, missing argument name")), nil
 	}
-	ret, err := s.k.ResourcesGet(ctx, gvk, namespace.(string), name.(string))
+	ret, err := s.k.Derived(ctx).ResourcesGet(ctx, gvk, namespace.(string), name.(string))
 	if err != nil {
 		return NewTextResult("", fmt.Errorf("failed to get resource: %v", err)), nil
 	}
@@ -143,7 +143,7 @@ func (s *Server) resourcesCreateOrUpdate(ctx context.Context, ctr mcp.CallToolRe
 	if resource == nil || resource == "" {
 		return NewTextResult("", errors.New("failed to create or update resources, missing argument resource")), nil
 	}
-	ret, err := s.k.ResourcesCreateOrUpdate(ctx, resource.(string))
+	ret, err := s.k.Derived(ctx).ResourcesCreateOrUpdate(ctx, resource.(string))
 	if err != nil {
 		return NewTextResult("", fmt.Errorf("failed to create or update resources: %v", err)), nil
 	}
@@ -163,7 +163,7 @@ func (s *Server) resourcesDelete(ctx context.Context, ctr mcp.CallToolRequest) (
 	if name == nil {
 		return NewTextResult("", errors.New("failed to delete resource, missing argument name")), nil
 	}
-	err = s.k.ResourcesDelete(ctx, gvk, namespace.(string), name.(string))
+	err = s.k.Derived(ctx).ResourcesDelete(ctx, gvk, namespace.(string), name.(string))
 	if err != nil {
 		return NewTextResult("", fmt.Errorf("failed to delete resource: %v", err)), nil
 	}

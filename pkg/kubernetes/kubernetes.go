@@ -1,6 +1,7 @@
 package kubernetes
 
 import (
+	"context"
 	"github.com/fsnotify/fsnotify"
 	"github.com/manusa/kubernetes-mcp-server/pkg/helm"
 	v1 "k8s.io/api/core/v1"
@@ -14,6 +15,7 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/restmapper"
 	"k8s.io/client-go/tools/clientcmd"
+	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"sigs.k8s.io/yaml"
 )
 
@@ -41,6 +43,10 @@ func NewKubernetes(kubeconfig string) (*Kubernetes, error) {
 	if err := resolveKubernetesConfigurations(k8s); err != nil {
 		return nil, err
 	}
+	// TODO: Won't work because not all client-go clients use the shared context (e.g. discovery client uses context.TODO())
+	//k8s.cfg.Wrap(func(original http.RoundTripper) http.RoundTripper {
+	//	return &impersonateRoundTripper{original}
+	//})
 	var err error
 	k8s.clientSet, err = kubernetes.NewForConfig(k8s.cfg)
 	if err != nil {
@@ -113,6 +119,37 @@ func (k *Kubernetes) ToDiscoveryClient() (discovery.CachedDiscoveryInterface, er
 
 func (k *Kubernetes) ToRESTMapper() (meta.RESTMapper, error) {
 	return k.deferredDiscoveryRESTMapper, nil
+}
+
+func (k *Kubernetes) Derived(ctx context.Context) *Kubernetes {
+	bearerToken, ok := ctx.Value(AuthorizationBearerTokenHeader).(string)
+	if !ok {
+		return k
+	}
+	var _ error // TODO: ignored --> should be handled eventually
+	derivedCfg := rest.CopyConfig(k.cfg)
+	derivedCfg.BearerToken = bearerToken
+	derivedCfg.BearerTokenFile = ""
+	derivedCfg.AuthProvider = nil
+	derivedCfg.Username = ""
+	derivedCfg.Password = ""
+	derivedCfg.Impersonate = rest.ImpersonationConfig{}
+	clientcmdapiConfig, _ := k.clientCmdConfig.RawConfig()
+	clientcmdapiConfig.AuthInfos = make(map[string]*clientcmdapi.AuthInfo)
+	derived := &Kubernetes{
+		Kubeconfig:      k.Kubeconfig,
+		clientCmdConfig: clientcmd.NewDefaultClientConfig(clientcmdapiConfig, nil),
+		cfg:             derivedCfg,
+	}
+	derived.clientSet, _ = kubernetes.NewForConfig(derived.cfg)
+	discoveryClient, _ := discovery.NewDiscoveryClientForConfig(derived.cfg)
+	derived.discoveryClient = memory.NewMemCacheClient(discoveryClient)
+	derived.deferredDiscoveryRESTMapper = restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(derived.discoveryClient))
+	derived.dynamicClient, _ = dynamic.NewForConfig(derived.cfg)
+	derived.scheme = runtime.NewScheme()
+	derived.parameterCodec = runtime.NewParameterCodec(derived.scheme)
+	derived.Helm = helm.NewHelm(derived)
+	return derived
 }
 
 func marshal(v any) (string, error) {

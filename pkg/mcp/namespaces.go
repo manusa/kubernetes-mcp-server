@@ -35,7 +35,7 @@ func (s *Server) initNamespaces() []server.ServerTool {
 }
 
 func (s *Server) namespacesList(ctx context.Context, _ mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	ret, err := s.k.NamespacesList(ctx)
+	ret, err := s.k.Derived(ctx).NamespacesList(ctx)
 	if err != nil {
 		err = fmt.Errorf("failed to list namespaces: %v", err)
 	}
@@ -43,7 +43,7 @@ func (s *Server) namespacesList(ctx context.Context, _ mcp.CallToolRequest) (*mc
 }
 
 func (s *Server) projectsList(ctx context.Context, _ mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	ret, err := s.k.ProjectsList(ctx)
+	ret, err := s.k.Derived(ctx).ProjectsList(ctx)
 	if err != nil {
 		err = fmt.Errorf("failed to list projects: %v", err)
 	}

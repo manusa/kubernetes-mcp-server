@@ -17,6 +17,10 @@ import (
 	"strings"
 )
 
+import (
+	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc"
+)
+
 var rootCmd = &cobra.Command{
 	Use:   "kubernetes-mcp-server [command] [options]",
 	Short: "Kubernetes Model Context Protocol (MCP) server",

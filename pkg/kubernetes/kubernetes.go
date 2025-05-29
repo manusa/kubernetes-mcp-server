@@ -19,6 +19,11 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
+const (
+	AuthorizationHeader            = "Kubernetes-Authorization"
+	AuthorizationBearerTokenHeader = "kubernetes-authorization-bearer-token"
+)
+
 type CloseWatchKubeConfig func() error
 
 type Kubernetes struct {
@@ -126,28 +131,41 @@ func (k *Kubernetes) Derived(ctx context.Context) *Kubernetes {
 	if !ok {
 		return k
 	}
-	var _ error // TODO: ignored --> should be handled eventually
 	derivedCfg := rest.CopyConfig(k.cfg)
 	derivedCfg.BearerToken = bearerToken
 	derivedCfg.BearerTokenFile = ""
-	derivedCfg.AuthProvider = nil
 	derivedCfg.Username = ""
 	derivedCfg.Password = ""
+	derivedCfg.AuthProvider = nil
+	derivedCfg.AuthConfigPersister = nil
+	derivedCfg.ExecProvider = nil
 	derivedCfg.Impersonate = rest.ImpersonationConfig{}
-	clientcmdapiConfig, _ := k.clientCmdConfig.RawConfig()
-	clientcmdapiConfig.AuthInfos = make(map[string]*clientcmdapi.AuthInfo)
+	clientCmdApiConfig, err := k.clientCmdConfig.RawConfig()
+	if err != nil {
+		return k
+	}
+	clientCmdApiConfig.AuthInfos = make(map[string]*clientcmdapi.AuthInfo)
 	derived := &Kubernetes{
 		Kubeconfig:      k.Kubeconfig,
-		clientCmdConfig: clientcmd.NewDefaultClientConfig(clientcmdapiConfig, nil),
+		clientCmdConfig: clientcmd.NewDefaultClientConfig(clientCmdApiConfig, nil),
 		cfg:             derivedCfg,
+		scheme:          k.scheme,
+		parameterCodec:  k.parameterCodec,
 	}
-	derived.clientSet, _ = kubernetes.NewForConfig(derived.cfg)
-	discoveryClient, _ := discovery.NewDiscoveryClientForConfig(derived.cfg)
+	derived.clientSet, err = kubernetes.NewForConfig(derived.cfg)
+	if err != nil {
+		return k
+	}
+	discoveryClient, err := discovery.NewDiscoveryClientForConfig(derived.cfg)
+	if err != nil {
+		return k
+	}
 	derived.discoveryClient = memory.NewMemCacheClient(discoveryClient)
 	derived.deferredDiscoveryRESTMapper = restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(derived.discoveryClient))
-	derived.dynamicClient, _ = dynamic.NewForConfig(derived.cfg)
-	derived.scheme = runtime.NewScheme()
-	derived.parameterCodec = runtime.NewParameterCodec(derived.scheme)
+	derived.dynamicClient, err = dynamic.NewForConfig(derived.cfg)
+	if err != nil {
+		return k
+	}
 	derived.Helm = helm.NewHelm(derived)
 	return derived
 }

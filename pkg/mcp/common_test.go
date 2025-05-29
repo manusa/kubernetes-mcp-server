@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/mark3labs/mcp-go/client"
+	"github.com/mark3labs/mcp-go/client/transport"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 	"github.com/pkg/errors"
@@ -97,6 +98,7 @@ type mcpContext struct {
 	profile            Profile
 	readOnly           bool
 	disableDestructive bool
+	clientOptions      []transport.ClientOption
 	before             func(*mcpContext)
 	after              func(*mcpContext)
 	ctx                context.Context
@@ -124,8 +126,8 @@ func (c *mcpContext) beforeEach(t *testing.T) {
 		t.Fatal(err)
 		return
 	}
-	c.mcpHttpServer = server.NewTestServer(c.mcpServer.server)
-	if c.mcpClient, err = client.NewSSEMCPClient(c.mcpHttpServer.URL + "/sse"); err != nil {
+	c.mcpHttpServer = server.NewTestServer(c.mcpServer.server, server.WithSSEContextFunc(contextFunc))
+	if c.mcpClient, err = client.NewSSEMCPClient(c.mcpHttpServer.URL+"/sse", c.clientOptions...); err != nil {
 		t.Fatal(err)
 		return
 	}

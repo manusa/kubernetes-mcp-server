@@ -2,11 +2,6 @@ package kubernetes
 
 import "net/http"
 
-const (
-	AuthorizationHeader            = "Kubernetes-Authorization"
-	AuthorizationBearerTokenHeader = "Kubernetes-Authorization-Bearer-Token"
-)
-
 type impersonateRoundTripper struct {
 	delegate http.RoundTripper
 }

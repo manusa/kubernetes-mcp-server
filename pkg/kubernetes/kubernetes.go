@@ -62,7 +62,7 @@ func NewKubernetes(kubeconfig string) (*Kubernetes, error) {
 		return nil, err
 	}
 	k8s.discoveryClient = memory.NewMemCacheClient(discoveryClient)
-	k8s.deferredDiscoveryRESTMapper = restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(k8s.discoveryClient))
+	k8s.deferredDiscoveryRESTMapper = restmapper.NewDeferredDiscoveryRESTMapper(k8s.discoveryClient)
 	k8s.dynamicClient, err = dynamic.NewForConfig(k8s.cfg)
 	if err != nil {
 		return nil, err
@@ -161,7 +161,7 @@ func (k *Kubernetes) Derived(ctx context.Context) *Kubernetes {
 		return k
 	}
 	derived.discoveryClient = memory.NewMemCacheClient(discoveryClient)
-	derived.deferredDiscoveryRESTMapper = restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(derived.discoveryClient))
+	derived.deferredDiscoveryRESTMapper = restmapper.NewDeferredDiscoveryRESTMapper(derived.discoveryClient)
 	derived.dynamicClient, err = dynamic.NewForConfig(derived.cfg)
 	if err != nil {
 		return k

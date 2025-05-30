@@ -17,6 +17,7 @@ import (
 	"k8s.io/client-go/restmapper"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
+	"k8s.io/klog/v2"
 	"sigs.k8s.io/yaml"
 )
 
@@ -58,11 +59,7 @@ func NewKubernetes(kubeconfig string) (*Kubernetes, error) {
 	if err != nil {
 		return nil, err
 	}
-	discoveryClient, err := discovery.NewDiscoveryClientForConfig(k8s.cfg)
-	if err != nil {
-		return nil, err
-	}
-	k8s.discoveryClient = memory.NewMemCacheClient(discoveryClient)
+	k8s.discoveryClient = memory.NewMemCacheClient(discovery.NewDiscoveryClient(k8s.clientSet.CoreV1().RESTClient()))
 	k8s.deferredDiscoveryRESTMapper = restmapper.NewDeferredDiscoveryRESTMapper(k8s.discoveryClient)
 	k8s.dynamicClient, err = dynamic.NewForConfig(k8s.cfg)
 	if err != nil {
@@ -132,6 +129,7 @@ func (k *Kubernetes) Derived(ctx context.Context) *Kubernetes {
 	if !ok {
 		return k
 	}
+	klog.V(5).Infof("%s header found, using provided bearer token", AuthorizationBearerTokenHeader)
 	derivedCfg := rest.CopyConfig(k.cfg)
 	derivedCfg.BearerToken = bearerToken
 	derivedCfg.BearerTokenFile = ""
@@ -157,11 +155,7 @@ func (k *Kubernetes) Derived(ctx context.Context) *Kubernetes {
 	if err != nil {
 		return k
 	}
-	discoveryClient, err := discovery.NewDiscoveryClientForConfig(derived.cfg)
-	if err != nil {
-		return k
-	}
-	derived.discoveryClient = memory.NewMemCacheClient(discoveryClient)
+	derived.discoveryClient = memory.NewMemCacheClient(discovery.NewDiscoveryClient(derived.clientSet.CoreV1().RESTClient()))
 	derived.deferredDiscoveryRESTMapper = restmapper.NewDeferredDiscoveryRESTMapper(derived.discoveryClient)
 	derived.dynamicClient, err = dynamic.NewForConfig(derived.cfg)
 	if err != nil {

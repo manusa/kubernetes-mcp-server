@@ -2,15 +2,16 @@ package kubernetes
 
 import (
 	"errors"
-	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/clientcmd/api"
-	v1 "k8s.io/client-go/tools/clientcmd/api/v1"
 	"os"
 	"path"
 	"runtime"
-	"sigs.k8s.io/yaml"
 	"strings"
 	"testing"
+
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd/api"
+	v1 "k8s.io/client-go/tools/clientcmd/api/v1"
+	"sigs.k8s.io/yaml"
 )
 
 func TestKubernetes_IsInCluster(t *testing.T) {
@@ -171,6 +172,9 @@ func TestConfigurationViewWithOIDC(t *testing.T) {
 		Kubeconfig: "",
 	}
 
+	// Initialize cfg directly to prevent nil pointer dereference
+	k.cfg, _ = InClusterConfig()
+
 	// Call ConfigurationView
 	configYaml, err := k.ConfigurationView(true)
 	if err != nil {
@@ -244,6 +248,9 @@ func TestConfigurationViewWithExecProvider(t *testing.T) {
 	k := &Kubernetes{
 		Kubeconfig: "",
 	}
+
+	// Initialize cfg directly to prevent nil pointer dereference
+	k.cfg, _ = InClusterConfig()
 
 	// Call ConfigurationView
 	configYaml, err := k.ConfigurationView(true)

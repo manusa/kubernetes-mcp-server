@@ -2,6 +2,7 @@ package kubernetes
 
 import (
 	"context"
+
 	"github.com/fsnotify/fsnotify"
 	"github.com/manusa/kubernetes-mcp-server/pkg/helm"
 	v1 "k8s.io/api/core/v1"
@@ -131,13 +132,21 @@ func (k *Kubernetes) Derived(ctx context.Context) *Kubernetes {
 	}
 	klog.V(5).Infof("%s header found, using provided bearer token", AuthorizationBearerTokenHeader)
 	derivedCfg := rest.CopyConfig(k.cfg)
-	derivedCfg.BearerToken = bearerToken
-	derivedCfg.BearerTokenFile = ""
-	derivedCfg.Username = ""
-	derivedCfg.Password = ""
-	derivedCfg.AuthProvider = nil
-	derivedCfg.AuthConfigPersister = nil
-	derivedCfg.ExecProvider = nil
+
+	// If we have a bearer token, use it for authentication
+	if bearerToken != "" {
+		derivedCfg.BearerToken = bearerToken
+		derivedCfg.BearerTokenFile = ""
+		derivedCfg.Username = ""
+		derivedCfg.Password = ""
+
+		// Only clear auth providers if we're using a bearer token
+		// This preserves OIDC configuration when no token is provided
+		derivedCfg.AuthProvider = nil
+		derivedCfg.AuthConfigPersister = nil
+		derivedCfg.ExecProvider = nil
+	}
+
 	derivedCfg.Impersonate = rest.ImpersonationConfig{}
 	clientCmdApiConfig, err := k.clientCmdConfig.RawConfig()
 	if err != nil {

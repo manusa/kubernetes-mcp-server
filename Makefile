@@ -20,6 +20,12 @@ NPM_VERSION ?= $(shell echo $(shell git describe --tags --always) | sed 's/^v//'
 OSES = darwin linux windows
 ARCHS = amd64 arm64
 
+CONTAINER_ENGINE ?= podman
+CONTAINER_REGISTRY ?= quay.io
+CONTAINER_REPO ?= foo/kubernetes-mcp-server
+CONTAINER_TAG ?= latest
+CONTAINER_IMAGE := $(CONTAINER_REGISTRY)/$(CONTAINER_REPO):$(CONTAINER_TAG)
+
 CLEAN_TARGETS :=
 CLEAN_TARGETS += '$(BINARY_NAME)'
 CLEAN_TARGETS += $(foreach os,$(OSES),$(foreach arch,$(ARCHS),$(BINARY_NAME)-$(os)-$(arch)$(if $(findstring windows,$(os)),.exe,)))
@@ -43,6 +49,8 @@ help: ## Display this help
 clean: ## Clean up all build artifacts
 	rm -rf $(CLEAN_TARGETS)
 
+##@ Build Targets
+
 .PHONY: build
 build: clean tidy format ## Build the project
 	go build $(COMMON_BUILD_ARGS) -o $(BINARY_NAME) ./cmd/kubernetes-mcp-server
@@ -53,6 +61,19 @@ build-all-platforms: clean tidy format ## Build the project for all platforms
 	$(foreach os,$(OSES),$(foreach arch,$(ARCHS), \
 		GOOS=$(os) GOARCH=$(arch) go build $(COMMON_BUILD_ARGS) -o $(BINARY_NAME)-$(os)-$(arch)$(if $(findstring windows,$(os)),.exe,) ./cmd/kubernetes-mcp-server; \
 	))
+
+.PHONY: image-build
+image-build:
+	$(CONTAINER_ENGINE) build -t $(CONTAINER_IMAGE) .
+
+.PHONY: image-push
+image-push:
+	$(CONTAINER_ENGINE) push $(CONTAINER_IMAGE)
+
+.PHONY: image
+image: image-build image-push
+
+##@ NPM Targets
 
 .PHONY: npm-copy-binaries
 npm-copy-binaries: build-all-platforms ## Copy the binaries to each npm package
@@ -79,12 +100,23 @@ npm-publish: npm-copy-binaries ## Publish the npm packages
 	jq '.optionalDependencies |= with_entries(.value = "$(NPM_VERSION)")' ./npm/kubernetes-mcp-server/package.json > tmp.json && mv tmp.json ./npm/kubernetes-mcp-server/package.json; \
 	cd npm/kubernetes-mcp-server && npm publish
 
+##@ Python Targets
+
 .PHONY: python-publish
 python-publish: ## Publish the python packages
 	cd ./python && \
 	sed -i "s/version = \".*\"/version = \"$(NPM_VERSION)\"/" pyproject.toml && \
 	uv build && \
 	uv publish
+
+##@ Deployment Targets
+
+.PHONY: kube-deploy
+kube-deploy:
+	@echo "Deploying $(CONTAINER_IMAGE) to Kubernetes..."
+	IMAGE_TO_DEPLOY="$(CONTAINER_IMAGE)" envsubst '$$IMAGE_TO_DEPLOY' < deploy/kubernetes/deploy.yaml | kubectl apply -f -
+
+##@ Utility Targets
 
 .PHONY: test
 test: ## Run the tests

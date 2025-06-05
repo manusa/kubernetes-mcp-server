@@ -1,0 +1,68 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: mcp-system
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kubernetes-mcp-server
+  namespace: mcp-system
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: kubernetes-mcp-server
+  namespace: mcp-system
+subjects:
+  - kind: ServiceAccount
+    name: kubernetes-mcp-server
+    namespace: mcp-system
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: edit
+---
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: kubernetes-mcp-server
+  namespace: mcp-system
+  labels:
+    app: kubernetes-mcp-server
+spec:
+  selector:
+    matchLabels:
+      app: kubernetes-mcp-server
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: kubernetes-mcp-server
+        deployment: kubernetes-mcp-server
+    spec:
+      serviceAccountName: kubernetes-mcp-server
+      containers:
+        - name: server
+          image: ${IMAGE_TO_DEPLOY}
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          resources: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kubernetes-mcp-server
+  namespace: mcp-system
+  labels:
+    app: kubernetes-mcp-server
+spec:
+  selector:
+    app: kubernetes-mcp-server
+    deployment: kubernetes-mcp-server
+  ports:
+    - port: 8080
+      targetPort: http
+      protocol: TCP

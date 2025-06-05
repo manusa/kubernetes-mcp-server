@@ -85,9 +85,26 @@ func (k *Kubernetes) ConfigurationView(minify bool) (string, error) {
 			Server:                k.cfg.Host,
 			InsecureSkipTLSVerify: k.cfg.Insecure,
 		}
-		cfg.AuthInfos["user"] = &clientcmdapi.AuthInfo{
-			Token: k.cfg.BearerToken,
+
+		// Create auth info with appropriate authentication method
+		authInfo := &clientcmdapi.AuthInfo{}
+
+		// If using bearer token
+		if k.cfg.BearerToken != "" {
+			authInfo.Token = k.cfg.BearerToken
 		}
+
+		// If using OIDC auth provider
+		if k.cfg.AuthProvider != nil {
+			authInfo.AuthProvider = k.cfg.AuthProvider
+		}
+
+		// If using exec provider (for OIDC or other auth methods)
+		if k.cfg.ExecProvider != nil {
+			authInfo.Exec = k.cfg.ExecProvider
+		}
+
+		cfg.AuthInfos["user"] = authInfo
 		cfg.Contexts["context"] = &clientcmdapi.Context{
 			Cluster:  "cluster",
 			AuthInfo: "user",

@@ -19,11 +19,11 @@ import (
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/yaml"
+	"strings"
 )
 
 const (
-	AuthorizationHeader            = "Kubernetes-Authorization"
-	AuthorizationBearerTokenHeader = "kubernetes-authorization-bearer-token"
+	AuthorizationHeader = "kubernetes-authorization"
 )
 
 type CloseWatchKubeConfig func() error
@@ -125,13 +125,13 @@ func (k *Kubernetes) ToRESTMapper() (meta.RESTMapper, error) {
 }
 
 func (k *Kubernetes) Derived(ctx context.Context) *Kubernetes {
-	bearerToken, ok := ctx.Value(AuthorizationBearerTokenHeader).(string)
-	if !ok {
+	authorization, ok := ctx.Value(AuthorizationHeader).(string)
+	if !ok || !strings.HasPrefix(authorization, "Bearer ") {
 		return k
 	}
-	klog.V(5).Infof("%s header found, using provided bearer token", AuthorizationBearerTokenHeader)
+	klog.V(5).Infof("%s header found (Bearer), using provided bearer token", AuthorizationHeader)
 	derivedCfg := rest.CopyConfig(k.cfg)
-	derivedCfg.BearerToken = bearerToken
+	derivedCfg.BearerToken = strings.TrimPrefix(authorization, "Bearer ")
 	derivedCfg.BearerTokenFile = ""
 	derivedCfg.Username = ""
 	derivedCfg.Password = ""

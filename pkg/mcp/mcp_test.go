@@ -96,7 +96,7 @@ func TestSseHeaders(t *testing.T) {
 	defer mockServer.Close()
 	before := func(c *mcpContext) {
 		c.withKubeConfig(mockServer.config)
-		c.clientOptions = append(c.clientOptions, client.WithHeaders(map[string]string{"kubernetes-authorization-bearer-token": "a-token-from-mcp-client"}))
+		c.clientOptions = append(c.clientOptions, client.WithHeaders(map[string]string{"kubernetes-authorization": "Bearer a-token-from-mcp-client"}))
 	}
 	pathHeaders := make(map[string]http.Header, 0)
 	mockServer.Handle(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {

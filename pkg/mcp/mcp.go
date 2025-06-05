@@ -109,6 +109,5 @@ func NewTextResult(content string, err error) *mcp.CallToolResult {
 }
 
 func contextFunc(ctx context.Context, r *http.Request) context.Context {
-	//return context.WithValue(ctx, kubernetes.AuthorizationHeader, r.Header.Get(kubernetes.AuthorizationHeader))
-	return context.WithValue(ctx, kubernetes.AuthorizationBearerTokenHeader, r.Header.Get(kubernetes.AuthorizationBearerTokenHeader))
+	return context.WithValue(ctx, kubernetes.AuthorizationHeader, r.Header.Get(kubernetes.AuthorizationHeader))
 }

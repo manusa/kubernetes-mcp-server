@@ -18,19 +18,19 @@ import (
 	"k8s.io/client-go/tools/remotecommand"
 )
 
-func (k *Kubernetes) PodsListInAllNamespaces(ctx context.Context, labelSelector string) (string, error) {
+func (k *Kubernetes) PodsListInAllNamespaces(ctx context.Context, labelSelector string) ([]unstructured.Unstructured, error) {
 	return k.ResourcesList(ctx, &schema.GroupVersionKind{
 		Group: "", Version: "v1", Kind: "Pod",
 	}, "", labelSelector)
 }
 
-func (k *Kubernetes) PodsListInNamespace(ctx context.Context, namespace string, labelSelector string) (string, error) {
+func (k *Kubernetes) PodsListInNamespace(ctx context.Context, namespace string, labelSelector string) ([]unstructured.Unstructured, error) {
 	return k.ResourcesList(ctx, &schema.GroupVersionKind{
 		Group: "", Version: "v1", Kind: "Pod",
 	}, namespace, labelSelector)
 }
 
-func (k *Kubernetes) PodsGet(ctx context.Context, namespace, name string) (string, error) {
+func (k *Kubernetes) PodsGet(ctx context.Context, namespace, name string) (*unstructured.Unstructured, error) {
 	return k.ResourcesGet(ctx, &schema.GroupVersionKind{
 		Group: "", Version: "v1", Kind: "Pod",
 	}, k.NamespaceOrDefault(namespace), name)

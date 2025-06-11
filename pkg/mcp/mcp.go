@@ -3,6 +3,7 @@ package mcp
 import (
 	"context"
 	"github.com/manusa/kubernetes-mcp-server/pkg/kubernetes"
+	"github.com/manusa/kubernetes-mcp-server/pkg/output"
 	"github.com/manusa/kubernetes-mcp-server/pkg/version"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
@@ -11,6 +12,7 @@ import (
 
 type Configuration struct {
 	Profile Profile
+	Output  output.Output
 	// When true, expose only tools annotated with readOnlyHint=true
 	ReadOnly bool
 	// When true, disable tools annotated with destructiveHint=true

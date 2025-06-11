@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/manusa/kubernetes-mcp-server/pkg/output"
 	"github.com/mark3labs/mcp-go/client"
 	"github.com/mark3labs/mcp-go/client/transport"
 	"github.com/mark3labs/mcp-go/mcp"
@@ -96,6 +97,7 @@ func TestMain(m *testing.M) {
 
 type mcpContext struct {
 	profile            Profile
+	output             output.Output
 	readOnly           bool
 	disableDestructive bool
 	clientOptions      []transport.ClientOption
@@ -117,11 +119,17 @@ func (c *mcpContext) beforeEach(t *testing.T) {
 	if c.profile == nil {
 		c.profile = &FullProfile{}
 	}
+	if c.output == nil {
+		c.output = &output.YamlOutput{}
+	}
 	if c.before != nil {
 		c.before(c)
 	}
 	if c.mcpServer, err = NewSever(Configuration{
-		Profile: c.profile, ReadOnly: c.readOnly, DisableDestructive: c.disableDestructive,
+		Profile:            c.profile,
+		Output:             c.output,
+		ReadOnly:           c.readOnly,
+		DisableDestructive: c.disableDestructive,
 	}); err != nil {
 		t.Fatal(err)
 		return

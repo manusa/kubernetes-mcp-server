@@ -5,17 +5,17 @@ import (
 	"slices"
 )
 
-var Profiles = []Profile{
-	&FullProfile{},
-}
-
-var ProfileNames []string
-
 type Profile interface {
 	GetName() string
 	GetDescription() string
 	GetTools(s *Server) []server.ServerTool
 }
+
+var Profiles = []Profile{
+	&FullProfile{},
+}
+
+var ProfileNames []string
 
 func ProfileFromString(name string) Profile {
 	for _, profile := range Profiles {

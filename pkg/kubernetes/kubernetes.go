@@ -6,7 +6,6 @@ import (
 	"github.com/manusa/kubernetes-mcp-server/pkg/helm"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/discovery/cached/memory"
@@ -18,7 +17,6 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/klog/v2"
-	"sigs.k8s.io/yaml"
 	"strings"
 )
 
@@ -163,26 +161,4 @@ func (k *Kubernetes) Derived(ctx context.Context) *Kubernetes {
 	}
 	derived.Helm = helm.NewHelm(derived)
 	return derived
-}
-
-func marshal(v any) (string, error) {
-	switch t := v.(type) {
-	case []unstructured.Unstructured:
-		for i := range t {
-			t[i].SetManagedFields(nil)
-		}
-	case []*unstructured.Unstructured:
-		for i := range t {
-			t[i].SetManagedFields(nil)
-		}
-	case unstructured.Unstructured:
-		t.SetManagedFields(nil)
-	case *unstructured.Unstructured:
-		t.SetManagedFields(nil)
-	}
-	ret, err := yaml.Marshal(v)
-	if err != nil {
-		return "", err
-	}
-	return string(ret), nil
 }

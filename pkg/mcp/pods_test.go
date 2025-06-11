@@ -21,11 +21,9 @@ func TestPodsListInAllNamespaces(t *testing.T) {
 		t.Run("pods_list returns pods list", func(t *testing.T) {
 			if err != nil {
 				t.Fatalf("call tool failed %v", err)
-				return
 			}
 			if toolResult.IsError {
 				t.Fatalf("call tool failed")
-				return
 			}
 		})
 		var decoded []unstructured.Unstructured
@@ -33,39 +31,32 @@ func TestPodsListInAllNamespaces(t *testing.T) {
 		t.Run("pods_list has yaml content", func(t *testing.T) {
 			if err != nil {
 				t.Fatalf("invalid tool result content %v", err)
-				return
 			}
 		})
 		t.Run("pods_list returns 3 items", func(t *testing.T) {
 			if len(decoded) != 3 {
 				t.Fatalf("invalid pods count, expected 3, got %v", len(decoded))
-				return
 			}
 		})
 		t.Run("pods_list returns pod in ns-1", func(t *testing.T) {
 			if decoded[1].GetName() != "a-pod-in-ns-1" {
 				t.Fatalf("invalid pod name, expected a-pod-in-ns-1, got %v", decoded[1].GetName())
-				return
 			}
 			if decoded[1].GetNamespace() != "ns-1" {
 				t.Fatalf("invalid pod namespace, expected ns-1, got %v", decoded[1].GetNamespace())
-				return
 			}
 		})
 		t.Run("pods_list returns pod in ns-2", func(t *testing.T) {
 			if decoded[2].GetName() != "a-pod-in-ns-2" {
 				t.Fatalf("invalid pod name, expected a-pod-in-ns-2, got %v", decoded[2].GetName())
-				return
 			}
 			if decoded[2].GetNamespace() != "ns-2" {
 				t.Fatalf("invalid pod namespace, expected ns-2, got %v", decoded[2].GetNamespace())
-				return
 			}
 		})
 		t.Run("pods_list omits managed fields", func(t *testing.T) {
 			if decoded[1].GetManagedFields() != nil {
 				t.Fatalf("managed fields should be omitted, got %v", decoded[0].GetManagedFields())
-				return
 			}
 		})
 	})

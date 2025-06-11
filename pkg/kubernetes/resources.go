@@ -2,6 +2,7 @@ package kubernetes
 
 import (
 	"context"
+	"github.com/manusa/kubernetes-mcp-server/pkg/output"
 	"regexp"
 	"strings"
 
@@ -20,32 +21,28 @@ const (
 	AppKubernetesPartOf    = "app.kubernetes.io/part-of"
 )
 
-func (k *Kubernetes) ResourcesList(ctx context.Context, gvk *schema.GroupVersionKind, namespace string, labelSelector ...string) (string, error) {
+func (k *Kubernetes) ResourcesList(ctx context.Context, gvk *schema.GroupVersionKind, namespace string, labelSelector ...string) ([]unstructured.Unstructured, error) {
 	var selector string
 	if len(labelSelector) > 0 {
 		selector = labelSelector[0]
 	}
 	rl, err := k.resourcesList(ctx, gvk, namespace, selector)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	return marshal(rl.Items)
+	return rl.Items, nil
 }
 
-func (k *Kubernetes) ResourcesGet(ctx context.Context, gvk *schema.GroupVersionKind, namespace, name string) (string, error) {
+func (k *Kubernetes) ResourcesGet(ctx context.Context, gvk *schema.GroupVersionKind, namespace, name string) (*unstructured.Unstructured, error) {
 	gvr, err := k.resourceFor(gvk)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	// If it's a namespaced resource and namespace wasn't provided, try to use the default configured one
 	if namespaced, nsErr := k.isNamespaced(gvk); nsErr == nil && namespaced {
 		namespace = k.NamespaceOrDefault(namespace)
 	}
-	rg, err := k.dynamicClient.Resource(*gvr).Namespace(namespace).Get(ctx, name, metav1.GetOptions{})
-	if err != nil {
-		return "", err
-	}
-	return marshal(rg)
+	return k.dynamicClient.Resource(*gvr).Namespace(namespace).Get(ctx, name, metav1.GetOptions{})
 }
 
 func (k *Kubernetes) ResourcesCreateOrUpdate(ctx context.Context, resource string) (string, error) {
@@ -112,7 +109,7 @@ func (k *Kubernetes) resourcesCreateOrUpdate(ctx context.Context, resources []*u
 			k.deferredDiscoveryRESTMapper.Reset()
 		}
 	}
-	marshalledYaml, err := marshal(resources)
+	marshalledYaml, err := output.MarshalYaml(resources)
 	if err != nil {
 		return "", err
 	}

@@ -3,6 +3,7 @@ package kubernetes
 import (
 	"context"
 	"fmt"
+	"github.com/manusa/kubernetes-mcp-server/pkg/output"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -46,7 +47,7 @@ func (k *Kubernetes) EventsList(ctx context.Context, namespace string) (string, 
 			"Message": strings.TrimSpace(event.Message),
 		})
 	}
-	yamlEvents, err := marshal(eventMap)
+	yamlEvents, err := output.MarshalYaml(eventMap)
 	if err != nil {
 		return "", err
 	}

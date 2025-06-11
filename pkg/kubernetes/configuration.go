@@ -1,6 +1,7 @@
 package kubernetes
 
 import (
+	"github.com/manusa/kubernetes-mcp-server/pkg/output"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
@@ -109,5 +110,5 @@ func (k *Kubernetes) ConfigurationView(minify bool) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return marshal(convertedObj)
+	return output.MarshalYaml(convertedObj)
 }

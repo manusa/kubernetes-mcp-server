@@ -2,29 +2,29 @@ package kubernetes
 
 import (
 	"context"
-	"fmt"
-	"github.com/manusa/kubernetes-mcp-server/pkg/output"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"strings"
 )
 
-func (k *Kubernetes) EventsList(ctx context.Context, namespace string) (string, error) {
-	unstructuredList, err := k.resourcesList(ctx, &schema.GroupVersionKind{
-		Group: "", Version: "v1", Kind: "Event",
-	}, namespace, "")
-	if err != nil {
-		return "", err
-	}
-	if len(unstructuredList.Items) == 0 {
-		return "No events found", nil
-	}
+func (k *Kubernetes) EventsList(ctx context.Context, namespace string) ([]map[string]any, error) {
 	var eventMap []map[string]any
+	raw, err := k.ResourcesList(ctx, &schema.GroupVersionKind{
+		Group: "", Version: "v1", Kind: "Event",
+	}, namespace, ResourceListOptions{})
+	if err != nil {
+		return eventMap, err
+	}
+	unstructuredList := raw.(*unstructured.UnstructuredList)
+	if len(unstructuredList.Items) == 0 {
+		return eventMap, nil
+	}
 	for _, item := range unstructuredList.Items {
 		event := &v1.Event{}
 		if err = runtime.DefaultUnstructuredConverter.FromUnstructured(item.Object, event); err != nil {
-			return "", err
+			return eventMap, err
 		}
 		timestamp := event.EventTime.Time
 		if timestamp.IsZero() && event.Series != nil {
@@ -47,9 +47,5 @@ func (k *Kubernetes) EventsList(ctx context.Context, namespace string) (string, 
 			"Message": strings.TrimSpace(event.Message),
 		})
 	}
-	yamlEvents, err := output.MarshalYaml(eventMap)
-	if err != nil {
-		return "", err
-	}
-	return fmt.Sprintf("The following events (YAML format) were found:\n%s", yamlEvents), nil
+	return eventMap, nil
 }

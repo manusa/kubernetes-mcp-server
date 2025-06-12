@@ -3,6 +3,7 @@ package mcp
 import (
 	"context"
 	"fmt"
+	"github.com/manusa/kubernetes-mcp-server/pkg/kubernetes"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 )
@@ -35,17 +36,17 @@ func (s *Server) initNamespaces() []server.ServerTool {
 }
 
 func (s *Server) namespacesList(ctx context.Context, _ mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	ret, err := s.k.Derived(ctx).NamespacesList(ctx)
+	ret, err := s.k.Derived(ctx).NamespacesList(ctx, kubernetes.ResourceListOptions{AsTable: s.configuration.ListOutput.AsTable()})
 	if err != nil {
 		return NewTextResult("", fmt.Errorf("failed to list namespaces: %v", err)), nil
 	}
-	return NewTextResult(s.configuration.Output.PrintObj(ret)), nil
+	return NewTextResult(s.configuration.ListOutput.PrintObj(ret)), nil
 }
 
 func (s *Server) projectsList(ctx context.Context, _ mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	ret, err := s.k.Derived(ctx).ProjectsList(ctx)
+	ret, err := s.k.Derived(ctx).ProjectsList(ctx, kubernetes.ResourceListOptions{AsTable: s.configuration.ListOutput.AsTable()})
 	if err != nil {
 		return NewTextResult("", fmt.Errorf("failed to list projects: %v", err)), nil
 	}
-	return NewTextResult(s.configuration.Output.PrintObj(ret)), nil
+	return NewTextResult(s.configuration.ListOutput.PrintObj(ret)), nil
 }

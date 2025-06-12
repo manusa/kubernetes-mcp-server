@@ -97,7 +97,7 @@ func TestMain(m *testing.M) {
 
 type mcpContext struct {
 	profile            Profile
-	output             output.Output
+	listOutput         output.Output
 	readOnly           bool
 	disableDestructive bool
 	clientOptions      []transport.ClientOption
@@ -119,15 +119,15 @@ func (c *mcpContext) beforeEach(t *testing.T) {
 	if c.profile == nil {
 		c.profile = &FullProfile{}
 	}
-	if c.output == nil {
-		c.output = &output.YamlOutput{}
+	if c.listOutput == nil {
+		c.listOutput = output.Yaml
 	}
 	if c.before != nil {
 		c.before(c)
 	}
 	if c.mcpServer, err = NewSever(Configuration{
 		Profile:            c.profile,
-		Output:             c.output,
+		ListOutput:         c.listOutput,
 		ReadOnly:           c.readOnly,
 		DisableDestructive: c.disableDestructive,
 	}); err != nil {

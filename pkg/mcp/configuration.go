@@ -3,6 +3,7 @@ package mcp
 import (
 	"context"
 	"fmt"
+	"github.com/manusa/kubernetes-mcp-server/pkg/output"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 )
@@ -33,7 +34,11 @@ func (s *Server) configurationView(_ context.Context, ctr mcp.CallToolRequest) (
 	}
 	ret, err := s.k.ConfigurationView(minify)
 	if err != nil {
+		return NewTextResult("", fmt.Errorf("failed to get configuration: %v", err)), nil
+	}
+	configurationYaml, err := output.MarshalYaml(ret)
+	if err != nil {
 		err = fmt.Errorf("failed to get configuration: %v", err)
 	}
-	return NewTextResult(ret, err), nil
+	return NewTextResult(configurationYaml, err), nil
 }

@@ -47,14 +47,14 @@ Kubernetes Model Context Protocol (MCP) server
 			fmt.Printf("Invalid profile name: %s, valid names are: %s\n", viper.GetString("profile"), strings.Join(mcp.ProfileNames, ", "))
 			os.Exit(1)
 		}
-		o := output.FromString(viper.GetString("output"))
-		if o == nil {
-			fmt.Printf("Invalid output name: %s, valid names are: %s\n", viper.GetString("output"), strings.Join(output.Names, ", "))
+		listOutput := output.FromString(viper.GetString("list-output"))
+		if listOutput == nil {
+			fmt.Printf("Invalid output name: %s, valid names are: %s\n", viper.GetString("list-output"), strings.Join(output.Names, ", "))
 			os.Exit(1)
 		}
 		klog.V(1).Info("Starting kubernetes-mcp-server")
 		klog.V(1).Infof(" - Profile: %s", profile.GetName())
-		klog.V(1).Infof(" - Output: %s", o.GetName())
+		klog.V(1).Infof(" - ListOutput: %s", listOutput.GetName())
 		klog.V(1).Infof(" - Read-only mode: %t", viper.GetBool("read-only"))
 		klog.V(1).Infof(" - Disable destructive tools: %t", viper.GetBool("disable-destructive"))
 		if viper.GetBool("version") {
@@ -63,7 +63,7 @@ Kubernetes Model Context Protocol (MCP) server
 		}
 		mcpServer, err := mcp.NewSever(mcp.Configuration{
 			Profile:            profile,
-			Output:             o,
+			ListOutput:         listOutput,
 			ReadOnly:           viper.GetBool("read-only"),
 			DisableDestructive: viper.GetBool("disable-destructive"),
 			Kubeconfig:         viper.GetString("kubeconfig"),
@@ -109,26 +109,6 @@ func initLogging() {
 	klog.SetLoggerWithOptions(logger)
 }
 
-type profileFlag struct {
-	mcp.Profile
-}
-
-func (p *profileFlag) String() string {
-	return p.GetName()
-}
-
-func (p *profileFlag) Set(v string) error {
-	p.Profile = mcp.ProfileFromString(v)
-	if p.Profile != nil {
-		return nil
-	}
-	return fmt.Errorf("invalid profile name: %s, valid names are: %s", v, mcp.ProfileNames)
-}
-
-func (p *profileFlag) Type() string {
-	return "profile"
-}
-
 // flagInit initializes the flags for the root command.
 // Exposed for testing purposes.
 func flagInit() {
@@ -137,8 +117,8 @@ func flagInit() {
 	rootCmd.Flags().IntP("sse-port", "", 0, "Start a SSE server on the specified port")
 	rootCmd.Flags().StringP("sse-base-url", "", "", "SSE public base URL to use when sending the endpoint message (e.g. https://example.com)")
 	rootCmd.Flags().StringP("kubeconfig", "", "", "Path to the kubeconfig file to use for authentication")
-	rootCmd.Flags().String("profile", "full", "MCP profile to use (one of: "+strings.Join(mcp.ProfileNames, ", ")+") default is full")
-	rootCmd.Flags().String("output", "yaml", "Output format for resources (one of: "+strings.Join(output.Names, ", ")+") default is yaml")
+	rootCmd.Flags().String("profile", "full", "MCP profile to use (one of: "+strings.Join(mcp.ProfileNames, ", ")+")")
+	rootCmd.Flags().String("list-output", "yaml", "Output format for resource lists (one of: "+strings.Join(output.Names, ", ")+")")
 	rootCmd.Flags().Bool("read-only", false, "If true, only tools annotated with readOnlyHint=true are exposed")
 	rootCmd.Flags().Bool("disable-destructive", false, "If true, tools annotated with destructiveHint=true are disabled")
 	_ = viper.BindPFlags(rootCmd.Flags())

@@ -11,8 +11,8 @@ import (
 )
 
 type Configuration struct {
-	Profile Profile
-	Output  output.Output
+	Profile    Profile
+	ListOutput output.Output
 	// When true, expose only tools annotated with readOnlyHint=true
 	ReadOnly bool
 	// When true, disable tools annotated with destructiveHint=true

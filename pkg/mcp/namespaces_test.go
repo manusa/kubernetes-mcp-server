@@ -1,11 +1,13 @@
 package mcp
 
 import (
+	"github.com/manusa/kubernetes-mcp-server/pkg/output"
 	"github.com/mark3labs/mcp-go/mcp"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
+	"regexp"
 	"sigs.k8s.io/yaml"
 	"slices"
 	"testing"
@@ -44,6 +46,51 @@ func TestNamespacesList(t *testing.T) {
 			}
 		})
 	})
+}
+
+func TestNamespacesListAsTable(t *testing.T) {
+	testCaseWithContext(t, &mcpContext{listOutput: output.Table}, func(c *mcpContext) {
+		c.withEnvTest()
+		toolResult, err := c.callTool("namespaces_list", map[string]interface{}{})
+		t.Run("namespaces_list returns namespace list", func(t *testing.T) {
+			if err != nil {
+				t.Fatalf("call tool failed %v", err)
+			}
+			if toolResult.IsError {
+				t.Fatalf("call tool failed")
+			}
+		})
+		out := toolResult.Content[0].(mcp.TextContent).Text
+		t.Run("namespaces_list returns column headers", func(t *testing.T) {
+			expectedHeaders := "APIVERSION\\s+KIND\\s+NAME\\s+STATUS\\s+AGE\\s+LABELS"
+			if m, e := regexp.MatchString(expectedHeaders, out); !m || e != nil {
+				t.Errorf("Expected headers '%s' not found in output:\n%s", expectedHeaders, out)
+			}
+		})
+		t.Run("namespaces_list returns formatted row for ns-1", func(t *testing.T) {
+			expectedRow := "(?<apiVersion>v1)\\s+" +
+				"(?<kind>Namespace)\\s+" +
+				"(?<name>ns-1)\\s+" +
+				"(?<status>Active)\\s+" +
+				"(?<age>\\d+(s|m))\\s+" +
+				"(?<labels>kubernetes.io/metadata.name=ns-1)"
+			if m, e := regexp.MatchString(expectedRow, out); !m || e != nil {
+				t.Errorf("Expected row '%s' not found in output:\n%s", expectedRow, out)
+			}
+		})
+		t.Run("namespaces_list returns formatted row for ns-2", func(t *testing.T) {
+			expectedRow := "(?<apiVersion>v1)\\s+" +
+				"(?<kind>Namespace)\\s+" +
+				"(?<name>ns-2)\\s+" +
+				"(?<status>Active)\\s+" +
+				"(?<age>\\d+(s|m))\\s+" +
+				"(?<labels>kubernetes.io/metadata.name=ns-2)"
+			if m, e := regexp.MatchString(expectedRow, out); !m || e != nil {
+				t.Errorf("Expected row '%s' not found in output:\n%s", expectedRow, out)
+			}
+		})
+	})
+
 }
 
 func TestProjectsListInOpenShift(t *testing.T) {

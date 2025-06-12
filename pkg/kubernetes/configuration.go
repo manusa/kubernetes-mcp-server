@@ -1,7 +1,7 @@
 package kubernetes
 
 import (
-	"github.com/manusa/kubernetes-mcp-server/pkg/output"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
@@ -77,7 +77,7 @@ func (k *Kubernetes) ToRawKubeConfigLoader() clientcmd.ClientConfig {
 	return k.clientCmdConfig
 }
 
-func (k *Kubernetes) ConfigurationView(minify bool) (string, error) {
+func (k *Kubernetes) ConfigurationView(minify bool) (runtime.Object, error) {
 	var cfg clientcmdapi.Config
 	var err error
 	if k.IsInCluster() {
@@ -95,20 +95,16 @@ func (k *Kubernetes) ConfigurationView(minify bool) (string, error) {
 		}
 		cfg.CurrentContext = "context"
 	} else if cfg, err = k.clientCmdConfig.RawConfig(); err != nil {
-		return "", err
+		return nil, err
 	}
 	if minify {
 		if err = clientcmdapi.MinifyConfig(&cfg); err != nil {
-			return "", err
+			return nil, err
 		}
 	}
 	if err = clientcmdapi.FlattenConfig(&cfg); err != nil {
 		// ignore error
 		//return "", err
 	}
-	convertedObj, err := latest.Scheme.ConvertToVersion(&cfg, latest.ExternalVersion)
-	if err != nil {
-		return "", err
-	}
-	return output.MarshalYaml(convertedObj)
+	return latest.Scheme.ConvertToVersion(&cfg, latest.ExternalVersion)
 }

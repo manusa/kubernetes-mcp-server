@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/manusa/kubernetes-mcp-server/pkg/kubernetes"
+	"github.com/manusa/kubernetes-mcp-server/pkg/output"
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
@@ -104,18 +106,21 @@ func (s *Server) resourcesList(ctx context.Context, ctr mcp.CallToolRequest) (*m
 		namespace = ""
 	}
 	labelSelector := ctr.GetArguments()["labelSelector"]
-	if labelSelector == nil {
-		labelSelector = ""
+	resourceListOptions := kubernetes.ResourceListOptions{
+		AsTable: s.configuration.ListOutput.AsTable(),
+	}
+	if labelSelector != nil {
+		resourceListOptions.ListOptions.LabelSelector = labelSelector.(string)
 	}
 	gvk, err := parseGroupVersionKind(ctr.GetArguments())
 	if err != nil {
 		return NewTextResult("", fmt.Errorf("failed to list resources, %s", err)), nil
 	}
-	ret, err := s.k.Derived(ctx).ResourcesList(ctx, gvk, namespace.(string), labelSelector.(string))
+	ret, err := s.k.Derived(ctx).ResourcesList(ctx, gvk, namespace.(string), resourceListOptions)
 	if err != nil {
 		return NewTextResult("", fmt.Errorf("failed to list resources: %v", err)), nil
 	}
-	return NewTextResult(s.configuration.Output.PrintObj(ret)), nil
+	return NewTextResult(s.configuration.ListOutput.PrintObj(ret)), nil
 }
 
 func (s *Server) resourcesGet(ctx context.Context, ctr mcp.CallToolRequest) (*mcp.CallToolResult, error) {
@@ -135,7 +140,7 @@ func (s *Server) resourcesGet(ctx context.Context, ctr mcp.CallToolRequest) (*mc
 	if err != nil {
 		return NewTextResult("", fmt.Errorf("failed to get resource: %v", err)), nil
 	}
-	return NewTextResult(s.configuration.Output.PrintObj(ret)), nil
+	return NewTextResult(output.MarshalYaml(ret)), nil
 }
 
 func (s *Server) resourcesCreateOrUpdate(ctx context.Context, ctr mcp.CallToolRequest) (*mcp.CallToolResult, error) {
@@ -143,11 +148,15 @@ func (s *Server) resourcesCreateOrUpdate(ctx context.Context, ctr mcp.CallToolRe
 	if resource == nil || resource == "" {
 		return NewTextResult("", errors.New("failed to create or update resources, missing argument resource")), nil
 	}
-	ret, err := s.k.Derived(ctx).ResourcesCreateOrUpdate(ctx, resource.(string))
+	resources, err := s.k.Derived(ctx).ResourcesCreateOrUpdate(ctx, resource.(string))
 	if err != nil {
 		return NewTextResult("", fmt.Errorf("failed to create or update resources: %v", err)), nil
 	}
-	return NewTextResult(ret, err), nil
+	marshalledYaml, err := output.MarshalYaml(resources)
+	if err != nil {
+		err = fmt.Errorf("failed to create or update resources:: %v", err)
+	}
+	return NewTextResult("# The following resources (YAML) have been created or updated successfully\n"+marshalledYaml, err), nil
 }
 
 func (s *Server) resourcesDelete(ctx context.Context, ctr mcp.CallToolRequest) (*mcp.CallToolResult, error) {

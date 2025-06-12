@@ -42,13 +42,13 @@ func TestProfile(t *testing.T) {
 	})
 }
 
-func TestOutput(t *testing.T) {
+func TestListOutput(t *testing.T) {
 	t.Run("available", func(t *testing.T) {
 		rootCmd.SetArgs([]string{"--help"})
 		rootCmd.ResetFlags()
 		flagInit()
 		out, err := captureOutput(rootCmd.Execute)
-		if !strings.Contains(out, "Output format for resources (one of: yaml)") {
+		if !strings.Contains(out, "Output format for resource lists (one of: yaml, table)") {
 			t.Fatalf("Expected all available outputs, got %s %v", out, err)
 		}
 	})
@@ -57,8 +57,8 @@ func TestOutput(t *testing.T) {
 		rootCmd.ResetFlags()
 		flagInit()
 		out, err := captureOutput(rootCmd.Execute)
-		if !strings.Contains(out, "- Output: yaml") {
-			t.Fatalf("Expected output 'yaml', got %s %v", out, err)
+		if !strings.Contains(out, "- ListOutput: yaml") {
+			t.Fatalf("Expected list-output 'yaml', got %s %v", out, err)
 		}
 	})
 }

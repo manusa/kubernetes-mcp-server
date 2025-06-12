@@ -1,6 +1,8 @@
 package mcp
 
 import (
+	"github.com/manusa/kubernetes-mcp-server/pkg/output"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -141,11 +143,9 @@ func TestPodsListInNamespace(t *testing.T) {
 		t.Run("pods_list_in_namespace returns pods list", func(t *testing.T) {
 			if err != nil {
 				t.Fatalf("call tool failed %v", err)
-				return
 			}
 			if toolResult.IsError {
 				t.Fatalf("call tool failed")
-				return
 			}
 		})
 		var decoded []unstructured.Unstructured
@@ -153,29 +153,131 @@ func TestPodsListInNamespace(t *testing.T) {
 		t.Run("pods_list_in_namespace has yaml content", func(t *testing.T) {
 			if err != nil {
 				t.Fatalf("invalid tool result content %v", err)
-				return
 			}
 		})
 		t.Run("pods_list_in_namespace returns 1 items", func(t *testing.T) {
 			if len(decoded) != 1 {
 				t.Fatalf("invalid pods count, expected 1, got %v", len(decoded))
-				return
 			}
 		})
 		t.Run("pods_list_in_namespace returns pod in ns-1", func(t *testing.T) {
 			if decoded[0].GetName() != "a-pod-in-ns-1" {
-				t.Fatalf("invalid pod name, expected a-pod-in-ns-1, got %v", decoded[0].GetName())
-				return
+				t.Errorf("invalid pod name, expected a-pod-in-ns-1, got %v", decoded[0].GetName())
 			}
 			if decoded[0].GetNamespace() != "ns-1" {
-				t.Fatalf("invalid pod namespace, expected ns-1, got %v", decoded[0].GetNamespace())
-				return
+				t.Errorf("invalid pod namespace, expected ns-1, got %v", decoded[0].GetNamespace())
 			}
 		})
 		t.Run("pods_list_in_namespace omits managed fields", func(t *testing.T) {
 			if decoded[0].GetManagedFields() != nil {
 				t.Fatalf("managed fields should be omitted, got %v", decoded[0].GetManagedFields())
+			}
+		})
+	})
+}
+
+func TestPodsListAsTable(t *testing.T) {
+	testCaseWithContext(t, &mcpContext{listOutput: output.Table}, func(c *mcpContext) {
+		c.withEnvTest()
+		podsList, err := c.callTool("pods_list", map[string]interface{}{})
+		t.Run("pods_list returns pods list", func(t *testing.T) {
+			if err != nil {
+				t.Fatalf("call tool failed %v", err)
+			}
+			if podsList.IsError {
+				t.Fatalf("call tool failed")
+			}
+		})
+		outPodsList := podsList.Content[0].(mcp.TextContent).Text
+		t.Run("pods_list returns table with 1 header and 3 rows", func(t *testing.T) {
+			lines := strings.Count(outPodsList, "\n")
+			if lines != 4 {
+				t.Fatalf("invalid line count, expected 4 (1 header, 3 row), got %v", lines)
+			}
+		})
+		t.Run("pods_list_in_namespace returns column headers", func(t *testing.T) {
+			expectedHeaders := "NAMESPACE\\s+APIVERSION\\s+KIND\\s+NAME\\s+READY\\s+STATUS\\s+RESTARTS\\s+AGE\\s+IP\\s+NODE\\s+NOMINATED NODE\\s+READINESS GATES\\s+LABELS"
+			if m, e := regexp.MatchString(expectedHeaders, outPodsList); !m || e != nil {
+				t.Errorf("Expected headers '%s' not found in output:\n%s", expectedHeaders, outPodsList)
+			}
+		})
+		t.Run("pods_list_in_namespace returns formatted row for a-pod-in-ns-1", func(t *testing.T) {
+			expectedRow := "(?<namespace>ns-1)\\s+" +
+				"(?<apiVersion>v1)\\s+" +
+				"(?<kind>Pod)\\s+" +
+				"(?<name>a-pod-in-ns-1)\\s+" +
+				"(?<ready>0\\/1)\\s+" +
+				"(?<status>Pending)\\s+" +
+				"(?<restarts>0)\\s+" +
+				"(?<age>\\d+(s|m))\\s+" +
+				"(?<ip><none>)\\s+" +
+				"(?<node><none>)\\s+" +
+				"(?<nominated_node><none>)\\s+" +
+				"(?<readiness_gates><none>)\\s+" +
+				"(?<labels><none>)"
+			if m, e := regexp.MatchString(expectedRow, outPodsList); !m || e != nil {
+				t.Errorf("Expected row '%s' not found in output:\n%s", expectedRow, outPodsList)
+			}
+		})
+		t.Run("pods_list_in_namespace returns formatted row for a-pod-in-default", func(t *testing.T) {
+			expectedRow := "(?<namespace>default)\\s+" +
+				"(?<apiVersion>v1)\\s+" +
+				"(?<kind>Pod)\\s+" +
+				"(?<name>a-pod-in-default)\\s+" +
+				"(?<ready>0\\/1)\\s+" +
+				"(?<status>Pending)\\s+" +
+				"(?<restarts>0)\\s+" +
+				"(?<age>\\d+(s|m))\\s+" +
+				"(?<ip><none>)\\s+" +
+				"(?<node><none>)\\s+" +
+				"(?<nominated_node><none>)\\s+" +
+				"(?<readiness_gates><none>)\\s+" +
+				"(?<labels>app=nginx)"
+			if m, e := regexp.MatchString(expectedRow, outPodsList); !m || e != nil {
+				t.Errorf("Expected row '%s' not found in output:\n%s", expectedRow, outPodsList)
+			}
+		})
+		podsListInNamespace, err := c.callTool("pods_list_in_namespace", map[string]interface{}{
+			"namespace": "ns-1",
+		})
+		t.Run("pods_list_in_namespace returns pods list", func(t *testing.T) {
+			if err != nil {
+				t.Fatalf("call tool failed %v", err)
 				return
+			}
+			if podsListInNamespace.IsError {
+				t.Fatalf("call tool failed")
+			}
+		})
+		outPodsListInNamespace := podsListInNamespace.Content[0].(mcp.TextContent).Text
+		t.Run("pods_list_in_namespace returns table with 1 header and 1 row", func(t *testing.T) {
+			lines := strings.Count(outPodsListInNamespace, "\n")
+			if lines != 2 {
+				t.Fatalf("invalid line count, expected 2 (1 header, 1 row), got %v", lines)
+			}
+		})
+		t.Run("pods_list_in_namespace returns column headers", func(t *testing.T) {
+			expectedHeaders := "NAMESPACE\\s+APIVERSION\\s+KIND\\s+NAME\\s+READY\\s+STATUS\\s+RESTARTS\\s+AGE\\s+IP\\s+NODE\\s+NOMINATED NODE\\s+READINESS GATES\\s+LABELS"
+			if m, e := regexp.MatchString(expectedHeaders, outPodsListInNamespace); !m || e != nil {
+				t.Errorf("Expected headers '%s' not found in output:\n%s", expectedHeaders, outPodsListInNamespace)
+			}
+		})
+		t.Run("pods_list_in_namespace returns formatted row", func(t *testing.T) {
+			expectedRow := "(?<namespace>ns-1)\\s+" +
+				"(?<apiVersion>v1)\\s+" +
+				"(?<kind>Pod)\\s+" +
+				"(?<name>a-pod-in-ns-1)\\s+" +
+				"(?<ready>0\\/1)\\s+" +
+				"(?<status>Pending)\\s+" +
+				"(?<restarts>0)\\s+" +
+				"(?<age>\\d+(s|m))\\s+" +
+				"(?<ip><none>)\\s+" +
+				"(?<node><none>)\\s+" +
+				"(?<nominated_node><none>)\\s+" +
+				"(?<readiness_gates><none>)\\s+" +
+				"(?<labels><none>)"
+			if m, e := regexp.MatchString(expectedRow, outPodsListInNamespace); !m || e != nil {
+				t.Errorf("Expected row '%s' not found in output:\n%s", expectedRow, outPodsListInNamespace)
 			}
 		})
 	})

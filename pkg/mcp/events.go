@@ -3,6 +3,7 @@ package mcp
 import (
 	"context"
 	"fmt"
+	"github.com/manusa/kubernetes-mcp-server/pkg/output"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 )
@@ -27,9 +28,16 @@ func (s *Server) eventsList(ctx context.Context, ctr mcp.CallToolRequest) (*mcp.
 	if namespace == nil {
 		namespace = ""
 	}
-	ret, err := s.k.Derived(ctx).EventsList(ctx, namespace.(string))
+	eventMap, err := s.k.Derived(ctx).EventsList(ctx, namespace.(string))
 	if err != nil {
 		return NewTextResult("", fmt.Errorf("failed to list events in all namespaces: %v", err)), nil
 	}
-	return NewTextResult(ret, err), nil
+	if len(eventMap) == 0 {
+		return NewTextResult("No events found", nil), nil
+	}
+	yamlEvents, err := output.MarshalYaml(eventMap)
+	if err != nil {
+		err = fmt.Errorf("failed to list events in all namespaces: %v", err)
+	}
+	return NewTextResult(fmt.Sprintf("The following events (YAML format) were found:\n%s", yamlEvents), err), nil
 }

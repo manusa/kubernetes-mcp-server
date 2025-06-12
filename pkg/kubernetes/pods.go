@@ -18,16 +18,16 @@ import (
 	"k8s.io/client-go/tools/remotecommand"
 )
 
-func (k *Kubernetes) PodsListInAllNamespaces(ctx context.Context, labelSelector string) ([]unstructured.Unstructured, error) {
+func (k *Kubernetes) PodsListInAllNamespaces(ctx context.Context, options ResourceListOptions) (runtime.Unstructured, error) {
 	return k.ResourcesList(ctx, &schema.GroupVersionKind{
 		Group: "", Version: "v1", Kind: "Pod",
-	}, "", labelSelector)
+	}, "", options)
 }
 
-func (k *Kubernetes) PodsListInNamespace(ctx context.Context, namespace string, labelSelector string) ([]unstructured.Unstructured, error) {
+func (k *Kubernetes) PodsListInNamespace(ctx context.Context, namespace string, options ResourceListOptions) (runtime.Unstructured, error) {
 	return k.ResourcesList(ctx, &schema.GroupVersionKind{
 		Group: "", Version: "v1", Kind: "Pod",
-	}, namespace, labelSelector)
+	}, namespace, options)
 }
 
 func (k *Kubernetes) PodsGet(ctx context.Context, namespace, name string) (*unstructured.Unstructured, error) {
@@ -95,7 +95,7 @@ func (k *Kubernetes) PodsLog(ctx context.Context, namespace, name, container str
 	return string(rawData), nil
 }
 
-func (k *Kubernetes) PodsRun(ctx context.Context, namespace, name, image string, port int32) (string, error) {
+func (k *Kubernetes) PodsRun(ctx context.Context, namespace, name, image string, port int32) ([]*unstructured.Unstructured, error) {
 	if name == "" {
 		name = version.BinaryName + "-run-" + rand.String(5)
 	}
@@ -164,11 +164,11 @@ func (k *Kubernetes) PodsRun(ctx context.Context, namespace, name, image string,
 	for _, obj := range resources {
 		m, err := converter.ToUnstructured(obj)
 		if err != nil {
-			return "", err
+			return nil, err
 		}
 		u := &unstructured.Unstructured{}
 		if err = converter.FromUnstructured(m, u); err != nil {
-			return "", err
+			return nil, err
 		}
 		toCreate = append(toCreate, u)
 	}

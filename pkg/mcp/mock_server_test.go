@@ -56,7 +56,6 @@ func writeObject(w http.ResponseWriter, obj runtime.Object) {
 	if err := json.NewEncoder(w).Encode(obj); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
-	w.WriteHeader(http.StatusOK)
 }
 
 type streamAndReply struct {

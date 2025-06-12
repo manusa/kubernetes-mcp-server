@@ -64,7 +64,7 @@ func TestNamespacesListAsTable(t *testing.T) {
 		t.Run("namespaces_list returns column headers", func(t *testing.T) {
 			expectedHeaders := "APIVERSION\\s+KIND\\s+NAME\\s+STATUS\\s+AGE\\s+LABELS"
 			if m, e := regexp.MatchString(expectedHeaders, out); !m || e != nil {
-				t.Errorf("Expected headers '%s' not found in output:\n%s", expectedHeaders, out)
+				t.Fatalf("Expected headers '%s' not found in output:\n%s", expectedHeaders, out)
 			}
 		})
 		t.Run("namespaces_list returns formatted row for ns-1", func(t *testing.T) {
@@ -75,7 +75,7 @@ func TestNamespacesListAsTable(t *testing.T) {
 				"(?<age>\\d+(s|m))\\s+" +
 				"(?<labels>kubernetes.io/metadata.name=ns-1)"
 			if m, e := regexp.MatchString(expectedRow, out); !m || e != nil {
-				t.Errorf("Expected row '%s' not found in output:\n%s", expectedRow, out)
+				t.Fatalf("Expected row '%s' not found in output:\n%s", expectedRow, out)
 			}
 		})
 		t.Run("namespaces_list returns formatted row for ns-2", func(t *testing.T) {
@@ -86,7 +86,7 @@ func TestNamespacesListAsTable(t *testing.T) {
 				"(?<age>\\d+(s|m))\\s+" +
 				"(?<labels>kubernetes.io/metadata.name=ns-2)"
 			if m, e := regexp.MatchString(expectedRow, out); !m || e != nil {
-				t.Errorf("Expected row '%s' not found in output:\n%s", expectedRow, out)
+				t.Fatalf("Expected row '%s' not found in output:\n%s", expectedRow, out)
 			}
 		})
 	})

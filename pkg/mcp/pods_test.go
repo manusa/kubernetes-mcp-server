@@ -198,7 +198,7 @@ func TestPodsListAsTable(t *testing.T) {
 		t.Run("pods_list_in_namespace returns column headers", func(t *testing.T) {
 			expectedHeaders := "NAMESPACE\\s+APIVERSION\\s+KIND\\s+NAME\\s+READY\\s+STATUS\\s+RESTARTS\\s+AGE\\s+IP\\s+NODE\\s+NOMINATED NODE\\s+READINESS GATES\\s+LABELS"
 			if m, e := regexp.MatchString(expectedHeaders, outPodsList); !m || e != nil {
-				t.Errorf("Expected headers '%s' not found in output:\n%s", expectedHeaders, outPodsList)
+				t.Fatalf("Expected headers '%s' not found in output:\n%s", expectedHeaders, outPodsList)
 			}
 		})
 		t.Run("pods_list_in_namespace returns formatted row for a-pod-in-ns-1", func(t *testing.T) {
@@ -216,7 +216,7 @@ func TestPodsListAsTable(t *testing.T) {
 				"(?<readiness_gates><none>)\\s+" +
 				"(?<labels><none>)"
 			if m, e := regexp.MatchString(expectedRow, outPodsList); !m || e != nil {
-				t.Errorf("Expected row '%s' not found in output:\n%s", expectedRow, outPodsList)
+				t.Fatalf("Expected row '%s' not found in output:\n%s", expectedRow, outPodsList)
 			}
 		})
 		t.Run("pods_list_in_namespace returns formatted row for a-pod-in-default", func(t *testing.T) {
@@ -234,7 +234,7 @@ func TestPodsListAsTable(t *testing.T) {
 				"(?<readiness_gates><none>)\\s+" +
 				"(?<labels>app=nginx)"
 			if m, e := regexp.MatchString(expectedRow, outPodsList); !m || e != nil {
-				t.Errorf("Expected row '%s' not found in output:\n%s", expectedRow, outPodsList)
+				t.Fatalf("Expected row '%s' not found in output:\n%s", expectedRow, outPodsList)
 			}
 		})
 		podsListInNamespace, err := c.callTool("pods_list_in_namespace", map[string]interface{}{
@@ -259,7 +259,7 @@ func TestPodsListAsTable(t *testing.T) {
 		t.Run("pods_list_in_namespace returns column headers", func(t *testing.T) {
 			expectedHeaders := "NAMESPACE\\s+APIVERSION\\s+KIND\\s+NAME\\s+READY\\s+STATUS\\s+RESTARTS\\s+AGE\\s+IP\\s+NODE\\s+NOMINATED NODE\\s+READINESS GATES\\s+LABELS"
 			if m, e := regexp.MatchString(expectedHeaders, outPodsListInNamespace); !m || e != nil {
-				t.Errorf("Expected headers '%s' not found in output:\n%s", expectedHeaders, outPodsListInNamespace)
+				t.Fatalf("Expected headers '%s' not found in output:\n%s", expectedHeaders, outPodsListInNamespace)
 			}
 		})
 		t.Run("pods_list_in_namespace returns formatted row", func(t *testing.T) {
@@ -277,7 +277,7 @@ func TestPodsListAsTable(t *testing.T) {
 				"(?<readiness_gates><none>)\\s+" +
 				"(?<labels><none>)"
 			if m, e := regexp.MatchString(expectedRow, outPodsListInNamespace); !m || e != nil {
-				t.Errorf("Expected row '%s' not found in output:\n%s", expectedRow, outPodsListInNamespace)
+				t.Fatalf("Expected row '%s' not found in output:\n%s", expectedRow, outPodsListInNamespace)
 			}
 		})
 	})

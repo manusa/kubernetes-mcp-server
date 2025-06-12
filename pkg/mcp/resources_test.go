@@ -1,6 +1,9 @@
 package mcp
 
 import (
+	"github.com/manusa/kubernetes-mcp-server/pkg/output"
+	corev1 "k8s.io/api/core/v1"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -19,44 +22,36 @@ func TestResourcesList(t *testing.T) {
 			toolResult, _ := c.callTool("resources_list", map[string]interface{}{})
 			if !toolResult.IsError {
 				t.Fatalf("call tool should fail")
-				return
 			}
 			if toolResult.Content[0].(mcp.TextContent).Text != "failed to list resources, missing argument apiVersion" {
 				t.Fatalf("invalid error message, got %v", toolResult.Content[0].(mcp.TextContent).Text)
-				return
 			}
 		})
 		t.Run("resources_list with missing kind returns error", func(t *testing.T) {
 			toolResult, _ := c.callTool("resources_list", map[string]interface{}{"apiVersion": "v1"})
 			if !toolResult.IsError {
 				t.Fatalf("call tool should fail")
-				return
 			}
 			if toolResult.Content[0].(mcp.TextContent).Text != "failed to list resources, missing argument kind" {
 				t.Fatalf("invalid error message, got %v", toolResult.Content[0].(mcp.TextContent).Text)
-				return
 			}
 		})
 		t.Run("resources_list with invalid apiVersion returns error", func(t *testing.T) {
 			toolResult, _ := c.callTool("resources_list", map[string]interface{}{"apiVersion": "invalid/api/version", "kind": "Pod"})
 			if !toolResult.IsError {
 				t.Fatalf("call tool should fail")
-				return
 			}
 			if toolResult.Content[0].(mcp.TextContent).Text != "failed to list resources, invalid argument apiVersion" {
 				t.Fatalf("invalid error message, got %v", toolResult.Content[0].(mcp.TextContent).Text)
-				return
 			}
 		})
 		t.Run("resources_list with nonexistent apiVersion returns error", func(t *testing.T) {
 			toolResult, _ := c.callTool("resources_list", map[string]interface{}{"apiVersion": "custom.non.existent.example.com/v1", "kind": "Custom"})
 			if !toolResult.IsError {
 				t.Fatalf("call tool should fail")
-				return
 			}
 			if toolResult.Content[0].(mcp.TextContent).Text != `failed to list resources: no matches for kind "Custom" in version "custom.non.existent.example.com/v1"` {
 				t.Fatalf("invalid error message, got %v", toolResult.Content[0].(mcp.TextContent).Text)
-				return
 			}
 		})
 		namespaces, err := c.callTool("resources_list", map[string]interface{}{"apiVersion": "v1", "kind": "Namespace"})
@@ -75,13 +70,11 @@ func TestResourcesList(t *testing.T) {
 		t.Run("resources_list has yaml content", func(t *testing.T) {
 			if err != nil {
 				t.Fatalf("invalid tool result content %v", err)
-				return
 			}
 		})
 		t.Run("resources_list returns more than 2 items", func(t *testing.T) {
 			if len(decodedNamespaces) < 3 {
 				t.Fatalf("invalid namespace count, expected >2, got %v", len(decodedNamespaces))
-				return
 			}
 		})
 
@@ -150,6 +143,83 @@ func TestResourcesList(t *testing.T) {
 			if len(decodedPods) != 0 {
 				t.Fatalf("expected 0 pods, got %d", len(decodedPods))
 				return
+			}
+		})
+	})
+}
+
+func TestResourcesListAsTable(t *testing.T) {
+	testCaseWithContext(t, &mcpContext{listOutput: output.Table, before: inOpenShift, after: inOpenShiftClear}, func(c *mcpContext) {
+		c.withEnvTest()
+		kc := c.newKubernetesClient()
+		_, _ = kc.CoreV1().ConfigMaps("default").Create(t.Context(), &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{Name: "a-configmap-to-list-as-table", Labels: map[string]string{"resource": "config-map"}},
+			Data:       map[string]string{"key": "value"},
+		}, metav1.CreateOptions{})
+		configMapList, err := c.callTool("resources_list", map[string]interface{}{"apiVersion": "v1", "kind": "ConfigMap"})
+		t.Run("resources_list returns ConfigMap list", func(t *testing.T) {
+			if err != nil {
+				t.Fatalf("call tool failed %v", err)
+			}
+			if configMapList.IsError {
+				t.Fatalf("call tool failed")
+			}
+		})
+		outConfigMapList := configMapList.Content[0].(mcp.TextContent).Text
+		t.Run("resources_list returns column headers for ConfigMap list", func(t *testing.T) {
+			expectedHeaders := "NAMESPACE\\s+APIVERSION\\s+KIND\\s+NAME\\s+DATA\\s+AGE\\s+LABELS"
+			if m, e := regexp.MatchString(expectedHeaders, outConfigMapList); !m || e != nil {
+				t.Fatalf("Expected headers '%s' not found in output:\n%s", expectedHeaders, outConfigMapList)
+			}
+		})
+		t.Run("resources_list returns formatted row for a-configmap-to-list-as-table", func(t *testing.T) {
+			expectedRow := "(?<namespace>default)\\s+" +
+				"(?<apiVersion>v1)\\s+" +
+				"(?<kind>ConfigMap)\\s+" +
+				"(?<name>a-configmap-to-list-as-table)\\s+" +
+				"(?<data>1)\\s+" +
+				"(?<age>\\d+(s|m))\\s+" +
+				"(?<labels>resource=config-map)"
+			if m, e := regexp.MatchString(expectedRow, outConfigMapList); !m || e != nil {
+				t.Fatalf("Expected row '%s' not found in output:\n%s", expectedRow, outConfigMapList)
+			}
+		})
+		// Custom Resource List
+		_, _ = dynamic.NewForConfigOrDie(envTestRestConfig).
+			Resource(schema.GroupVersionResource{Group: "route.openshift.io", Version: "v1", Resource: "routes"}).
+			Namespace("default").
+			Create(c.ctx, &unstructured.Unstructured{Object: map[string]interface{}{
+				"apiVersion": "route.openshift.io/v1",
+				"kind":       "Route",
+				"metadata": map[string]interface{}{
+					"name": "an-openshift-route-to-list-as-table",
+				},
+			}}, metav1.CreateOptions{})
+		routeList, err := c.callTool("resources_list", map[string]interface{}{"apiVersion": "route.openshift.io/v1", "kind": "Route"})
+		t.Run("resources_list returns Route list", func(t *testing.T) {
+			if err != nil {
+				t.Fatalf("call tool failed %v", err)
+			}
+			if routeList.IsError {
+				t.Fatalf("call tool failed")
+			}
+		})
+		outRouteList := routeList.Content[0].(mcp.TextContent).Text
+		t.Run("resources_list returns column headers for Route list", func(t *testing.T) {
+			expectedHeaders := "NAMESPACE\\s+APIVERSION\\s+KIND\\s+NAME\\s+AGE\\s+LABELS"
+			if m, e := regexp.MatchString(expectedHeaders, outRouteList); !m || e != nil {
+				t.Fatalf("Expected headers '%s' not found in output:\n%s", expectedHeaders, outRouteList)
+			}
+		})
+		t.Run("resources_list returns formatted row for an-openshift-route-to-list-as-table", func(t *testing.T) {
+			expectedRow := "(?<namespace>default)\\s+" +
+				"(?<apiVersion>route.openshift.io/v1)\\s+" +
+				"(?<kind>Route)\\s+" +
+				"(?<name>an-openshift-route-to-list-as-table)\\s+" +
+				"(?<age>\\d+(s|m))\\s+" +
+				"(?<labels><none>)"
+			if m, e := regexp.MatchString(expectedRow, outRouteList); !m || e != nil {
+				t.Fatalf("Expected row '%s' not found in output:\n%s", expectedRow, outRouteList)
 			}
 		})
 	})

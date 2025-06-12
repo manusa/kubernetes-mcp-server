@@ -52,13 +52,13 @@ func TestListOutput(t *testing.T) {
 			t.Fatalf("Expected all available outputs, got %s %v", out, err)
 		}
 	})
-	t.Run("default", func(t *testing.T) {
+	t.Run("defaults to table", func(t *testing.T) {
 		rootCmd.SetArgs([]string{"--version", "--log-level=1"})
 		rootCmd.ResetFlags()
 		flagInit()
 		out, err := captureOutput(rootCmd.Execute)
-		if !strings.Contains(out, "- ListOutput: yaml") {
-			t.Fatalf("Expected list-output 'yaml', got %s %v", out, err)
+		if !strings.Contains(out, "- ListOutput: table") {
+			t.Fatalf("Expected list-output 'table', got %s %v", out, err)
 		}
 	})
 }

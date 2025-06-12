@@ -118,7 +118,7 @@ func flagInit() {
 	rootCmd.Flags().StringP("sse-base-url", "", "", "SSE public base URL to use when sending the endpoint message (e.g. https://example.com)")
 	rootCmd.Flags().StringP("kubeconfig", "", "", "Path to the kubeconfig file to use for authentication")
 	rootCmd.Flags().String("profile", "full", "MCP profile to use (one of: "+strings.Join(mcp.ProfileNames, ", ")+")")
-	rootCmd.Flags().String("list-output", "yaml", "Output format for resource lists (one of: "+strings.Join(output.Names, ", ")+")")
+	rootCmd.Flags().String("list-output", "table", "Output format for resource lists (one of: "+strings.Join(output.Names, ", ")+")")
 	rootCmd.Flags().Bool("read-only", false, "If true, only tools annotated with readOnlyHint=true are exposed")
 	rootCmd.Flags().Bool("disable-destructive", false, "If true, tools annotated with destructiveHint=true are disabled")
 	_ = viper.BindPFlags(rootCmd.Flags())

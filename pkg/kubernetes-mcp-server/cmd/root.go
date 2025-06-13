@@ -7,7 +7,6 @@ import (
 	"github.com/manusa/kubernetes-mcp-server/pkg/mcp"
 	"github.com/manusa/kubernetes-mcp-server/pkg/output"
 	"github.com/manusa/kubernetes-mcp-server/pkg/version"
-	"github.com/mark3labs/mcp-go/server"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"golang.org/x/net/context"
@@ -74,16 +73,27 @@ Kubernetes Model Context Protocol (MCP) server
 		}
 		defer mcpServer.Close()
 
-		var sseServer *server.SSEServer
-		if ssePort := viper.GetInt("sse-port"); ssePort > 0 {
-			sseServer = mcpServer.ServeSse(viper.GetString("sse-base-url"))
+		ssePort := viper.GetInt("sse-port")
+		if ssePort > 0 {
+			sseServer := mcpServer.ServeSse(viper.GetString("sse-base-url"))
 			defer func() { _ = sseServer.Shutdown(cmd.Context()) }()
-			klog.V(0).Infof("SSE server starting on port %d", ssePort)
+			klog.V(0).Infof("SSE server starting on port %d and path /sse", ssePort)
 			if err := sseServer.Start(fmt.Sprintf(":%d", ssePort)); err != nil {
 				klog.Errorf("Failed to start SSE server: %s", err)
 				return
 			}
 		}
+
+		httpPort := viper.GetInt("http-port")
+		if httpPort > 0 {
+			httpServer := mcpServer.ServeHTTP()
+			klog.V(0).Infof("Streaming HTTP server starting on port %d and path /mcp", httpPort)
+			if err := httpServer.Start(fmt.Sprintf(":%d", httpPort)); err != nil {
+				klog.Errorf("Failed to start streaming HTTP server: %s", err)
+				return
+			}
+		}
+
 		if err := mcpServer.ServeStdio(); err != nil && !errors.Is(err, context.Canceled) {
 			panic(err)
 		}
@@ -115,6 +125,7 @@ func flagInit() {
 	rootCmd.Flags().BoolP("version", "v", false, "Print version information and quit")
 	rootCmd.Flags().IntP("log-level", "", 0, "Set the log level (from 0 to 9)")
 	rootCmd.Flags().IntP("sse-port", "", 0, "Start a SSE server on the specified port")
+	rootCmd.Flags().IntP("http-port", "", 0, "Start a streamable HTTP server on the specified port")
 	rootCmd.Flags().StringP("sse-base-url", "", "", "SSE public base URL to use when sending the endpoint message (e.g. https://example.com)")
 	rootCmd.Flags().StringP("kubeconfig", "", "", "Path to the kubeconfig file to use for authentication")
 	rootCmd.Flags().String("profile", "full", "MCP profile to use (one of: "+strings.Join(mcp.ProfileNames, ", ")+")")

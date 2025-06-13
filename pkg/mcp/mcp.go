@@ -82,6 +82,13 @@ func (s *Server) ServeSse(baseUrl string) *server.SSEServer {
 	return server.NewSSEServer(s.server, options...)
 }
 
+func (s *Server) ServeHTTP() *server.StreamableHTTPServer {
+	options := []server.StreamableHTTPOption{
+		server.WithHTTPContextFunc(contextFunc),
+	}
+	return server.NewStreamableHTTPServer(s.server, options...)
+}
+
 func (s *Server) Close() {
 	if s.k != nil {
 		s.k.Close()

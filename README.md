@@ -108,6 +108,9 @@ extensions:
 
 ```
 
+### Native Kubernetes Application
+[Deploy in Kubernetes.](./deploy/kubernetes/README.md)
+
 ## 🎥 Demos <a id="demos"></a>
 
 ### Diagnosing and automatically fixing an OpenShift Deployment
@@ -156,7 +159,7 @@ uvx kubernetes-mcp-server@latest --help
 ### Configuration Options
 
 | Option                  | Description                                                                                                                                                                                                                                                                                   |
-|-------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `--sse-port`            | Starts the MCP server in Server-Sent Event (SSE) mode and listens on the specified port.                                                                                                                                                                                                      |
 | `--log-level`           | Sets the logging level (values [from 0-9](https://github.com/kubernetes/community/blob/master/contributors/devel/sig-instrumentation/logging.md)). Similar to [kubectl logging levels](https://kubernetes.io/docs/reference/kubectl/quick-reference/#kubectl-output-verbosity-and-debugging). |
 | `--kubeconfig`          | Path to the Kubernetes configuration file. If not provided, it will try to resolve the configuration (in-cluster, default location, etc.).                                                                                                                                                    |

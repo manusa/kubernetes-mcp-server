@@ -24,6 +24,7 @@ A powerful and flexible Kubernetes [Model Context Protocol (MCP)](https://blog.m
   - **Get** a pod by name from the specified namespace.
   - **Delete** a pod by name from the specified namespace.
   - **Show logs** for a pod by name from the specified namespace.
+  - **Top** gets resource usage metrics for all pods or a specific pod in the specified namespace.
   - **Exec** into a pod and run a command.
   - **Run** a container image in a pod and optionally expose it.
 - **✅ Namespaces**: List Kubernetes Namespaces.
@@ -313,6 +314,23 @@ Run a Kubernetes Pod in the current or provided namespace with the provided cont
 - `port` (`number`, optional)
   - TCP/IP port to expose from the Pod container
   - No port exposed if not provided
+
+### `pods_top`
+
+Lists the resource consumption (CPU and memory) as recorded by the Kubernetes Metrics Server for the specified Kubernetes Pods in the all namespaces, the provided namespace, or the current namespace
+
+**Parameters:**
+- `all_namespaces` (`boolean`, optional, default: `true`)
+  - If `true`, lists resource consumption for Pods in all namespaces
+  - If `false`, lists resource consumption for Pods in the configured or provided namespace
+- `namespace` (`string`, optional)
+  - Namespace to list the Pod resources from
+  - If not provided, will list Pods from the configured namespace (in case all_namespaces is false)
+- `name` (`string`, optional)
+  - Name of the Pod to get resource consumption from
+  - If not provided, will list resource consumption for all Pods in the applicable namespace(s)
+- `label_selector` (`string`, optional)
+  - Kubernetes label selector (e.g. 'app=myapp,env=prod' or 'app in (myapp,yourapp)'), use this option when you want to filter the pods by label (Optional, only applicable when name is not provided)
 
 ### `projects_list`
 

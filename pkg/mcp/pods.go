@@ -1,11 +1,13 @@
 package mcp
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"github.com/manusa/kubernetes-mcp-server/pkg/kubernetes"
 	"github.com/manusa/kubernetes-mcp-server/pkg/output"
+	"k8s.io/kubectl/pkg/metricsutil"
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
@@ -53,6 +55,19 @@ func (s *Server) initPods() []server.ServerTool {
 			mcp.WithIdempotentHintAnnotation(true),
 			mcp.WithOpenWorldHintAnnotation(true),
 		), Handler: s.podsDelete},
+		{Tool: mcp.NewTool("pods_top",
+			mcp.WithDescription("List the resource consumption (CPU and memory) as recorded by the Kubernetes Metrics Server for the specified Kubernetes Pods in the all namespaces, the provided namespace, or the current namespace"),
+			mcp.WithBoolean("all_namespaces", mcp.Description("If true, list the resource consumption for all Pods in all namespaces. If false, list the resource consumption for Pods in the provided namespace or the current namespace"), mcp.DefaultBool(true)),
+			mcp.WithString("namespace", mcp.Description("Namespace to get the Pods resource consumption from (Optional, current namespace if not provided and all_namespaces is false)")),
+			mcp.WithString("name", mcp.Description("Name of the Pod to get the resource consumption from (Optional, all Pods in the namespace if not provided)")),
+			mcp.WithString("label_selector", mcp.Description("Kubernetes label selector (e.g. 'app=myapp,env=prod' or 'app in (myapp,yourapp)'), use this option when you want to filter the pods by label (Optional, only applicable when name is not provided)"), mcp.Pattern("([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]")),
+			// Tool annotations
+			mcp.WithTitleAnnotation("Pods: Top"),
+			mcp.WithReadOnlyHintAnnotation(true),
+			mcp.WithDestructiveHintAnnotation(false),
+			mcp.WithIdempotentHintAnnotation(true),
+			mcp.WithOpenWorldHintAnnotation(true),
+		), Handler: s.podsTop},
 		{Tool: mcp.NewTool("pods_exec",
 			mcp.WithDescription("Execute a command in a Kubernetes Pod in the current or provided namespace with the provided name and command"),
 			mcp.WithString("namespace", mcp.Description("Namespace of the Pod where the command will be executed")),
@@ -125,10 +140,10 @@ func (s *Server) podsListInNamespace(ctx context.Context, ctr mcp.CallToolReques
 	if ns == nil {
 		return NewTextResult("", errors.New("failed to list pods in namespace, missing argument namespace")), nil
 	}
-	labelSelector := ctr.GetArguments()["labelSelector"]
 	resourceListOptions := kubernetes.ResourceListOptions{
 		AsTable: s.configuration.ListOutput.AsTable(),
 	}
+	labelSelector := ctr.GetArguments()["labelSelector"]
 	if labelSelector != nil {
 		resourceListOptions.ListOptions.LabelSelector = labelSelector.(string)
 	}
@@ -169,6 +184,33 @@ func (s *Server) podsDelete(ctx context.Context, ctr mcp.CallToolRequest) (*mcp.
 		return NewTextResult("", fmt.Errorf("failed to delete pod %s in namespace %s: %v", name, ns, err)), nil
 	}
 	return NewTextResult(ret, err), nil
+}
+
+func (s *Server) podsTop(ctx context.Context, ctr mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	podsTopOptions := kubernetes.PodsTopOptions{AllNamespaces: true}
+	if v, ok := ctr.GetArguments()["namespace"].(string); ok {
+		podsTopOptions.Namespace = v
+	}
+	if v, ok := ctr.GetArguments()["all_namespaces"].(bool); ok {
+		podsTopOptions.AllNamespaces = v
+	}
+	if v, ok := ctr.GetArguments()["name"].(string); ok {
+		podsTopOptions.Name = v
+	}
+	if v, ok := ctr.GetArguments()["label_selector"].(string); ok {
+		podsTopOptions.LabelSelector = v
+	}
+	ret, err := s.k.Derived(ctx).PodsTop(ctx, podsTopOptions)
+	if err != nil {
+		return NewTextResult("", fmt.Errorf("failed to get pods top: %v", err)), nil
+	}
+	buf := new(bytes.Buffer)
+	printer := metricsutil.NewTopCmdPrinter(buf)
+	err = printer.PrintPodMetrics(ret.Items, true, true, false, "", true)
+	if err != nil {
+		return NewTextResult("", fmt.Errorf("failed to get pods top: %v", err)), nil
+	}
+	return NewTextResult(buf.String(), nil), nil
 }
 
 func (s *Server) podsExec(ctx context.Context, ctr mcp.CallToolRequest) (*mcp.CallToolResult, error) {

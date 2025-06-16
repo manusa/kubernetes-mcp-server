@@ -97,6 +97,5 @@ func TestPodsExec(t *testing.T) {
 				t.Errorf("expected container name not found %v", podsExecInNamespaceAndContainer.Content[0].(mcp.TextContent).Text)
 			}
 		})
-
 	})
 }

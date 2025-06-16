@@ -3,7 +3,11 @@ package kubernetes
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
+	"k8s.io/metrics/pkg/apis/metrics"
+	metricsv1beta1api "k8s.io/metrics/pkg/apis/metrics/v1beta1"
+	metricsclientset "k8s.io/metrics/pkg/client/clientset/versioned"
 
 	"github.com/manusa/kubernetes-mcp-server/pkg/version"
 	v1 "k8s.io/api/core/v1"
@@ -17,6 +21,13 @@ import (
 	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/client-go/tools/remotecommand"
 )
+
+type PodsTopOptions struct {
+	metav1.ListOptions
+	AllNamespaces bool
+	Namespace     string
+	Name          string
+}
 
 func (k *Kubernetes) PodsListInAllNamespaces(ctx context.Context, options ResourceListOptions) (runtime.Unstructured, error) {
 	return k.ResourcesList(ctx, &schema.GroupVersionKind{
@@ -173,6 +184,38 @@ func (k *Kubernetes) PodsRun(ctx context.Context, namespace, name, image string,
 		toCreate = append(toCreate, u)
 	}
 	return k.resourcesCreateOrUpdate(ctx, toCreate)
+}
+
+func (k *Kubernetes) PodsTop(ctx context.Context, options PodsTopOptions) (*metrics.PodMetricsList, error) {
+	// TODO, maybe move to mcp Tools setup and omit in case metrics aren't available in the target cluster
+	if !k.supportsGroupVersion(metrics.GroupName + "/" + metricsv1beta1api.SchemeGroupVersion.Version) {
+		return nil, errors.New("metrics API is not available")
+	}
+	namespace := options.Namespace
+	if options.AllNamespaces && namespace == "" {
+		namespace = ""
+	} else {
+		namespace = k.NamespaceOrDefault(namespace)
+	}
+	metricsClient, err := metricsclientset.NewForConfig(k.cfg)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create metrics client: %w", err)
+	}
+	versionedMetrics := &metricsv1beta1api.PodMetricsList{}
+	if options.Name != "" {
+		m, err := metricsClient.MetricsV1beta1().PodMetricses(namespace).Get(ctx, options.Name, metav1.GetOptions{})
+		if err != nil {
+			return nil, fmt.Errorf("failed to get metrics for pod %s/%s: %w", namespace, options.Name, err)
+		}
+		versionedMetrics.Items = []metricsv1beta1api.PodMetrics{*m}
+	} else {
+		versionedMetrics, err = metricsClient.MetricsV1beta1().PodMetricses(namespace).List(ctx, options.ListOptions)
+		if err != nil {
+			return nil, fmt.Errorf("failed to list pod metrics in namespace %s: %w", namespace, err)
+		}
+	}
+	convertedMetrics := &metrics.PodMetricsList{}
+	return convertedMetrics, metricsv1beta1api.Convert_v1beta1_PodMetricsList_To_metrics_PodMetricsList(versionedMetrics, convertedMetrics, nil)
 }
 
 func (k *Kubernetes) PodsExec(ctx context.Context, namespace, name, container string, command []string) (string, error) {

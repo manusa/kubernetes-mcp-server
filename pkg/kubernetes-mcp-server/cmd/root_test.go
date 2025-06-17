@@ -52,6 +52,17 @@ func TestProfile(t *testing.T) {
 }
 
 func TestListOutput(t *testing.T) {
+	t.Run("available", func(t *testing.T) {
+		in := &bytes.Buffer{}
+		out := io.Discard
+		errOut := io.Discard
+		rootCmd := NewMCPServer(genericiooptions.IOStreams{In: in, Out: out, ErrOut: errOut})
+		rootCmd.SetArgs([]string{"--help"})
+		o, err := captureOutput(rootCmd.Execute)
+		if !strings.Contains(o, "Output format for resource list operations (one of: yaml, table)") {
+			t.Fatalf("Expected all available outputs, got %s %v", out, err)
+		}
+	})
 	t.Run("defaults to table", func(t *testing.T) {
 		in := &bytes.Buffer{}
 		out := &bytes.Buffer{}

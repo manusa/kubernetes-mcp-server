@@ -28,7 +28,7 @@ type ResourceListOptions struct {
 	AsTable bool
 }
 
-func (k *kubernetes) ResourcesList(ctx context.Context, gvk *schema.GroupVersionKind, namespace string, options ResourceListOptions) (runtime.Unstructured, error) {
+func (k *Kubernetes) ResourcesList(ctx context.Context, gvk *schema.GroupVersionKind, namespace string, options ResourceListOptions) (runtime.Unstructured, error) {
 	gvr, err := k.resourceFor(gvk)
 	if err != nil {
 		return nil, err
@@ -36,15 +36,15 @@ func (k *kubernetes) ResourcesList(ctx context.Context, gvk *schema.GroupVersion
 	// Check if operation is allowed for all namespaces (applicable for namespaced resources)
 	isNamespaced, _ := k.isNamespaced(gvk)
 	if isNamespaced && !k.canIUse(ctx, gvr, namespace, "list") && namespace == "" {
-		namespace = k.configuredNamespace()
+		namespace = k.manager.configuredNamespace()
 	}
 	if options.AsTable {
 		return k.resourcesListAsTable(ctx, gvk, gvr, namespace, options)
 	}
-	return k.dynamicClient.Resource(*gvr).Namespace(namespace).List(ctx, options.ListOptions)
+	return k.manager.dynamicClient.Resource(*gvr).Namespace(namespace).List(ctx, options.ListOptions)
 }
 
-func (k *kubernetes) ResourcesGet(ctx context.Context, gvk *schema.GroupVersionKind, namespace, name string) (*unstructured.Unstructured, error) {
+func (k *Kubernetes) ResourcesGet(ctx context.Context, gvk *schema.GroupVersionKind, namespace, name string) (*unstructured.Unstructured, error) {
 	gvr, err := k.resourceFor(gvk)
 	if err != nil {
 		return nil, err
@@ -53,10 +53,10 @@ func (k *kubernetes) ResourcesGet(ctx context.Context, gvk *schema.GroupVersionK
 	if namespaced, nsErr := k.isNamespaced(gvk); nsErr == nil && namespaced {
 		namespace = k.NamespaceOrDefault(namespace)
 	}
-	return k.dynamicClient.Resource(*gvr).Namespace(namespace).Get(ctx, name, metav1.GetOptions{})
+	return k.manager.dynamicClient.Resource(*gvr).Namespace(namespace).Get(ctx, name, metav1.GetOptions{})
 }
 
-func (k *kubernetes) ResourcesCreateOrUpdate(ctx context.Context, resource string) ([]*unstructured.Unstructured, error) {
+func (k *Kubernetes) ResourcesCreateOrUpdate(ctx context.Context, resource string) ([]*unstructured.Unstructured, error) {
 	separator := regexp.MustCompile(`\r?\n---\r?\n`)
 	resources := separator.Split(resource, -1)
 	var parsedResources []*unstructured.Unstructured
@@ -70,7 +70,7 @@ func (k *kubernetes) ResourcesCreateOrUpdate(ctx context.Context, resource strin
 	return k.resourcesCreateOrUpdate(ctx, parsedResources)
 }
 
-func (k *kubernetes) ResourcesDelete(ctx context.Context, gvk *schema.GroupVersionKind, namespace, name string) error {
+func (k *Kubernetes) ResourcesDelete(ctx context.Context, gvk *schema.GroupVersionKind, namespace, name string) error {
 	gvr, err := k.resourceFor(gvk)
 	if err != nil {
 		return err
@@ -79,13 +79,13 @@ func (k *kubernetes) ResourcesDelete(ctx context.Context, gvk *schema.GroupVersi
 	if namespaced, nsErr := k.isNamespaced(gvk); nsErr == nil && namespaced {
 		namespace = k.NamespaceOrDefault(namespace)
 	}
-	return k.dynamicClient.Resource(*gvr).Namespace(namespace).Delete(ctx, name, metav1.DeleteOptions{})
+	return k.manager.dynamicClient.Resource(*gvr).Namespace(namespace).Delete(ctx, name, metav1.DeleteOptions{})
 }
 
 // resourcesListAsTable retrieves a list of resources in a table format.
 // It's almost identical to the dynamic.DynamicClient implementation, but it uses a specific Accept header to request the table format.
 // dynamic.DynamicClient does not provide a way to set the HTTP header (TODO: create an issue to request this feature)
-func (k *kubernetes) resourcesListAsTable(ctx context.Context, gvk *schema.GroupVersionKind, gvr *schema.GroupVersionResource, namespace string, options ResourceListOptions) (runtime.Unstructured, error) {
+func (k *Kubernetes) resourcesListAsTable(ctx context.Context, gvk *schema.GroupVersionKind, gvr *schema.GroupVersionResource, namespace string, options ResourceListOptions) (runtime.Unstructured, error) {
 	var url []string
 	if len(gvr.Group) == 0 {
 		url = append(url, "api")
@@ -98,7 +98,7 @@ func (k *kubernetes) resourcesListAsTable(ctx context.Context, gvk *schema.Group
 	}
 	url = append(url, gvr.Resource)
 	var table metav1.Table
-	err := k.clientSet.CoreV1().RESTClient().
+	err := k.manager.clientSet.CoreV1().RESTClient().
 		Get().
 		SetHeader("Accept", strings.Join([]string{
 			fmt.Sprintf("application/json;as=Table;v=%s;g=%s", metav1.SchemeGroupVersion.Version, metav1.GroupName),
@@ -106,7 +106,7 @@ func (k *kubernetes) resourcesListAsTable(ctx context.Context, gvk *schema.Group
 			"application/json",
 		}, ",")).
 		AbsPath(url...).
-		SpecificallyVersionedParams(&options.ListOptions, k.parameterCodec, schema.GroupVersion{Version: "v1"}).
+		SpecificallyVersionedParams(&options.ListOptions, k.manager.parameterCodec, schema.GroupVersion{Version: "v1"}).
 		Do(ctx).Into(&table)
 	if err != nil {
 		return nil, err
@@ -129,7 +129,7 @@ func (k *kubernetes) resourcesListAsTable(ctx context.Context, gvk *schema.Group
 	return &unstructured.Unstructured{Object: unstructuredObject}, err
 }
 
-func (k *kubernetes) resourcesCreateOrUpdate(ctx context.Context, resources []*unstructured.Unstructured) ([]*unstructured.Unstructured, error) {
+func (k *Kubernetes) resourcesCreateOrUpdate(ctx context.Context, resources []*unstructured.Unstructured) ([]*unstructured.Unstructured, error) {
 	for i, obj := range resources {
 		gvk := obj.GroupVersionKind()
 		gvr, rErr := k.resourceFor(&gvk)
@@ -141,7 +141,7 @@ func (k *kubernetes) resourcesCreateOrUpdate(ctx context.Context, resources []*u
 		if namespaced, nsErr := k.isNamespaced(&gvk); nsErr == nil && namespaced {
 			namespace = k.NamespaceOrDefault(namespace)
 		}
-		resources[i], rErr = k.dynamicClient.Resource(*gvr).Namespace(namespace).Apply(ctx, obj.GetName(), obj, metav1.ApplyOptions{
+		resources[i], rErr = k.manager.dynamicClient.Resource(*gvr).Namespace(namespace).Apply(ctx, obj.GetName(), obj, metav1.ApplyOptions{
 			FieldManager: version.BinaryName,
 		})
 		if rErr != nil {
@@ -149,22 +149,22 @@ func (k *kubernetes) resourcesCreateOrUpdate(ctx context.Context, resources []*u
 		}
 		// Clear the cache to ensure the next operation is performed on the latest exposed APIs (will change after the CRD creation)
 		if gvk.Kind == "CustomResourceDefinition" {
-			k.deferredDiscoveryRESTMapper.Reset()
+			k.manager.deferredDiscoveryRESTMapper.Reset()
 		}
 	}
 	return resources, nil
 }
 
-func (k *kubernetes) resourceFor(gvk *schema.GroupVersionKind) (*schema.GroupVersionResource, error) {
-	m, err := k.deferredDiscoveryRESTMapper.RESTMapping(schema.GroupKind{Group: gvk.Group, Kind: gvk.Kind}, gvk.Version)
+func (k *Kubernetes) resourceFor(gvk *schema.GroupVersionKind) (*schema.GroupVersionResource, error) {
+	m, err := k.manager.deferredDiscoveryRESTMapper.RESTMapping(schema.GroupKind{Group: gvk.Group, Kind: gvk.Kind}, gvk.Version)
 	if err != nil {
 		return nil, err
 	}
 	return &m.Resource, nil
 }
 
-func (k *kubernetes) isNamespaced(gvk *schema.GroupVersionKind) (bool, error) {
-	apiResourceList, err := k.discoveryClient.ServerResourcesForGroupVersion(gvk.GroupVersion().String())
+func (k *Kubernetes) isNamespaced(gvk *schema.GroupVersionKind) (bool, error) {
+	apiResourceList, err := k.manager.discoveryClient.ServerResourcesForGroupVersion(gvk.GroupVersion().String())
 	if err != nil {
 		return false, err
 	}
@@ -176,15 +176,15 @@ func (k *kubernetes) isNamespaced(gvk *schema.GroupVersionKind) (bool, error) {
 	return false, nil
 }
 
-func (k *kubernetes) supportsGroupVersion(groupVersion string) bool {
-	if _, err := k.discoveryClient.ServerResourcesForGroupVersion(groupVersion); err != nil {
+func (k *Kubernetes) supportsGroupVersion(groupVersion string) bool {
+	if _, err := k.manager.discoveryClient.ServerResourcesForGroupVersion(groupVersion); err != nil {
 		return false
 	}
 	return true
 }
 
-func (k *kubernetes) canIUse(ctx context.Context, gvr *schema.GroupVersionResource, namespace, verb string) bool {
-	response, err := k.clientSet.AuthorizationV1().SelfSubjectAccessReviews().Create(ctx, &authv1.SelfSubjectAccessReview{
+func (k *Kubernetes) canIUse(ctx context.Context, gvr *schema.GroupVersionResource, namespace, verb string) bool {
+	response, err := k.manager.clientSet.AuthorizationV1().SelfSubjectAccessReviews().Create(ctx, &authv1.SelfSubjectAccessReview{
 		Spec: authv1.SelfSubjectAccessReviewSpec{ResourceAttributes: &authv1.ResourceAttributes{
 			Namespace: namespace,
 			Verb:      verb,

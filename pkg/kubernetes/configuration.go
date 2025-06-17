@@ -21,7 +21,7 @@ var InClusterConfig = func() (*rest.Config, error) {
 }
 
 // resolveKubernetesConfigurations resolves the required kubernetes configurations and sets them in the Kubernetes struct
-func resolveKubernetesConfigurations(kubernetes *kubernetes) error {
+func resolveKubernetesConfigurations(kubernetes *Manager) error {
 	// Always set clientCmdConfig
 	pathOptions := clientcmd.NewDefaultPathOptions()
 	if kubernetes.Kubeconfig != "" {
@@ -45,56 +45,60 @@ func resolveKubernetesConfigurations(kubernetes *kubernetes) error {
 	return err
 }
 
-func (k *kubernetes) IsInCluster() bool {
-	if k.Kubeconfig != "" {
+func (m *Manager) IsInCluster() bool {
+	if m.Kubeconfig != "" {
 		return false
 	}
 	cfg, err := InClusterConfig()
 	return err == nil && cfg != nil
 }
 
-func (k *kubernetes) configuredNamespace() string {
-	if ns, _, nsErr := k.clientCmdConfig.Namespace(); nsErr == nil {
+func (m *Manager) configuredNamespace() string {
+	if ns, _, nsErr := m.clientCmdConfig.Namespace(); nsErr == nil {
 		return ns
 	}
 	return ""
 }
 
-func (k *kubernetes) NamespaceOrDefault(namespace string) string {
+func (m *Manager) NamespaceOrDefault(namespace string) string {
 	if namespace == "" {
-		return k.configuredNamespace()
+		return m.configuredNamespace()
 	}
 	return namespace
 }
 
+func (k *Kubernetes) NamespaceOrDefault(namespace string) string {
+	return k.manager.NamespaceOrDefault(namespace)
+}
+
 // ToRESTConfig returns the rest.Config object (genericclioptions.RESTClientGetter)
-func (k *kubernetes) ToRESTConfig() (*rest.Config, error) {
-	return k.cfg, nil
+func (m *Manager) ToRESTConfig() (*rest.Config, error) {
+	return m.cfg, nil
 }
 
 // ToRawKubeConfigLoader returns the clientcmd.ClientConfig object (genericclioptions.RESTClientGetter)
-func (k *kubernetes) ToRawKubeConfigLoader() clientcmd.ClientConfig {
-	return k.clientCmdConfig
+func (m *Manager) ToRawKubeConfigLoader() clientcmd.ClientConfig {
+	return m.clientCmdConfig
 }
 
-func (k *kubernetes) ConfigurationView(minify bool) (runtime.Object, error) {
+func (m *Manager) ConfigurationView(minify bool) (runtime.Object, error) {
 	var cfg clientcmdapi.Config
 	var err error
-	if k.IsInCluster() {
+	if m.IsInCluster() {
 		cfg = *clientcmdapi.NewConfig()
 		cfg.Clusters["cluster"] = &clientcmdapi.Cluster{
-			Server:                k.cfg.Host,
-			InsecureSkipTLSVerify: k.cfg.Insecure,
+			Server:                m.cfg.Host,
+			InsecureSkipTLSVerify: m.cfg.Insecure,
 		}
 		cfg.AuthInfos["user"] = &clientcmdapi.AuthInfo{
-			Token: k.cfg.BearerToken,
+			Token: m.cfg.BearerToken,
 		}
 		cfg.Contexts["context"] = &clientcmdapi.Context{
 			Cluster:  "cluster",
 			AuthInfo: "user",
 		}
 		cfg.CurrentContext = "context"
-	} else if cfg, err = k.clientCmdConfig.RawConfig(); err != nil {
+	} else if cfg, err = m.clientCmdConfig.RawConfig(); err != nil {
 		return nil, err
 	}
 	if minify {

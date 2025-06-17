@@ -6,20 +6,17 @@ import (
 	"github.com/manusa/kubernetes-mcp-server/pkg/helm"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/dynamic"
-	clientgokubernetes "k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/kubernetes"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/restmapper"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/klog/v2"
-	"k8s.io/metrics/pkg/apis/metrics"
 	"strings"
 )
 
@@ -29,36 +26,11 @@ const (
 
 type CloseWatchKubeConfig func() error
 
-type Kubernetes interface {
-	WatchKubeConfig(onKubeConfigChange func() error)
-	Close()
-	Derived(ctx context.Context) DerivedKubernetes
-	ConfigurationView(minify bool) (runtime.Object, error)
-	IsOpenShift(ctx context.Context) bool
+type Kubernetes struct {
+	manager *Manager
 }
 
-type DerivedKubernetes interface {
-	IsOpenShift(ctx context.Context) bool
-	CacheInvalidate()
-	NewHelm() *helm.Helm
-	EventsList(ctx context.Context, namespace string) ([]map[string]any, error)
-	NamespacesList(ctx context.Context, options ResourceListOptions) (runtime.Unstructured, error)
-	PodsListInAllNamespaces(ctx context.Context, options ResourceListOptions) (runtime.Unstructured, error)
-	PodsListInNamespace(ctx context.Context, namespace string, options ResourceListOptions) (runtime.Unstructured, error)
-	PodsGet(ctx context.Context, namespace, name string) (*unstructured.Unstructured, error)
-	PodsDelete(ctx context.Context, namespace, name string) (string, error)
-	PodsLog(ctx context.Context, namespace, name, container string) (string, error)
-	PodsRun(ctx context.Context, namespace, name, image string, port int32) ([]*unstructured.Unstructured, error)
-	PodsTop(ctx context.Context, options PodsTopOptions) (*metrics.PodMetricsList, error)
-	PodsExec(ctx context.Context, namespace, name, container string, command []string) (string, error)
-	ProjectsList(ctx context.Context, options ResourceListOptions) (runtime.Unstructured, error)
-	ResourcesList(ctx context.Context, gvk *schema.GroupVersionKind, namespace string, options ResourceListOptions) (runtime.Unstructured, error)
-	ResourcesGet(ctx context.Context, gvk *schema.GroupVersionKind, namespace, name string) (*unstructured.Unstructured, error)
-	ResourcesCreateOrUpdate(ctx context.Context, resource string) ([]*unstructured.Unstructured, error)
-	ResourcesDelete(ctx context.Context, gvk *schema.GroupVersionKind, namespace, name string) error
-}
-
-type kubernetes struct {
+type Manager struct {
 	// Kubeconfig path override
 	Kubeconfig                  string
 	cfg                         *rest.Config
@@ -66,14 +38,14 @@ type kubernetes struct {
 	CloseWatchKubeConfig        CloseWatchKubeConfig
 	scheme                      *runtime.Scheme
 	parameterCodec              runtime.ParameterCodec
-	clientSet                   clientgokubernetes.Interface
+	clientSet                   kubernetes.Interface
 	discoveryClient             discovery.CachedDiscoveryInterface
 	deferredDiscoveryRESTMapper *restmapper.DeferredDiscoveryRESTMapper
 	dynamicClient               *dynamic.DynamicClient
 }
 
-func NewKubernetes(kubeconfig string) (Kubernetes, error) {
-	k8s := &kubernetes{
+func NewManager(kubeconfig string) (*Manager, error) {
+	k8s := &Manager{
 		Kubeconfig: kubeconfig,
 	}
 	if err := resolveKubernetesConfigurations(k8s); err != nil {
@@ -84,7 +56,7 @@ func NewKubernetes(kubeconfig string) (Kubernetes, error) {
 	//	return &impersonateRoundTripper{original}
 	//})
 	var err error
-	k8s.clientSet, err = clientgokubernetes.NewForConfig(k8s.cfg)
+	k8s.clientSet, err = kubernetes.NewForConfig(k8s.cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -102,11 +74,11 @@ func NewKubernetes(kubeconfig string) (Kubernetes, error) {
 	return k8s, nil
 }
 
-func (k *kubernetes) WatchKubeConfig(onKubeConfigChange func() error) {
-	if k.clientCmdConfig == nil {
+func (m *Manager) WatchKubeConfig(onKubeConfigChange func() error) {
+	if m.clientCmdConfig == nil {
 		return
 	}
-	kubeConfigFiles := k.clientCmdConfig.ConfigAccess().GetLoadingPrecedence()
+	kubeConfigFiles := m.clientCmdConfig.ConfigAccess().GetLoadingPrecedence()
 	if len(kubeConfigFiles) == 0 {
 		return
 	}
@@ -132,33 +104,33 @@ func (k *kubernetes) WatchKubeConfig(onKubeConfigChange func() error) {
 			}
 		}
 	}()
-	if k.CloseWatchKubeConfig != nil {
-		_ = k.CloseWatchKubeConfig()
+	if m.CloseWatchKubeConfig != nil {
+		_ = m.CloseWatchKubeConfig()
 	}
-	k.CloseWatchKubeConfig = watcher.Close
+	m.CloseWatchKubeConfig = watcher.Close
 }
 
-func (k *kubernetes) Close() {
-	if k.CloseWatchKubeConfig != nil {
-		_ = k.CloseWatchKubeConfig()
+func (m *Manager) Close() {
+	if m.CloseWatchKubeConfig != nil {
+		_ = m.CloseWatchKubeConfig()
 	}
 }
 
-func (k *kubernetes) ToDiscoveryClient() (discovery.CachedDiscoveryInterface, error) {
-	return k.discoveryClient, nil
+func (m *Manager) ToDiscoveryClient() (discovery.CachedDiscoveryInterface, error) {
+	return m.discoveryClient, nil
 }
 
-func (k *kubernetes) ToRESTMapper() (meta.RESTMapper, error) {
-	return k.deferredDiscoveryRESTMapper, nil
+func (m *Manager) ToRESTMapper() (meta.RESTMapper, error) {
+	return m.deferredDiscoveryRESTMapper, nil
 }
 
-func (k *kubernetes) Derived(ctx context.Context) DerivedKubernetes {
+func (m *Manager) Derived(ctx context.Context) *Kubernetes {
 	authorization, ok := ctx.Value(AuthorizationHeader).(string)
 	if !ok || !strings.HasPrefix(authorization, "Bearer ") {
-		return k
+		return &Kubernetes{manager: m}
 	}
 	klog.V(5).Infof("%s header found (Bearer), using provided bearer token", AuthorizationHeader)
-	derivedCfg := rest.CopyConfig(k.cfg)
+	derivedCfg := rest.CopyConfig(m.cfg)
 	derivedCfg.BearerToken = strings.TrimPrefix(authorization, "Bearer ")
 	derivedCfg.BearerTokenFile = ""
 	derivedCfg.Username = ""
@@ -167,41 +139,42 @@ func (k *kubernetes) Derived(ctx context.Context) DerivedKubernetes {
 	derivedCfg.AuthConfigPersister = nil
 	derivedCfg.ExecProvider = nil
 	derivedCfg.Impersonate = rest.ImpersonationConfig{}
-	clientCmdApiConfig, err := k.clientCmdConfig.RawConfig()
+	clientCmdApiConfig, err := m.clientCmdConfig.RawConfig()
 	if err != nil {
-		return k
+		return &Kubernetes{manager: m}
 	}
 	clientCmdApiConfig.AuthInfos = make(map[string]*clientcmdapi.AuthInfo)
-	derived := &kubernetes{
-		Kubeconfig:      k.Kubeconfig,
+	derived := &Kubernetes{manager: &Manager{
+		Kubeconfig:      m.Kubeconfig,
 		clientCmdConfig: clientcmd.NewDefaultClientConfig(clientCmdApiConfig, nil),
 		cfg:             derivedCfg,
-		scheme:          k.scheme,
-		parameterCodec:  k.parameterCodec,
-	}
-	derived.clientSet, err = clientgokubernetes.NewForConfig(derived.cfg)
+		scheme:          m.scheme,
+		parameterCodec:  m.parameterCodec,
+	}}
+	derived.manager.clientSet, err = kubernetes.NewForConfig(derived.manager.cfg)
 	if err != nil {
-		return k
+		return &Kubernetes{manager: m}
 	}
-	derived.discoveryClient = memory.NewMemCacheClient(discovery.NewDiscoveryClient(derived.clientSet.CoreV1().RESTClient()))
-	derived.deferredDiscoveryRESTMapper = restmapper.NewDeferredDiscoveryRESTMapper(derived.discoveryClient)
-	derived.dynamicClient, err = dynamic.NewForConfig(derived.cfg)
+	derived.manager.discoveryClient = memory.NewMemCacheClient(discovery.NewDiscoveryClient(derived.manager.clientSet.CoreV1().RESTClient()))
+	derived.manager.deferredDiscoveryRESTMapper = restmapper.NewDeferredDiscoveryRESTMapper(derived.manager.discoveryClient)
+	derived.manager.dynamicClient, err = dynamic.NewForConfig(derived.manager.cfg)
 	if err != nil {
-		return k
+		return &Kubernetes{manager: m}
 	}
 	return derived
 }
 
-func (k *kubernetes) CacheInvalidate() {
-	if k.discoveryClient != nil {
-		k.discoveryClient.Invalidate()
+// TODO: check test to see why cache isn't getting invalidated automatically https://github.com/manusa/kubernetes-mcp-server/pull/125#discussion_r2152194784
+func (k *Kubernetes) CacheInvalidate() {
+	if k.manager.discoveryClient != nil {
+		k.manager.discoveryClient.Invalidate()
 	}
-	if k.deferredDiscoveryRESTMapper != nil {
-		k.deferredDiscoveryRESTMapper.Reset()
+	if k.manager.deferredDiscoveryRESTMapper != nil {
+		k.manager.deferredDiscoveryRESTMapper.Reset()
 	}
 }
 
-func (k *kubernetes) NewHelm() *helm.Helm {
+func (k *Kubernetes) NewHelm() *helm.Helm {
 	// This is a derived Kubernetes, so it already has the Helm initialized
-	return helm.NewHelm(k)
+	return helm.NewHelm(k.manager)
 }

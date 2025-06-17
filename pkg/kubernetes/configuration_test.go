@@ -12,10 +12,10 @@ import (
 
 func TestKubernetes_IsInCluster(t *testing.T) {
 	t.Run("with explicit kubeconfig", func(t *testing.T) {
-		k := kubernetes{
+		m := Manager{
 			Kubeconfig: "kubeconfig",
 		}
-		if k.IsInCluster() {
+		if m.IsInCluster() {
 			t.Errorf("expected not in cluster, got in cluster")
 		}
 	})
@@ -27,10 +27,10 @@ func TestKubernetes_IsInCluster(t *testing.T) {
 		defer func() {
 			InClusterConfig = originalFunction
 		}()
-		k := kubernetes{
+		m := Manager{
 			Kubeconfig: "",
 		}
-		if !k.IsInCluster() {
+		if !m.IsInCluster() {
 			t.Errorf("expected in cluster, got not in cluster")
 		}
 	})
@@ -42,10 +42,10 @@ func TestKubernetes_IsInCluster(t *testing.T) {
 		defer func() {
 			InClusterConfig = originalFunction
 		}()
-		k := kubernetes{
+		m := Manager{
 			Kubeconfig: "",
 		}
-		if k.IsInCluster() {
+		if m.IsInCluster() {
 			t.Errorf("expected not in cluster, got in cluster")
 		}
 	})
@@ -57,10 +57,10 @@ func TestKubernetes_IsInCluster(t *testing.T) {
 		defer func() {
 			InClusterConfig = originalFunction
 		}()
-		k := kubernetes{
+		m := Manager{
 			Kubeconfig: "",
 		}
-		if k.IsInCluster() {
+		if m.IsInCluster() {
 			t.Errorf("expected not in cluster, got in cluster")
 		}
 	})
@@ -72,8 +72,8 @@ func TestKubernetes_ResolveKubernetesConfigurations_Explicit(t *testing.T) {
 			t.Skip("Skipping test on non-linux platforms")
 		}
 		tempDir := t.TempDir()
-		k := kubernetes{Kubeconfig: path.Join(tempDir, "config")}
-		err := resolveKubernetesConfigurations(&k)
+		m := Manager{Kubeconfig: path.Join(tempDir, "config")}
+		err := resolveKubernetesConfigurations(&m)
 		if err == nil {
 			t.Errorf("expected error, got nil")
 		}
@@ -90,8 +90,8 @@ func TestKubernetes_ResolveKubernetesConfigurations_Explicit(t *testing.T) {
 		if err := os.WriteFile(kubeconfigPath, []byte(""), 0644); err != nil {
 			t.Fatalf("failed to create kubeconfig file: %v", err)
 		}
-		k := kubernetes{Kubeconfig: kubeconfigPath}
-		err := resolveKubernetesConfigurations(&k)
+		m := Manager{Kubeconfig: kubeconfigPath}
+		err := resolveKubernetesConfigurations(&m)
 		if err == nil {
 			t.Errorf("expected error, got nil")
 		}
@@ -123,16 +123,16 @@ users:
 		if err := os.WriteFile(kubeconfigPath, []byte(kubeconfigContent), 0644); err != nil {
 			t.Fatalf("failed to create kubeconfig file: %v", err)
 		}
-		k := kubernetes{Kubeconfig: kubeconfigPath}
-		err := resolveKubernetesConfigurations(&k)
+		m := Manager{Kubeconfig: kubeconfigPath}
+		err := resolveKubernetesConfigurations(&m)
 		if err != nil {
 			t.Fatalf("expected no error, got %v", err)
 		}
-		if k.cfg == nil {
+		if m.cfg == nil {
 			t.Errorf("expected non-nil config, got nil")
 		}
-		if k.cfg.Host != "https://example.com" {
-			t.Errorf("expected host https://example.com, got %s", k.cfg.Host)
+		if m.cfg.Host != "https://example.com" {
+			t.Errorf("expected host https://example.com, got %s", m.cfg.Host)
 		}
 	})
 }

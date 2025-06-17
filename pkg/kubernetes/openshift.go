@@ -6,10 +6,10 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
-func (k *kubernetes) IsOpenShift(ctx context.Context) bool {
+func (m *Manager) IsOpenShift(ctx context.Context) bool {
 	// This method should be fast and not block (it's called at startup)
 	timeoutSeconds := int64(5)
-	if _, err := k.dynamicClient.Resource(schema.GroupVersionResource{
+	if _, err := m.dynamicClient.Resource(schema.GroupVersionResource{
 		Group:    "project.openshift.io",
 		Version:  "v1",
 		Resource: "projects",

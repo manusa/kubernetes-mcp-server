@@ -23,7 +23,7 @@ type Configuration struct {
 type Server struct {
 	configuration *Configuration
 	server        *server.MCPServer
-	k             kubernetes.Kubernetes
+	k             *kubernetes.Manager
 }
 
 func NewSever(configuration Configuration) (*Server, error) {
@@ -50,7 +50,7 @@ func isFalse(value *bool) bool {
 }
 
 func (s *Server) reloadKubernetesClient() error {
-	k, err := kubernetes.NewKubernetes(s.configuration.Kubeconfig)
+	k, err := kubernetes.NewManager(s.configuration.Kubeconfig)
 	if err != nil {
 		return err
 	}

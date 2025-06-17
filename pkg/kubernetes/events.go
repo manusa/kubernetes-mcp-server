@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-func (k *kubernetes) EventsList(ctx context.Context, namespace string) ([]map[string]any, error) {
+func (k *Kubernetes) EventsList(ctx context.Context, namespace string) ([]map[string]any, error) {
 	var eventMap []map[string]any
 	raw, err := k.ResourcesList(ctx, &schema.GroupVersionKind{
 		Group: "", Version: "v1", Kind: "Event",

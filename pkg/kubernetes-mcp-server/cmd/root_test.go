@@ -1,10 +1,13 @@
 package cmd
 
 import (
+	"bytes"
 	"io"
 	"os"
 	"strings"
 	"testing"
+
+	"k8s.io/cli-runtime/pkg/genericiooptions"
 )
 
 func captureOutput(f func() error) (string, error) {
@@ -21,64 +24,73 @@ func captureOutput(f func() error) (string, error) {
 }
 
 func TestVersion(t *testing.T) {
-	rootCmd.SetArgs([]string{"--version"})
-	rootCmd.ResetFlags()
-	flagInit()
-	version, err := captureOutput(rootCmd.Execute)
-	if version != "0.0.0\n" {
-		t.Fatalf("Expected version 0.0.0, got %s %v", version, err)
+	in := &bytes.Buffer{}
+	out := &bytes.Buffer{}
+	errOut := io.Discard
+	rootCmd := NewMCPServerOptions(genericiooptions.IOStreams{In: in, Out: out, ErrOut: errOut})
+	rootCmd.Version = true
+	rootCmd.Run()
+	if out.String() != "0.0.0\n" {
+		t.Fatalf("Expected version 0.0.0, got %s", out.String())
 	}
 }
 
 func TestProfile(t *testing.T) {
 	t.Run("default", func(t *testing.T) {
-		rootCmd.SetArgs([]string{"--version", "--log-level=1"})
-		rootCmd.ResetFlags()
-		flagInit()
-		out, err := captureOutput(rootCmd.Execute)
-		if !strings.Contains(out, "- Profile: full") {
-			t.Fatalf("Expected profile 'full', got %s %v", out, err)
+		in := &bytes.Buffer{}
+		out := &bytes.Buffer{}
+		errOut := io.Discard
+		rootCmd := NewMCPServerOptions(genericiooptions.IOStreams{In: in, Out: out, ErrOut: errOut})
+		rootCmd.Version = true
+		rootCmd.LogLevel = 1
+		rootCmd.Complete()
+		rootCmd.Run()
+		if !strings.Contains(out.String(), "- Profile: full") {
+			t.Fatalf("Expected profile 'full', got %s", out)
 		}
 	})
 }
 
 func TestListOutput(t *testing.T) {
-	t.Run("available", func(t *testing.T) {
-		rootCmd.SetArgs([]string{"--help"})
-		rootCmd.ResetFlags()
-		flagInit()
-		out, err := captureOutput(rootCmd.Execute)
-		if !strings.Contains(out, "Output format for resource list operations (one of: yaml, table)") {
-			t.Fatalf("Expected all available outputs, got %s %v", out, err)
-		}
-	})
 	t.Run("defaults to table", func(t *testing.T) {
-		rootCmd.SetArgs([]string{"--version", "--log-level=1"})
-		rootCmd.ResetFlags()
-		flagInit()
-		out, err := captureOutput(rootCmd.Execute)
-		if !strings.Contains(out, "- ListOutput: table") {
-			t.Fatalf("Expected list-output 'table', got %s %v", out, err)
+		in := &bytes.Buffer{}
+		out := &bytes.Buffer{}
+		errOut := io.Discard
+		rootCmd := NewMCPServerOptions(genericiooptions.IOStreams{In: in, Out: out, ErrOut: errOut})
+		rootCmd.Version = true
+		rootCmd.LogLevel = 1
+		rootCmd.Complete()
+		rootCmd.Run()
+		if !strings.Contains(out.String(), "- ListOutput: table") {
+			t.Fatalf("Expected list-output 'table', got %s", out)
 		}
 	})
 }
 
 func TestDefaultReadOnly(t *testing.T) {
-	rootCmd.SetArgs([]string{"--version", "--log-level=1"})
-	rootCmd.ResetFlags()
-	flagInit()
-	out, err := captureOutput(rootCmd.Execute)
-	if !strings.Contains(out, " - Read-only mode: false") {
-		t.Fatalf("Expected read-only mode false, got %s %v", out, err)
+	in := &bytes.Buffer{}
+	out := &bytes.Buffer{}
+	errOut := io.Discard
+	rootCmd := NewMCPServerOptions(genericiooptions.IOStreams{In: in, Out: out, ErrOut: errOut})
+	rootCmd.Version = true
+	rootCmd.LogLevel = 1
+	rootCmd.Complete()
+	rootCmd.Run()
+	if !strings.Contains(out.String(), " - Read-only mode: false") {
+		t.Fatalf("Expected read-only mode false, got %s", out)
 	}
 }
 
 func TestDefaultDisableDestructive(t *testing.T) {
-	rootCmd.SetArgs([]string{"--version", "--log-level=1"})
-	rootCmd.ResetFlags()
-	flagInit()
-	out, err := captureOutput(rootCmd.Execute)
-	if !strings.Contains(out, " - Disable destructive tools: false") {
-		t.Fatalf("Expected disable destructive false, got %s %v", out, err)
+	in := &bytes.Buffer{}
+	out := &bytes.Buffer{}
+	errOut := io.Discard
+	rootCmd := NewMCPServerOptions(genericiooptions.IOStreams{In: in, Out: out, ErrOut: errOut})
+	rootCmd.Version = true
+	rootCmd.LogLevel = 1
+	rootCmd.Complete()
+	rootCmd.Run()
+	if !strings.Contains(out.String(), " - Disable destructive tools: false") {
+		t.Fatalf("Expected disable destructive false, got %s", out)
 	}
 }

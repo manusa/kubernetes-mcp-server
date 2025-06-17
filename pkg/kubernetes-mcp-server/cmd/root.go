@@ -5,7 +5,6 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"os"
 	"strconv"
 	"strings"
 
@@ -110,7 +109,7 @@ func (m *MCPServerOptions) Complete() error {
 func (m *MCPServerOptions) initializeLogging() {
 	flagSet := flag.NewFlagSet("klog", flag.ContinueOnError)
 	klog.InitFlags(flagSet)
-	loggerOptions := []textlogger.ConfigOption{textlogger.Output(os.Stdout)}
+	loggerOptions := []textlogger.ConfigOption{textlogger.Output(m.Out)}
 	if m.LogLevel >= 0 {
 		loggerOptions = append(loggerOptions, textlogger.Verbosity(m.LogLevel))
 		_ = flagSet.Parse([]string{"--v", strconv.Itoa(m.LogLevel)})

@@ -1,8 +1,9 @@
 package mcp
 
 import (
-	"github.com/mark3labs/mcp-go/server"
 	"slices"
+
+	"github.com/mark3labs/mcp-go/server"
 )
 
 type Profile interface {

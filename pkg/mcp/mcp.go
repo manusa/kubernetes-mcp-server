@@ -2,12 +2,15 @@ package mcp
 
 import (
 	"context"
+	"net/http"
+
+	"github.com/mark3labs/mcp-go/mcp"
+	"github.com/mark3labs/mcp-go/server"
+	"k8s.io/utils/ptr"
+
 	"github.com/manusa/kubernetes-mcp-server/pkg/kubernetes"
 	"github.com/manusa/kubernetes-mcp-server/pkg/output"
 	"github.com/manusa/kubernetes-mcp-server/pkg/version"
-	"github.com/mark3labs/mcp-go/mcp"
-	"github.com/mark3labs/mcp-go/server"
-	"net/http"
 )
 
 type Configuration struct {
@@ -45,10 +48,6 @@ func NewSever(configuration Configuration) (*Server, error) {
 	return s, nil
 }
 
-func isFalse(value *bool) bool {
-	return value == nil || !*value
-}
-
 func (s *Server) reloadKubernetesClient() error {
 	k, err := kubernetes.NewKubernetes(s.configuration.Kubeconfig)
 	if err != nil {
@@ -57,10 +56,10 @@ func (s *Server) reloadKubernetesClient() error {
 	s.k = k
 	applicableTools := make([]server.ServerTool, 0)
 	for _, tool := range s.configuration.Profile.GetTools(s) {
-		if s.configuration.ReadOnly && isFalse(tool.Tool.Annotations.ReadOnlyHint) {
+		if s.configuration.ReadOnly && !ptr.Deref(tool.Tool.Annotations.ReadOnlyHint, false) {
 			continue
 		}
-		if s.configuration.DisableDestructive && isFalse(tool.Tool.Annotations.ReadOnlyHint) && !isFalse(tool.Tool.Annotations.DestructiveHint) {
+		if s.configuration.DisableDestructive && !ptr.Deref(tool.Tool.Annotations.ReadOnlyHint, false) && ptr.Deref(tool.Tool.Annotations.DestructiveHint, false) {
 			continue
 		}
 		applicableTools = append(applicableTools, tool)

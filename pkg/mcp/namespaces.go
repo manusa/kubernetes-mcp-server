@@ -3,9 +3,11 @@ package mcp
 import (
 	"context"
 	"fmt"
-	"github.com/manusa/kubernetes-mcp-server/pkg/kubernetes"
+
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
+
+	"github.com/manusa/kubernetes-mcp-server/pkg/kubernetes"
 )
 
 func (s *Server) initNamespaces() []server.ServerTool {

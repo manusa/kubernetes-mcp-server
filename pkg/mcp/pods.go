@@ -5,12 +5,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/manusa/kubernetes-mcp-server/pkg/kubernetes"
-	"github.com/manusa/kubernetes-mcp-server/pkg/output"
-	"k8s.io/kubectl/pkg/metricsutil"
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
+	"k8s.io/kubectl/pkg/metricsutil"
+
+	"github.com/manusa/kubernetes-mcp-server/pkg/kubernetes"
+	"github.com/manusa/kubernetes-mcp-server/pkg/output"
 )
 
 func (s *Server) initPods() []server.ServerTool {

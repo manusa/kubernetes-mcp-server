@@ -29,25 +29,25 @@ type PodsTopOptions struct {
 	Name          string
 }
 
-func (k *Kubernetes) PodsListInAllNamespaces(ctx context.Context, options ResourceListOptions) (runtime.Unstructured, error) {
+func (k *kubernetes) PodsListInAllNamespaces(ctx context.Context, options ResourceListOptions) (runtime.Unstructured, error) {
 	return k.ResourcesList(ctx, &schema.GroupVersionKind{
 		Group: "", Version: "v1", Kind: "Pod",
 	}, "", options)
 }
 
-func (k *Kubernetes) PodsListInNamespace(ctx context.Context, namespace string, options ResourceListOptions) (runtime.Unstructured, error) {
+func (k *kubernetes) PodsListInNamespace(ctx context.Context, namespace string, options ResourceListOptions) (runtime.Unstructured, error) {
 	return k.ResourcesList(ctx, &schema.GroupVersionKind{
 		Group: "", Version: "v1", Kind: "Pod",
 	}, namespace, options)
 }
 
-func (k *Kubernetes) PodsGet(ctx context.Context, namespace, name string) (*unstructured.Unstructured, error) {
+func (k *kubernetes) PodsGet(ctx context.Context, namespace, name string) (*unstructured.Unstructured, error) {
 	return k.ResourcesGet(ctx, &schema.GroupVersionKind{
 		Group: "", Version: "v1", Kind: "Pod",
 	}, k.NamespaceOrDefault(namespace), name)
 }
 
-func (k *Kubernetes) PodsDelete(ctx context.Context, namespace, name string) (string, error) {
+func (k *kubernetes) PodsDelete(ctx context.Context, namespace, name string) (string, error) {
 	namespace = k.NamespaceOrDefault(namespace)
 	pod, err := k.clientSet.CoreV1().Pods(namespace).Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
@@ -89,7 +89,7 @@ func (k *Kubernetes) PodsDelete(ctx context.Context, namespace, name string) (st
 		k.clientSet.CoreV1().Pods(namespace).Delete(ctx, name, metav1.DeleteOptions{})
 }
 
-func (k *Kubernetes) PodsLog(ctx context.Context, namespace, name, container string) (string, error) {
+func (k *kubernetes) PodsLog(ctx context.Context, namespace, name, container string) (string, error) {
 	tailLines := int64(256)
 	req := k.clientSet.CoreV1().Pods(k.NamespaceOrDefault(namespace)).GetLogs(name, &v1.PodLogOptions{
 		TailLines: &tailLines,
@@ -106,7 +106,7 @@ func (k *Kubernetes) PodsLog(ctx context.Context, namespace, name, container str
 	return string(rawData), nil
 }
 
-func (k *Kubernetes) PodsRun(ctx context.Context, namespace, name, image string, port int32) ([]*unstructured.Unstructured, error) {
+func (k *kubernetes) PodsRun(ctx context.Context, namespace, name, image string, port int32) ([]*unstructured.Unstructured, error) {
 	if name == "" {
 		name = version.BinaryName + "-run-" + rand.String(5)
 	}
@@ -186,7 +186,7 @@ func (k *Kubernetes) PodsRun(ctx context.Context, namespace, name, image string,
 	return k.resourcesCreateOrUpdate(ctx, toCreate)
 }
 
-func (k *Kubernetes) PodsTop(ctx context.Context, options PodsTopOptions) (*metrics.PodMetricsList, error) {
+func (k *kubernetes) PodsTop(ctx context.Context, options PodsTopOptions) (*metrics.PodMetricsList, error) {
 	// TODO, maybe move to mcp Tools setup and omit in case metrics aren't available in the target cluster
 	if !k.supportsGroupVersion(metrics.GroupName + "/" + metricsv1beta1api.SchemeGroupVersion.Version) {
 		return nil, errors.New("metrics API is not available")
@@ -218,7 +218,7 @@ func (k *Kubernetes) PodsTop(ctx context.Context, options PodsTopOptions) (*metr
 	return convertedMetrics, metricsv1beta1api.Convert_v1beta1_PodMetricsList_To_metrics_PodMetricsList(versionedMetrics, convertedMetrics, nil)
 }
 
-func (k *Kubernetes) PodsExec(ctx context.Context, namespace, name, container string, command []string) (string, error) {
+func (k *kubernetes) PodsExec(ctx context.Context, namespace, name, container string, command []string) (string, error) {
 	namespace = k.NamespaceOrDefault(namespace)
 	pod, err := k.clientSet.CoreV1().Pods(namespace).Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
@@ -257,7 +257,7 @@ func (k *Kubernetes) PodsExec(ctx context.Context, namespace, name, container st
 	return "", nil
 }
 
-func (k *Kubernetes) createExecutor(namespace, name string, podExecOptions *v1.PodExecOptions) (remotecommand.Executor, error) {
+func (k *kubernetes) createExecutor(namespace, name string, podExecOptions *v1.PodExecOptions) (remotecommand.Executor, error) {
 	// Compute URL
 	// https://github.com/kubernetes/kubectl/blob/5366de04e168bcbc11f5e340d131a9ca8b7d0df4/pkg/cmd/exec/exec.go#L382-L397
 	req := k.clientSet.CoreV1().RESTClient().

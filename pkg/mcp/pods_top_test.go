@@ -87,8 +87,7 @@ func TestPodsTop(t *testing.T) {
 		})
 		// Enable metrics API addon
 		metricsApiAvailable = true
-		d, _ := c.mcpServer.k.ToDiscoveryClient()
-		d.Invalidate() // Force discovery client to refresh
+		c.mcpServer.k.Derived(t.Context()).CacheInvalidate() // Force discovery client to refresh
 		podsTopDefaults, err := c.callTool("pods_top", map[string]interface{}{})
 		t.Run("pods_top defaults returns pod metrics from all namespaces", func(t *testing.T) {
 			if err != nil {

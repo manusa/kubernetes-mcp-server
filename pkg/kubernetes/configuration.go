@@ -21,7 +21,7 @@ var InClusterConfig = func() (*rest.Config, error) {
 }
 
 // resolveKubernetesConfigurations resolves the required kubernetes configurations and sets them in the Kubernetes struct
-func resolveKubernetesConfigurations(kubernetes *Kubernetes) error {
+func resolveKubernetesConfigurations(kubernetes *kubernetes) error {
 	// Always set clientCmdConfig
 	pathOptions := clientcmd.NewDefaultPathOptions()
 	if kubernetes.Kubeconfig != "" {
@@ -45,7 +45,7 @@ func resolveKubernetesConfigurations(kubernetes *Kubernetes) error {
 	return err
 }
 
-func (k *Kubernetes) IsInCluster() bool {
+func (k *kubernetes) IsInCluster() bool {
 	if k.Kubeconfig != "" {
 		return false
 	}
@@ -53,14 +53,14 @@ func (k *Kubernetes) IsInCluster() bool {
 	return err == nil && cfg != nil
 }
 
-func (k *Kubernetes) configuredNamespace() string {
+func (k *kubernetes) configuredNamespace() string {
 	if ns, _, nsErr := k.clientCmdConfig.Namespace(); nsErr == nil {
 		return ns
 	}
 	return ""
 }
 
-func (k *Kubernetes) NamespaceOrDefault(namespace string) string {
+func (k *kubernetes) NamespaceOrDefault(namespace string) string {
 	if namespace == "" {
 		return k.configuredNamespace()
 	}
@@ -68,16 +68,16 @@ func (k *Kubernetes) NamespaceOrDefault(namespace string) string {
 }
 
 // ToRESTConfig returns the rest.Config object (genericclioptions.RESTClientGetter)
-func (k *Kubernetes) ToRESTConfig() (*rest.Config, error) {
+func (k *kubernetes) ToRESTConfig() (*rest.Config, error) {
 	return k.cfg, nil
 }
 
 // ToRawKubeConfigLoader returns the clientcmd.ClientConfig object (genericclioptions.RESTClientGetter)
-func (k *Kubernetes) ToRawKubeConfigLoader() clientcmd.ClientConfig {
+func (k *kubernetes) ToRawKubeConfigLoader() clientcmd.ClientConfig {
 	return k.clientCmdConfig
 }
 
-func (k *Kubernetes) ConfigurationView(minify bool) (runtime.Object, error) {
+func (k *kubernetes) ConfigurationView(minify bool) (runtime.Object, error) {
 	var cfg clientcmdapi.Config
 	var err error
 	if k.IsInCluster() {

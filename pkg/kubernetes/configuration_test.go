@@ -12,7 +12,7 @@ import (
 
 func TestKubernetes_IsInCluster(t *testing.T) {
 	t.Run("with explicit kubeconfig", func(t *testing.T) {
-		k := Kubernetes{
+		k := kubernetes{
 			Kubeconfig: "kubeconfig",
 		}
 		if k.IsInCluster() {
@@ -27,7 +27,7 @@ func TestKubernetes_IsInCluster(t *testing.T) {
 		defer func() {
 			InClusterConfig = originalFunction
 		}()
-		k := Kubernetes{
+		k := kubernetes{
 			Kubeconfig: "",
 		}
 		if !k.IsInCluster() {
@@ -42,7 +42,7 @@ func TestKubernetes_IsInCluster(t *testing.T) {
 		defer func() {
 			InClusterConfig = originalFunction
 		}()
-		k := Kubernetes{
+		k := kubernetes{
 			Kubeconfig: "",
 		}
 		if k.IsInCluster() {
@@ -57,7 +57,7 @@ func TestKubernetes_IsInCluster(t *testing.T) {
 		defer func() {
 			InClusterConfig = originalFunction
 		}()
-		k := Kubernetes{
+		k := kubernetes{
 			Kubeconfig: "",
 		}
 		if k.IsInCluster() {
@@ -72,7 +72,7 @@ func TestKubernetes_ResolveKubernetesConfigurations_Explicit(t *testing.T) {
 			t.Skip("Skipping test on non-linux platforms")
 		}
 		tempDir := t.TempDir()
-		k := Kubernetes{Kubeconfig: path.Join(tempDir, "config")}
+		k := kubernetes{Kubeconfig: path.Join(tempDir, "config")}
 		err := resolveKubernetesConfigurations(&k)
 		if err == nil {
 			t.Errorf("expected error, got nil")
@@ -90,7 +90,7 @@ func TestKubernetes_ResolveKubernetesConfigurations_Explicit(t *testing.T) {
 		if err := os.WriteFile(kubeconfigPath, []byte(""), 0644); err != nil {
 			t.Fatalf("failed to create kubeconfig file: %v", err)
 		}
-		k := Kubernetes{Kubeconfig: kubeconfigPath}
+		k := kubernetes{Kubeconfig: kubeconfigPath}
 		err := resolveKubernetesConfigurations(&k)
 		if err == nil {
 			t.Errorf("expected error, got nil")
@@ -123,7 +123,7 @@ users:
 		if err := os.WriteFile(kubeconfigPath, []byte(kubeconfigContent), 0644); err != nil {
 			t.Fatalf("failed to create kubeconfig file: %v", err)
 		}
-		k := Kubernetes{Kubeconfig: kubeconfigPath}
+		k := kubernetes{Kubeconfig: kubeconfigPath}
 		err := resolveKubernetesConfigurations(&k)
 		if err != nil {
 			t.Fatalf("expected no error, got %v", err)

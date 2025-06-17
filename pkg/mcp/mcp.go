@@ -23,7 +23,7 @@ type Configuration struct {
 type Server struct {
 	configuration *Configuration
 	server        *server.MCPServer
-	k             *kubernetes.Kubernetes
+	k             kubernetes.Kubernetes
 }
 
 func NewSever(configuration Configuration) (*Server, error) {

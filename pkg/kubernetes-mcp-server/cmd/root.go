@@ -1,140 +1,181 @@
 package cmd
 
 import (
+	"context"
 	"errors"
 	"flag"
 	"fmt"
-	"github.com/manusa/kubernetes-mcp-server/pkg/mcp"
-	"github.com/manusa/kubernetes-mcp-server/pkg/output"
-	"github.com/manusa/kubernetes-mcp-server/pkg/version"
-	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
-	"golang.org/x/net/context"
-	"k8s.io/klog/v2"
-	"k8s.io/klog/v2/textlogger"
 	"os"
 	"strconv"
 	"strings"
+
+	"github.com/spf13/cobra"
+
+	"k8s.io/cli-runtime/pkg/genericiooptions"
+	"k8s.io/klog/v2"
+	"k8s.io/klog/v2/textlogger"
+	"k8s.io/kubectl/pkg/util/i18n"
+	"k8s.io/kubectl/pkg/util/templates"
+
+	"github.com/manusa/kubernetes-mcp-server/pkg/mcp"
+	"github.com/manusa/kubernetes-mcp-server/pkg/output"
+	"github.com/manusa/kubernetes-mcp-server/pkg/version"
 )
 
-var rootCmd = &cobra.Command{
-	Use:   "kubernetes-mcp-server [command] [options]",
-	Short: "Kubernetes Model Context Protocol (MCP) server",
-	Long: `
-Kubernetes Model Context Protocol (MCP) server
+var (
+	long     = templates.LongDesc(i18n.T("Kubernetes Model Context Protocol (MCP) server"))
+	examples = templates.Examples(i18n.T(`
+# show this help
+kubernetes-mcp-server -h
 
-  # show this help
-  kubernetes-mcp-server -h
+# shows version information
+kubernetes-mcp-server --version
 
-  # shows version information
-  kubernetes-mcp-server --version
+# start STDIO server
+kubernetes-mcp-server
 
-  # start STDIO server
-  kubernetes-mcp-server
+# start a SSE server on port 8080
+kubernetes-mcp-server --sse-port 8080
 
-  # start a SSE server on port 8080
-  kubernetes-mcp-server --sse-port 8080
+# start a SSE server on port 8443 with a public HTTPS host of example.com
+kubernetes-mcp-server --sse-port 8443 --sse-base-url https://example.com:8443
+`))
+)
 
-  # start a SSE server on port 8443 with a public HTTPS host of example.com
-  kubernetes-mcp-server --sse-port 8443 --sse-base-url https://example.com:8443
+type MCPServerOptions struct {
+	Version            bool
+	LogLevel           int
+	SSEPort            int
+	HttpPort           int
+	SSEBaseUrl         string
+	Kubeconfig         string
+	Profile            string
+	ListOutput         string
+	ReadOnly           bool
+	DisableDestructive bool
 
-  # TODO: add more examples`,
-	Run: func(cmd *cobra.Command, args []string) {
-		initLogging()
-		profile := mcp.ProfileFromString(viper.GetString("profile"))
-		if profile == nil {
-			fmt.Printf("Invalid profile name: %s, valid names are: %s\n", viper.GetString("profile"), strings.Join(mcp.ProfileNames, ", "))
-			os.Exit(1)
-		}
-		listOutput := output.FromString(viper.GetString("list-output"))
-		if listOutput == nil {
-			fmt.Printf("Invalid output name: %s, valid names are: %s\n", viper.GetString("list-output"), strings.Join(output.Names, ", "))
-			os.Exit(1)
-		}
-		klog.V(1).Info("Starting kubernetes-mcp-server")
-		klog.V(1).Infof(" - Profile: %s", profile.GetName())
-		klog.V(1).Infof(" - ListOutput: %s", listOutput.GetName())
-		klog.V(1).Infof(" - Read-only mode: %t", viper.GetBool("read-only"))
-		klog.V(1).Infof(" - Disable destructive tools: %t", viper.GetBool("disable-destructive"))
-		if viper.GetBool("version") {
-			fmt.Println(version.Version)
-			return
-		}
-		mcpServer, err := mcp.NewSever(mcp.Configuration{
-			Profile:            profile,
-			ListOutput:         listOutput,
-			ReadOnly:           viper.GetBool("read-only"),
-			DisableDestructive: viper.GetBool("disable-destructive"),
-			Kubeconfig:         viper.GetString("kubeconfig"),
-		})
-		if err != nil {
-			fmt.Printf("Failed to initialize MCP server: %v\n", err)
-			os.Exit(1)
-		}
-		defer mcpServer.Close()
-
-		ssePort := viper.GetInt("sse-port")
-		if ssePort > 0 {
-			sseServer := mcpServer.ServeSse(viper.GetString("sse-base-url"))
-			defer func() { _ = sseServer.Shutdown(cmd.Context()) }()
-			klog.V(0).Infof("SSE server starting on port %d and path /sse", ssePort)
-			if err := sseServer.Start(fmt.Sprintf(":%d", ssePort)); err != nil {
-				klog.Errorf("Failed to start SSE server: %s", err)
-				return
-			}
-		}
-
-		httpPort := viper.GetInt("http-port")
-		if httpPort > 0 {
-			httpServer := mcpServer.ServeHTTP()
-			klog.V(0).Infof("Streaming HTTP server starting on port %d and path /mcp", httpPort)
-			if err := httpServer.Start(fmt.Sprintf(":%d", httpPort)); err != nil {
-				klog.Errorf("Failed to start streaming HTTP server: %s", err)
-				return
-			}
-		}
-
-		if err := mcpServer.ServeStdio(); err != nil && !errors.Is(err, context.Canceled) {
-			panic(err)
-		}
-	},
+	genericiooptions.IOStreams
 }
 
-func Execute() {
-	if err := rootCmd.Execute(); err != nil {
-		klog.Errorf("Failed to execute command: %s", err)
-		os.Exit(1)
+func NewMCPServerOptions(streams genericiooptions.IOStreams) *MCPServerOptions {
+	return &MCPServerOptions{
+		IOStreams:  streams,
+		Profile:    "full",
+		ListOutput: "table",
 	}
 }
 
-func initLogging() {
-	flagSet := flag.NewFlagSet("kubernetes-mcp-server", flag.ContinueOnError)
+func NewMCPServer(streams genericiooptions.IOStreams) *cobra.Command {
+	o := NewMCPServerOptions(streams)
+	cmd := &cobra.Command{
+		Use:     "kubernetes-mcp-server [command] [options]",
+		Short:   "Kubernetes Model Context Protocol (MCP) server",
+		Long:    long,
+		Example: examples,
+		RunE: func(c *cobra.Command, args []string) error {
+			if err := o.Complete(); err != nil {
+				return err
+			}
+			if err := o.Validate(); err != nil {
+				return err
+			}
+			if err := o.Run(); err != nil {
+				return err
+			}
+
+			return nil
+		},
+	}
+
+	cmd.Flags().BoolVar(&o.Version, "version", o.Version, "Print version information and quit")
+	cmd.Flags().IntVar(&o.LogLevel, "log-level", o.LogLevel, "Set the log level (from 0 to 9)")
+	cmd.Flags().IntVar(&o.SSEPort, "sse-port", o.SSEPort, "Start a SSE server on the specified port")
+	cmd.Flags().IntVar(&o.HttpPort, "http-port", o.HttpPort, "Start a streamable HTTP server on the specified port")
+	cmd.Flags().StringVar(&o.SSEBaseUrl, "sse-base-url", o.SSEBaseUrl, "SSE public base URL to use when sending the endpoint message (e.g. https://example.com)")
+	cmd.Flags().StringVar(&o.Kubeconfig, "kubeconfig", o.Kubeconfig, "Path to the kubeconfig file to use for authentication")
+	cmd.Flags().StringVar(&o.Profile, "profile", o.Profile, "MCP profile to use (one of: "+strings.Join(mcp.ProfileNames, ", ")+")")
+	cmd.Flags().StringVar(&o.ListOutput, "list-output", o.ListOutput, "Output format for resource list operations (one of: "+strings.Join(output.Names, ", ")+")")
+	cmd.Flags().BoolVar(&o.ReadOnly, "read-only", o.ReadOnly, "If true, only tools annotated with readOnlyHint=true are exposed")
+	cmd.Flags().BoolVar(&o.DisableDestructive, "disable-destructive", o.DisableDestructive, "If true, tools annotated with destructiveHint=true are disabled")
+
+	return cmd
+}
+
+func (m *MCPServerOptions) Complete() error {
+	m.initializeLogging()
+
+	return nil
+}
+
+func (m *MCPServerOptions) initializeLogging() {
+	flagSet := flag.NewFlagSet("klog", flag.ContinueOnError)
 	klog.InitFlags(flagSet)
 	loggerOptions := []textlogger.ConfigOption{textlogger.Output(os.Stdout)}
-	if logLevel := viper.GetInt("log-level"); logLevel >= 0 {
-		loggerOptions = append(loggerOptions, textlogger.Verbosity(logLevel))
-		_ = flagSet.Parse([]string{"--v", strconv.Itoa(logLevel)})
+	if m.LogLevel >= 0 {
+		loggerOptions = append(loggerOptions, textlogger.Verbosity(m.LogLevel))
+		_ = flagSet.Parse([]string{"--v", strconv.Itoa(m.LogLevel)})
 	}
 	logger := textlogger.NewLogger(textlogger.NewConfig(loggerOptions...))
 	klog.SetLoggerWithOptions(logger)
 }
 
-// flagInit initializes the flags for the root command.
-// Exposed for testing purposes.
-func flagInit() {
-	rootCmd.Flags().BoolP("version", "v", false, "Print version information and quit")
-	rootCmd.Flags().IntP("log-level", "", 0, "Set the log level (from 0 to 9)")
-	rootCmd.Flags().IntP("sse-port", "", 0, "Start a SSE server on the specified port")
-	rootCmd.Flags().IntP("http-port", "", 0, "Start a streamable HTTP server on the specified port")
-	rootCmd.Flags().StringP("sse-base-url", "", "", "SSE public base URL to use when sending the endpoint message (e.g. https://example.com)")
-	rootCmd.Flags().StringP("kubeconfig", "", "", "Path to the kubeconfig file to use for authentication")
-	rootCmd.Flags().String("profile", "full", "MCP profile to use (one of: "+strings.Join(mcp.ProfileNames, ", ")+")")
-	rootCmd.Flags().String("list-output", "table", "Output format for resource list operations (one of: "+strings.Join(output.Names, ", ")+")")
-	rootCmd.Flags().Bool("read-only", false, "If true, only tools annotated with readOnlyHint=true are exposed")
-	rootCmd.Flags().Bool("disable-destructive", false, "If true, tools annotated with destructiveHint=true are disabled")
-	_ = viper.BindPFlags(rootCmd.Flags())
+func (m *MCPServerOptions) Validate() error {
+	return nil
 }
 
-func init() {
-	flagInit()
+func (m *MCPServerOptions) Run() error {
+	profile := mcp.ProfileFromString(m.Profile)
+	if profile == nil {
+		return fmt.Errorf("Invalid profile name: %s, valid names are: %s\n", m.Profile, strings.Join(mcp.ProfileNames, ", "))
+	}
+	listOutput := output.FromString(m.ListOutput)
+	if listOutput == nil {
+		return fmt.Errorf("Invalid output name: %s, valid names are: %s\n", m.ListOutput, strings.Join(output.Names, ", "))
+	}
+	klog.V(1).Info("Starting kubernetes-mcp-server")
+	klog.V(1).Infof(" - Profile: %s", profile.GetName())
+	klog.V(1).Infof(" - ListOutput: %s", listOutput.GetName())
+	klog.V(1).Infof(" - Read-only mode: %t", m.ReadOnly)
+	klog.V(1).Infof(" - Disable destructive tools: %t", m.DisableDestructive)
+
+	if m.Version {
+		fmt.Fprintf(m.Out, "%s\n", version.Version)
+		return nil
+	}
+	mcpServer, err := mcp.NewSever(mcp.Configuration{
+		Profile:            profile,
+		ListOutput:         listOutput,
+		ReadOnly:           m.ReadOnly,
+		DisableDestructive: m.DisableDestructive,
+		Kubeconfig:         m.Kubeconfig,
+	})
+	if err != nil {
+		return fmt.Errorf("Failed to initialize MCP server: %w\n", err)
+	}
+	defer mcpServer.Close()
+
+	ctx := context.Background()
+
+	if m.SSEPort > 0 {
+		sseServer := mcpServer.ServeSse(m.SSEBaseUrl)
+		defer func() { _ = sseServer.Shutdown(ctx) }()
+		klog.V(0).Infof("SSE server starting on port %d and path /sse", m.SSEPort)
+		if err := sseServer.Start(fmt.Sprintf(":%d", m.SSEPort)); err != nil {
+			return fmt.Errorf("failed to start SSE server: %w\n", err)
+		}
+	}
+
+	if m.HttpPort > 0 {
+		httpServer := mcpServer.ServeHTTP()
+		klog.V(0).Infof("Streaming HTTP server starting on port %d and path /mcp", m.HttpPort)
+		if err := httpServer.Start(fmt.Sprintf(":%d", m.HttpPort)); err != nil {
+			return fmt.Errorf("failed to start streaming HTTP server: %w\n", err)
+		}
+	}
+
+	if err := mcpServer.ServeStdio(); err != nil && !errors.Is(err, context.Canceled) {
+		return err
+	}
+
+	return nil
 }

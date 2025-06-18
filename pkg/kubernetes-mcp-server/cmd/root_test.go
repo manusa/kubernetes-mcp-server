@@ -23,25 +23,12 @@ func captureOutput(f func() error) (string, error) {
 	return string(out), err
 }
 
-func TestVersion(t *testing.T) {
-	in := &bytes.Buffer{}
-	out := &bytes.Buffer{}
-	errOut := io.Discard
-	rootCmd := NewMCPServerOptions(genericiooptions.IOStreams{In: in, Out: out, ErrOut: errOut})
-	rootCmd.Version = true
-	rootCmd.Run()
-	if out.String() != "0.0.0\n" {
-		t.Fatalf("Expected version 0.0.0, got %s", out.String())
-	}
-}
-
 func TestProfile(t *testing.T) {
 	t.Run("default", func(t *testing.T) {
 		in := &bytes.Buffer{}
 		out := &bytes.Buffer{}
 		errOut := io.Discard
 		rootCmd := NewMCPServerOptions(genericiooptions.IOStreams{In: in, Out: out, ErrOut: errOut})
-		rootCmd.Version = true
 		rootCmd.LogLevel = 1
 		rootCmd.Complete()
 		rootCmd.Run()
@@ -68,7 +55,6 @@ func TestListOutput(t *testing.T) {
 		out := &bytes.Buffer{}
 		errOut := io.Discard
 		rootCmd := NewMCPServerOptions(genericiooptions.IOStreams{In: in, Out: out, ErrOut: errOut})
-		rootCmd.Version = true
 		rootCmd.LogLevel = 1
 		rootCmd.Complete()
 		rootCmd.Run()
@@ -83,7 +69,6 @@ func TestDefaultReadOnly(t *testing.T) {
 	out := &bytes.Buffer{}
 	errOut := io.Discard
 	rootCmd := NewMCPServerOptions(genericiooptions.IOStreams{In: in, Out: out, ErrOut: errOut})
-	rootCmd.Version = true
 	rootCmd.LogLevel = 1
 	rootCmd.Complete()
 	rootCmd.Run()
@@ -97,7 +82,6 @@ func TestDefaultDisableDestructive(t *testing.T) {
 	out := &bytes.Buffer{}
 	errOut := io.Discard
 	rootCmd := NewMCPServerOptions(genericiooptions.IOStreams{In: in, Out: out, ErrOut: errOut})
-	rootCmd.Version = true
 	rootCmd.LogLevel = 1
 	rootCmd.Complete()
 	rootCmd.Run()

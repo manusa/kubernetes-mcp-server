@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"context"
-	"errors"
 	"flag"
 	"fmt"
 	"regexp"
@@ -153,7 +152,7 @@ func (m *MCPServerOptions) Run() error {
 
 	switch m.MCPType {
 	case "streamable":
-		mcpServer, err := mcp.NewSever(mcp.Configuration{
+		mcpServer, err := mcp.NewServer(mcp.Configuration{
 			Profile:            m.profileObj,
 			ListOutput:         m.listOutputObj,
 			ReadOnly:           m.ReadOnly,
@@ -170,7 +169,7 @@ func (m *MCPServerOptions) Run() error {
 			return fmt.Errorf("failed to start streaming HTTP server: %w\n", err)
 		}
 	case "sse":
-		mcpServer, err := mcp.NewSever(mcp.Configuration{
+		mcpServer, err := mcp.NewServer(mcp.Configuration{
 			Profile:            m.profileObj,
 			ListOutput:         m.listOutputObj,
 			ReadOnly:           m.ReadOnly,
@@ -190,7 +189,7 @@ func (m *MCPServerOptions) Run() error {
 			return fmt.Errorf("failed to start SSE server: %w\n", err)
 		}
 	case "stdio":
-		mcpServer, err := mcp.NewSever(mcp.Configuration{
+		mcpServer, err := mcp.NewServer(mcp.Configuration{
 			Profile:            m.profileObj,
 			ListOutput:         m.listOutputObj,
 			ReadOnly:           m.ReadOnly,
@@ -202,7 +201,7 @@ func (m *MCPServerOptions) Run() error {
 		}
 		defer mcpServer.Close()
 
-		if err := mcpServer.ServeStdio(); err != nil && !errors.Is(err, context.Canceled) {
+		if err := mcpServer.ServeStdio(); err != nil {
 			return err
 		}
 	default:

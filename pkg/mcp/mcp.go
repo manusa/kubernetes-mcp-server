@@ -29,7 +29,7 @@ type Server struct {
 	k             *kubernetes.Kubernetes
 }
 
-func NewSever(configuration Configuration) (*Server, error) {
+func NewServer(configuration Configuration) (*Server, error) {
 	s := &Server{
 		configuration: &configuration,
 		server: server.NewMCPServer(

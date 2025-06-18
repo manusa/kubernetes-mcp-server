@@ -4,6 +4,7 @@ import (
 	"github.com/mark3labs/mcp-go/mcp"
 	"net/http"
 	"regexp"
+	"sync"
 	"testing"
 )
 
@@ -13,6 +14,7 @@ func TestPodsTop(t *testing.T) {
 		defer mockServer.Close()
 		c.withKubeConfig(mockServer.config)
 		metricsApiAvailable := false
+		metricsApiMutex := sync.Mutex{}
 		mockServer.Handle(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 			println("Request received:", req.Method, req.URL.Path) // TODO: REMOVE LINE
 			w.Header().Set("Content-Type", "application/json")
@@ -72,7 +74,9 @@ func TestPodsTop(t *testing.T) {
 					`}`))
 			}
 		}))
+		metricsApiMutex.Lock()
 		podsTopMetricsApiUnavailable, err := c.callTool("pods_top", map[string]interface{}{})
+		metricsApiMutex.Unlock()
 		t.Run("pods_top with metrics API not available", func(t *testing.T) {
 			if err != nil {
 				t.Fatalf("call tool failed %v", err)
@@ -85,8 +89,10 @@ func TestPodsTop(t *testing.T) {
 			}
 		})
 		// Enable metrics API addon
+		metricsApiMutex.Lock()
 		metricsApiAvailable = true
 		podsTopDefaults, err := c.callTool("pods_top", map[string]interface{}{})
+		metricsApiMutex.Unlock()
 		t.Run("pods_top defaults returns pod metrics from all namespaces", func(t *testing.T) {
 			if err != nil {
 				t.Fatalf("call tool failed %v", err)

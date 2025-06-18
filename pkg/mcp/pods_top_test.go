@@ -4,27 +4,53 @@ import (
 	"github.com/mark3labs/mcp-go/mcp"
 	"net/http"
 	"regexp"
-	"sync"
 	"testing"
 )
 
-func TestPodsTop(t *testing.T) {
+func TestPodsTopMetricsUnavailable(t *testing.T) {
 	testCase(t, func(c *mcpContext) {
 		mockServer := NewMockServer()
 		defer mockServer.Close()
 		c.withKubeConfig(mockServer.config)
-		metricsApiAvailable := false
-		metricsApiMutex := sync.Mutex{}
+		mockServer.Handle(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			// Request Performed by DiscoveryClient to Kube API (Get API Groups legacy -core-)
+			if req.URL.Path == "/api" {
+				_, _ = w.Write([]byte(`{"kind":"APIVersions","versions":[],"serverAddressByClientCIDRs":[{"clientCIDR":"0.0.0.0/0"}]}`))
+				return
+			}
+			// Request Performed by DiscoveryClient to Kube API (Get API Groups)
+			if req.URL.Path == "/apis" {
+				_, _ = w.Write([]byte(`{"kind":"APIGroupList","apiVersion":"v1","groups":[]}`))
+				return
+			}
+		}))
+		podsTopMetricsApiUnavailable, err := c.callTool("pods_top", map[string]interface{}{})
+		t.Run("pods_top with metrics API not available", func(t *testing.T) {
+			if err != nil {
+				t.Fatalf("call tool failed %v", err)
+			}
+			if !podsTopMetricsApiUnavailable.IsError {
+				t.Errorf("call tool should have returned an error")
+			}
+			if podsTopMetricsApiUnavailable.Content[0].(mcp.TextContent).Text != "failed to get pods top: metrics API is not available" {
+				t.Errorf("call tool returned unexpected content: %s", podsTopMetricsApiUnavailable.Content[0].(mcp.TextContent).Text)
+			}
+		})
+	})
+}
+
+func TestPodsTopMetricsAvailable(t *testing.T) {
+	testCase(t, func(c *mcpContext) {
+		mockServer := NewMockServer()
+		defer mockServer.Close()
+		c.withKubeConfig(mockServer.config)
 		mockServer.Handle(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 			println("Request received:", req.Method, req.URL.Path) // TODO: REMOVE LINE
 			w.Header().Set("Content-Type", "application/json")
 			// Request Performed by DiscoveryClient to Kube API (Get API Groups legacy -core-)
 			if req.URL.Path == "/api" {
-				if !metricsApiAvailable {
-					_, _ = w.Write([]byte(`{"kind":"APIVersions","versions":[],"serverAddressByClientCIDRs":[{"clientCIDR":"0.0.0.0/0"}]}`))
-				} else {
-					_, _ = w.Write([]byte(`{"kind":"APIVersions","versions":["metrics.k8s.io/v1beta1"],"serverAddressByClientCIDRs":[{"clientCIDR":"0.0.0.0/0"}]}`))
-				}
+				_, _ = w.Write([]byte(`{"kind":"APIVersions","versions":["metrics.k8s.io/v1beta1"],"serverAddressByClientCIDRs":[{"clientCIDR":"0.0.0.0/0"}]}`))
 				return
 			}
 			// Request Performed by DiscoveryClient to Kube API (Get API Groups)
@@ -33,12 +59,12 @@ func TestPodsTop(t *testing.T) {
 				return
 			}
 			// Request Performed by DiscoveryClient to Kube API (Get API Resources)
-			if metricsApiAvailable && req.URL.Path == "/apis/metrics.k8s.io/v1beta1" {
+			if req.URL.Path == "/apis/metrics.k8s.io/v1beta1" {
 				_, _ = w.Write([]byte(`{"kind":"APIResourceList","apiVersion":"v1","groupVersion":"metrics.k8s.io/v1beta1","resources":[{"name":"pods","singularName":"","namespaced":true,"kind":"PodMetrics","verbs":["get","list"]}]}`))
 				return
 			}
 			// Pod Metrics from all namespaces
-			if metricsApiAvailable && req.URL.Path == "/apis/metrics.k8s.io/v1beta1/pods" {
+			if req.URL.Path == "/apis/metrics.k8s.io/v1beta1/pods" {
 				if req.URL.Query().Get("labelSelector") == "app=pod-ns-5-42" {
 					_, _ = w.Write([]byte(`{"kind":"PodMetricsList","apiVersion":"metrics.k8s.io/v1beta1","items":[` +
 						`{"metadata":{"name":"pod-ns-5-42","namespace":"ns-5"},"containers":[{"name":"container-1","usage":{"cpu":"42m","memory":"42Mi"}}]}` +
@@ -53,46 +79,28 @@ func TestPodsTop(t *testing.T) {
 				return
 			}
 			// Pod Metrics from configured namespace
-			if metricsApiAvailable && req.URL.Path == "/apis/metrics.k8s.io/v1beta1/namespaces/default/pods" {
+			if req.URL.Path == "/apis/metrics.k8s.io/v1beta1/namespaces/default/pods" {
 				_, _ = w.Write([]byte(`{"kind":"PodMetricsList","apiVersion":"metrics.k8s.io/v1beta1","items":[` +
 					`{"metadata":{"name":"pod-1","namespace":"default"},"containers":[{"name":"container-1","usage":{"cpu":"10m","memory":"20Mi"}},{"name":"container-2","usage":{"cpu":"30m","memory":"40Mi"}}]}` +
 					`]}`))
 				return
 			}
 			// Pod Metrics from ns-5 namespace
-			if metricsApiAvailable && req.URL.Path == "/apis/metrics.k8s.io/v1beta1/namespaces/ns-5/pods" {
+			if req.URL.Path == "/apis/metrics.k8s.io/v1beta1/namespaces/ns-5/pods" {
 				_, _ = w.Write([]byte(`{"kind":"PodMetricsList","apiVersion":"metrics.k8s.io/v1beta1","items":[` +
 					`{"metadata":{"name":"pod-ns-5-1","namespace":"ns-5"},"containers":[{"name":"container-1","usage":{"cpu":"10m","memory":"20Mi"}}]}` +
 					`]}`))
 				return
 			}
 			// Pod Metrics from ns-5 namespace with pod-ns-5-5 pod name
-			if metricsApiAvailable && req.URL.Path == "/apis/metrics.k8s.io/v1beta1/namespaces/ns-5/pods/pod-ns-5-5" {
+			if req.URL.Path == "/apis/metrics.k8s.io/v1beta1/namespaces/ns-5/pods/pod-ns-5-5" {
 				_, _ = w.Write([]byte(`{"kind":"PodMetrics","apiVersion":"metrics.k8s.io/v1beta1",` +
 					`"metadata":{"name":"pod-ns-5-5","namespace":"ns-5"},` +
 					`"containers":[{"name":"container-1","usage":{"cpu":"13m","memory":"37Mi"}}]` +
 					`}`))
 			}
 		}))
-		metricsApiMutex.Lock()
-		podsTopMetricsApiUnavailable, err := c.callTool("pods_top", map[string]interface{}{})
-		metricsApiMutex.Unlock()
-		t.Run("pods_top with metrics API not available", func(t *testing.T) {
-			if err != nil {
-				t.Fatalf("call tool failed %v", err)
-			}
-			if !podsTopMetricsApiUnavailable.IsError {
-				t.Errorf("call tool should have returned an error")
-			}
-			if podsTopMetricsApiUnavailable.Content[0].(mcp.TextContent).Text != "failed to get pods top: metrics API is not available" {
-				t.Errorf("call tool returned unexpected content: %s", podsTopMetricsApiUnavailable.Content[0].(mcp.TextContent).Text)
-			}
-		})
-		// Enable metrics API addon
-		metricsApiMutex.Lock()
-		metricsApiAvailable = true
 		podsTopDefaults, err := c.callTool("pods_top", map[string]interface{}{})
-		metricsApiMutex.Unlock()
 		t.Run("pods_top defaults returns pod metrics from all namespaces", func(t *testing.T) {
 			if err != nil {
 				t.Fatalf("call tool failed %v", err)

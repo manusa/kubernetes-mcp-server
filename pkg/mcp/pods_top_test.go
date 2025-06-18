@@ -19,7 +19,6 @@ func TestPodsTop(t *testing.T) {
 			// Request Performed by DiscoveryClient to Kube API (Get API Groups legacy -core-)
 			if req.URL.Path == "/api" {
 				if !metricsApiAvailable {
-
 					_, _ = w.Write([]byte(`{"kind":"APIVersions","versions":[],"serverAddressByClientCIDRs":[{"clientCIDR":"0.0.0.0/0"}]}`))
 				} else {
 					_, _ = w.Write([]byte(`{"kind":"APIVersions","versions":["metrics.k8s.io/v1beta1"],"serverAddressByClientCIDRs":[{"clientCIDR":"0.0.0.0/0"}]}`))
@@ -87,7 +86,6 @@ func TestPodsTop(t *testing.T) {
 		})
 		// Enable metrics API addon
 		metricsApiAvailable = true
-		c.mcpServer.k.Derived(t.Context()).CacheInvalidate() // Force discovery client to refresh
 		podsTopDefaults, err := c.callTool("pods_top", map[string]interface{}{})
 		t.Run("pods_top defaults returns pod metrics from all namespaces", func(t *testing.T) {
 			if err != nil {

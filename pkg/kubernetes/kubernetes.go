@@ -164,16 +164,6 @@ func (m *Manager) Derived(ctx context.Context) *Kubernetes {
 	return derived
 }
 
-// TODO: check test to see why cache isn't getting invalidated automatically https://github.com/manusa/kubernetes-mcp-server/pull/125#discussion_r2152194784
-func (k *Kubernetes) CacheInvalidate() {
-	if k.manager.discoveryClient != nil {
-		k.manager.discoveryClient.Invalidate()
-	}
-	if k.manager.deferredDiscoveryRESTMapper != nil {
-		k.manager.deferredDiscoveryRESTMapper.Reset()
-	}
-}
-
 func (k *Kubernetes) NewHelm() *helm.Helm {
 	// This is a derived Kubernetes, so it already has the Helm initialized
 	return helm.NewHelm(k.manager)

@@ -156,6 +156,10 @@ func (k *Kubernetes) resourcesCreateOrUpdate(ctx context.Context, resources []*u
 }
 
 func (k *Kubernetes) resourceFor(gvk *schema.GroupVersionKind) (*schema.GroupVersionResource, error) {
+	secret := schema.GroupVersionKind{Version: "v1", Kind: "Secret"}
+	if gvk.String() == secret.String() {
+		return nil, fmt.Errorf("any operations in Secret resource is not allowed")
+	}
 	m, err := k.manager.deferredDiscoveryRESTMapper.RESTMapping(schema.GroupKind{Group: gvk.Group, Kind: gvk.Kind}, gvk.Version)
 	if err != nil {
 		return nil, err

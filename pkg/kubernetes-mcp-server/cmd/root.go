@@ -42,7 +42,6 @@ kubernetes-mcp-server --sse-port 8443 --sse-base-url https://example.com:8443
 )
 
 type MCPServerOptions struct {
-	Version            bool
 	LogLevel           int
 	SSEPort            int
 	HttpPort           int
@@ -86,7 +85,6 @@ func NewMCPServer(streams genericiooptions.IOStreams) *cobra.Command {
 		},
 	}
 
-	cmd.Flags().BoolVar(&o.Version, "version", o.Version, "Print version information and quit")
 	cmd.Flags().IntVar(&o.LogLevel, "log-level", o.LogLevel, "Set the log level (from 0 to 9)")
 	cmd.Flags().IntVar(&o.SSEPort, "sse-port", o.SSEPort, "Start a SSE server on the specified port")
 	cmd.Flags().IntVar(&o.HttpPort, "http-port", o.HttpPort, "Start a streamable HTTP server on the specified port")
@@ -97,6 +95,7 @@ func NewMCPServer(streams genericiooptions.IOStreams) *cobra.Command {
 	cmd.Flags().BoolVar(&o.ReadOnly, "read-only", o.ReadOnly, "If true, only tools annotated with readOnlyHint=true are exposed")
 	cmd.Flags().BoolVar(&o.DisableDestructive, "disable-destructive", o.DisableDestructive, "If true, tools annotated with destructiveHint=true are disabled")
 
+	cmd.AddCommand(version.NewCmdVersion(streams))
 	return cmd
 }
 
@@ -137,10 +136,6 @@ func (m *MCPServerOptions) Run() error {
 	klog.V(1).Infof(" - Read-only mode: %t", m.ReadOnly)
 	klog.V(1).Infof(" - Disable destructive tools: %t", m.DisableDestructive)
 
-	if m.Version {
-		fmt.Fprintf(m.Out, "%s\n", version.Version)
-		return nil
-	}
 	mcpServer, err := mcp.NewSever(mcp.Configuration{
 		Profile:            profile,
 		ListOutput:         listOutput,

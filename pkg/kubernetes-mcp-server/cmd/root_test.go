@@ -4,6 +4,9 @@ import (
 	"bytes"
 	"io"
 	"os"
+	"path/filepath"
+	"regexp"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -41,6 +44,30 @@ func TestVersion(t *testing.T) {
 	}
 }
 
+func TestConfig(t *testing.T) {
+	t.Run("defaults to none", func(t *testing.T) {
+		ioStreams, out := testStream()
+		rootCmd := NewMCPServer(ioStreams)
+		rootCmd.SetArgs([]string{"--version", "--log-level=1"})
+		expectedConfig := `" - Config: "`
+		if err := rootCmd.Execute(); !strings.Contains(out.String(), expectedConfig) {
+			t.Fatalf("Expected config to be %s, got %s %v", expectedConfig, out.String(), err)
+		}
+	})
+	t.Run("set with --config", func(t *testing.T) {
+		ioStreams, out := testStream()
+		rootCmd := NewMCPServer(ioStreams)
+		_, file, _, _ := runtime.Caller(0)
+		emptyConfigPath := filepath.Join(filepath.Dir(file), "testdata", "empty-config.toml")
+		rootCmd.SetArgs([]string{"--version", "--log-level=1", "--config", emptyConfigPath})
+		_ = rootCmd.Execute()
+		expected := `(?m)\" - Config\:[^\"]+empty-config\.toml\"`
+		if m, err := regexp.MatchString(expected, out.String()); !m || err != nil {
+			t.Fatalf("Expected config to be %s, got %s %v", expected, out.String(), err)
+		}
+	})
+}
+
 func TestProfile(t *testing.T) {
 	t.Run("available", func(t *testing.T) {
 		ioStreams, _ := testStream()
@@ -57,6 +84,16 @@ func TestProfile(t *testing.T) {
 		rootCmd.SetArgs([]string{"--version", "--log-level=1"})
 		if err := rootCmd.Execute(); !strings.Contains(out.String(), "- Profile: full") {
 			t.Fatalf("Expected profile 'full', got %s %v", out, err)
+		}
+	})
+	t.Run("set with --profile", func(t *testing.T) {
+		ioStreams, out := testStream()
+		rootCmd := NewMCPServer(ioStreams)
+		rootCmd.SetArgs([]string{"--version", "--log-level=1", "--profile", "full"}) // TODO: change by some non-default profile
+		_ = rootCmd.Execute()
+		expected := `(?m)\" - Profile\: full\"`
+		if m, err := regexp.MatchString(expected, out.String()); !m || err != nil {
+			t.Fatalf("Expected profile to be %s, got %s %v", expected, out.String(), err)
 		}
 	})
 }
@@ -79,6 +116,16 @@ func TestListOutput(t *testing.T) {
 			t.Fatalf("Expected list-output 'table', got %s %v", out, err)
 		}
 	})
+	t.Run("set with --list-output", func(t *testing.T) {
+		ioStreams, out := testStream()
+		rootCmd := NewMCPServer(ioStreams)
+		rootCmd.SetArgs([]string{"--version", "--log-level=1", "--list-output", "yaml"})
+		_ = rootCmd.Execute()
+		expected := `(?m)\" - ListOutput\: yaml\"`
+		if m, err := regexp.MatchString(expected, out.String()); !m || err != nil {
+			t.Fatalf("Expected list-output to be %s, got %s %v", expected, out.String(), err)
+		}
+	})
 }
 
 func TestReadOnly(t *testing.T) {
@@ -90,6 +137,16 @@ func TestReadOnly(t *testing.T) {
 			t.Fatalf("Expected read-only mode false, got %s %v", out, err)
 		}
 	})
+	t.Run("set with --read-only", func(t *testing.T) {
+		ioStreams, out := testStream()
+		rootCmd := NewMCPServer(ioStreams)
+		rootCmd.SetArgs([]string{"--version", "--log-level=1", "--read-only"})
+		_ = rootCmd.Execute()
+		expected := `(?m)\" - Read-only mode\: true\"`
+		if m, err := regexp.MatchString(expected, out.String()); !m || err != nil {
+			t.Fatalf("Expected read-only mode to be %s, got %s %v", expected, out.String(), err)
+		}
+	})
 }
 
 func TestDisableDestructive(t *testing.T) {
@@ -99,6 +156,16 @@ func TestDisableDestructive(t *testing.T) {
 		rootCmd.SetArgs([]string{"--version", "--log-level=1"})
 		if err := rootCmd.Execute(); !strings.Contains(out.String(), " - Disable destructive tools: false") {
 			t.Fatalf("Expected disable destructive false, got %s %v", out, err)
+		}
+	})
+	t.Run("set with --disable-destructive", func(t *testing.T) {
+		ioStreams, out := testStream()
+		rootCmd := NewMCPServer(ioStreams)
+		rootCmd.SetArgs([]string{"--version", "--log-level=1", "--disable-destructive"})
+		_ = rootCmd.Execute()
+		expected := `(?m)\" - Disable destructive tools\: true\"`
+		if m, err := regexp.MatchString(expected, out.String()); !m || err != nil {
+			t.Fatalf("Expected disable-destructive mode to be %s, got %s %v", expected, out.String(), err)
 		}
 	})
 }

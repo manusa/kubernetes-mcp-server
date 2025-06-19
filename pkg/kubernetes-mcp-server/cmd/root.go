@@ -90,9 +90,9 @@ func NewMCPServer(streams genericiooptions.IOStreams) *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&o.ConfigPath, "config", o.ConfigPath, "Path of the config file. Each profile has its set of defaults.")
 	cmd.Flags().BoolVar(&o.Version, "version", o.Version, "Print version information and quit")
 	cmd.Flags().IntVar(&o.LogLevel, "log-level", o.LogLevel, "Set the log level (from 0 to 9)")
+	cmd.Flags().StringVar(&o.ConfigPath, "config", o.ConfigPath, "Path of the config file. Each profile has its set of defaults.")
 	cmd.Flags().IntVar(&o.SSEPort, "sse-port", o.SSEPort, "Start a SSE server on the specified port")
 	cmd.Flags().IntVar(&o.HttpPort, "http-port", o.HttpPort, "Start a streamable HTTP server on the specified port")
 	cmd.Flags().StringVar(&o.SSEBaseUrl, "sse-base-url", o.SSEBaseUrl, "SSE public base URL to use when sending the endpoint message (e.g. https://example.com)")
@@ -145,13 +145,14 @@ func (m *MCPServerOptions) Run() error {
 		return fmt.Errorf("Invalid output name: %s, valid names are: %s\n", m.ListOutput, strings.Join(output.Names, ", "))
 	}
 	klog.V(1).Info("Starting kubernetes-mcp-server")
+	klog.V(1).Infof(" - Config: %s", m.ConfigPath)
 	klog.V(1).Infof(" - Profile: %s", profile.GetName())
 	klog.V(1).Infof(" - ListOutput: %s", listOutput.GetName())
 	klog.V(1).Infof(" - Read-only mode: %t", m.ReadOnly)
 	klog.V(1).Infof(" - Disable destructive tools: %t", m.DisableDestructive)
 
 	if m.Version {
-		fmt.Fprintf(m.Out, "%s\n", version.Version)
+		_, _ = fmt.Fprintf(m.Out, "%s\n", version.Version)
 		return nil
 	}
 	mcpServer, err := mcp.NewServer(mcp.Configuration{

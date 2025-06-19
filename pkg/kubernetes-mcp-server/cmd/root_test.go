@@ -74,7 +74,7 @@ func TestProfile(t *testing.T) {
 		rootCmd := NewMCPServer(ioStreams)
 		rootCmd.SetArgs([]string{"--help"})
 		o, err := captureOutput(rootCmd.Execute) // --help doesn't use logger/klog, cobra prints directly to stdout
-		if !strings.Contains(o, "MCP profile to use (one of: full) ") {
+		if !strings.Contains(o, "MCP profile to use (one of: full, full-safe) ") {
 			t.Fatalf("Expected all available profiles, got %s %v", o, err)
 		}
 	})

@@ -2,13 +2,13 @@ package mcp
 
 import (
 	"context"
-	"github.com/manusa/kubernetes-mcp-server/pkg/config"
 	"net/http"
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 	"k8s.io/utils/ptr"
 
+	"github.com/manusa/kubernetes-mcp-server/pkg/config"
 	"github.com/manusa/kubernetes-mcp-server/pkg/kubernetes"
 	"github.com/manusa/kubernetes-mcp-server/pkg/output"
 	"github.com/manusa/kubernetes-mcp-server/pkg/version"
@@ -44,6 +44,15 @@ func NewServer(configuration Configuration) (*Server, error) {
 			server.WithLogging(),
 		),
 	}
+
+	if configuration.StaticConfig == nil {
+		staticConfig, err := configuration.Profile.GetDefaultConfig()
+		if err != nil {
+			return nil, err
+		}
+		configuration.StaticConfig = staticConfig
+	}
+
 	if err := s.reloadKubernetesClient(); err != nil {
 		return nil, err
 	}

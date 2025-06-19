@@ -1,0 +1,16 @@
+# A list of denied Kubernetes resources in Group/Version/Kind format.
+# If a resource is in this list, MCP server should deny all operations
+# on that resource type across all namespaces.
+[[denied_resources]]
+group = ""
+version = "v1"
+kind = "ServiceAccount"
+
+[[denied_resources]]
+group = ""
+version = "v1"
+kind = "Secret"
+
+[[denied_resources]]
+group = "rbac.authorization.k8s.io"
+version = "v1"

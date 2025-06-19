@@ -2,14 +2,17 @@ package mcp
 
 import (
 	"context"
-	"github.com/mark3labs/mcp-go/client"
-	"github.com/mark3labs/mcp-go/mcp"
 	"net/http"
 	"os"
 	"path/filepath"
 	"runtime"
 	"testing"
 	"time"
+
+	"github.com/mark3labs/mcp-go/client"
+	"github.com/mark3labs/mcp-go/mcp"
+
+	"github.com/manusa/kubernetes-mcp-server/pkg/config"
 )
 
 func TestWatchKubeConfig(t *testing.T) {
@@ -96,6 +99,7 @@ func TestSseHeaders(t *testing.T) {
 	defer mockServer.Close()
 	before := func(c *mcpContext) {
 		c.withKubeConfig(mockServer.config)
+		c.withStaticConfig(&config.StaticConfig{})
 		c.clientOptions = append(c.clientOptions, client.WithHeaders(map[string]string{"kubernetes-authorization": "Bearer a-token-from-mcp-client"}))
 	}
 	pathHeaders := make(map[string]http.Header, 0)

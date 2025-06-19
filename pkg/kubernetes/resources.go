@@ -33,6 +33,11 @@ func (k *Kubernetes) ResourcesList(ctx context.Context, gvk *schema.GroupVersion
 	if err != nil {
 		return nil, err
 	}
+
+	if !k.isAllowed(gvk) {
+		return nil, fmt.Errorf("resource not allowed: %s", gvk.String())
+	}
+
 	// Check if operation is allowed for all namespaces (applicable for namespaced resources)
 	isNamespaced, _ := k.isNamespaced(gvk)
 	if isNamespaced && !k.canIUse(ctx, gvr, namespace, "list") && namespace == "" {
@@ -49,6 +54,11 @@ func (k *Kubernetes) ResourcesGet(ctx context.Context, gvk *schema.GroupVersionK
 	if err != nil {
 		return nil, err
 	}
+
+	if !k.isAllowed(gvk) {
+		return nil, fmt.Errorf("resource not allowed: %s", gvk.String())
+	}
+
 	// If it's a namespaced resource and namespace wasn't provided, try to use the default configured one
 	if namespaced, nsErr := k.isNamespaced(gvk); nsErr == nil && namespaced {
 		namespace = k.NamespaceOrDefault(namespace)
@@ -75,6 +85,11 @@ func (k *Kubernetes) ResourcesDelete(ctx context.Context, gvk *schema.GroupVersi
 	if err != nil {
 		return err
 	}
+
+	if !k.isAllowed(gvk) {
+		return fmt.Errorf("resource not allowed: %s", gvk.String())
+	}
+
 	// If it's a namespaced resource and namespace wasn't provided, try to use the default configured one
 	if namespaced, nsErr := k.isNamespaced(gvk); nsErr == nil && namespaced {
 		namespace = k.NamespaceOrDefault(namespace)
@@ -136,6 +151,11 @@ func (k *Kubernetes) resourcesCreateOrUpdate(ctx context.Context, resources []*u
 		if rErr != nil {
 			return nil, rErr
 		}
+
+		if !k.isAllowed(&gvk) {
+			return nil, fmt.Errorf("resource not allowed: %s", gvk.String())
+		}
+
 		namespace := obj.GetNamespace()
 		// If it's a namespaced resource and namespace wasn't provided, try to use the default configured one
 		if namespaced, nsErr := k.isNamespaced(&gvk); nsErr == nil && namespaced {
@@ -161,6 +181,30 @@ func (k *Kubernetes) resourceFor(gvk *schema.GroupVersionKind) (*schema.GroupVer
 		return nil, err
 	}
 	return &m.Resource, nil
+}
+
+// isAllowed checks the resource is in denied list or not.
+// If it is in denied list, this function returns false.
+func (k *Kubernetes) isAllowed(gvk *schema.GroupVersionKind) bool {
+	if k.manager.StaticConfig == nil {
+		return true
+	}
+
+	for _, val := range k.manager.StaticConfig.DeniedResources {
+		// If kind is empty, that means Group/Version pair is denied entirely
+		if val.Kind == "" {
+			if gvk.Group == val.Group && gvk.Version == val.Version {
+				return false
+			}
+		}
+		if gvk.Group == val.Group &&
+			gvk.Version == val.Version &&
+			gvk.Kind == val.Kind {
+			return false
+		}
+	}
+
+	return true
 }
 
 func (k *Kubernetes) isNamespaced(gvk *schema.GroupVersionKind) (bool, error) {

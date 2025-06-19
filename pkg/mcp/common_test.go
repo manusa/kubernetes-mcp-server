@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/manusa/kubernetes-mcp-server/pkg/config"
 	"github.com/manusa/kubernetes-mcp-server/pkg/output"
 	"github.com/mark3labs/mcp-go/client"
 	"github.com/mark3labs/mcp-go/client/transport"
@@ -100,6 +101,7 @@ type mcpContext struct {
 	listOutput         output.Output
 	readOnly           bool
 	disableDestructive bool
+	staticConfig       *config.StaticConfig
 	clientOptions      []transport.ClientOption
 	before             func(*mcpContext)
 	after              func(*mcpContext)
@@ -125,11 +127,26 @@ func (c *mcpContext) beforeEach(t *testing.T) {
 	if c.before != nil {
 		c.before(c)
 	}
-	if c.mcpServer, err = NewSever(Configuration{
+	if c.staticConfig == nil {
+		c.staticConfig = &config.StaticConfig{
+			DeniedResources: []config.GroupVersionKind{
+				{
+					Version: "v1",
+					Kind:    "Secret",
+				},
+				{
+					Group:   "rbac.authorization.k8s.io",
+					Version: "v1",
+				},
+			},
+		}
+	}
+	if c.mcpServer, err = NewServer(Configuration{
 		Profile:            c.profile,
 		ListOutput:         c.listOutput,
 		ReadOnly:           c.readOnly,
 		DisableDestructive: c.disableDestructive,
+		StaticConfig:       c.staticConfig,
 	}); err != nil {
 		t.Fatal(err)
 		return
@@ -203,6 +220,10 @@ func (c *mcpContext) withKubeConfig(rc *rest.Config) *api.Config {
 		}
 	}
 	return fakeConfig
+}
+
+func (c *mcpContext) withStaticConfig(config *config.StaticConfig) {
+	c.staticConfig = config
 }
 
 // withEnvTest sets up the environment for kubeconfig to be used with envTest

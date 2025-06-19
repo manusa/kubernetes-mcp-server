@@ -2,8 +2,10 @@ package kubernetes
 
 import (
 	"context"
+	"strings"
+
 	"github.com/fsnotify/fsnotify"
-	"github.com/manusa/kubernetes-mcp-server/pkg/helm"
+
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -11,13 +13,16 @@ import (
 	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
-	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/restmapper"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/klog/v2"
-	"strings"
+
+	"github.com/manusa/kubernetes-mcp-server/pkg/config"
+	"github.com/manusa/kubernetes-mcp-server/pkg/helm"
+
+	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc"
 )
 
 const (
@@ -42,11 +47,14 @@ type Manager struct {
 	discoveryClient             discovery.CachedDiscoveryInterface
 	deferredDiscoveryRESTMapper *restmapper.DeferredDiscoveryRESTMapper
 	dynamicClient               *dynamic.DynamicClient
+
+	StaticConfig *config.StaticConfig
 }
 
-func NewManager(kubeconfig string) (*Manager, error) {
+func NewManager(kubeconfig string, config *config.StaticConfig) (*Manager, error) {
 	k8s := &Manager{
-		Kubeconfig: kubeconfig,
+		Kubeconfig:   kubeconfig,
+		StaticConfig: config,
 	}
 	if err := resolveKubernetesConfigurations(k8s); err != nil {
 		return nil, err

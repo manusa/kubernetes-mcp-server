@@ -2,6 +2,7 @@ package mcp
 
 import (
 	"context"
+	"github.com/manusa/kubernetes-mcp-server/pkg/config"
 	"net/http"
 
 	"github.com/mark3labs/mcp-go/mcp"
@@ -21,6 +22,8 @@ type Configuration struct {
 	// When true, disable tools annotated with destructiveHint=true
 	DisableDestructive bool
 	Kubeconfig         string
+
+	StaticConfig *config.StaticConfig
 }
 
 type Server struct {
@@ -29,7 +32,7 @@ type Server struct {
 	k             *kubernetes.Manager
 }
 
-func NewSever(configuration Configuration) (*Server, error) {
+func NewServer(configuration Configuration) (*Server, error) {
 	s := &Server{
 		configuration: &configuration,
 		server: server.NewMCPServer(
@@ -45,11 +48,12 @@ func NewSever(configuration Configuration) (*Server, error) {
 		return nil, err
 	}
 	s.k.WatchKubeConfig(s.reloadKubernetesClient)
+
 	return s, nil
 }
 
 func (s *Server) reloadKubernetesClient() error {
-	k, err := kubernetes.NewManager(s.configuration.Kubeconfig)
+	k, err := kubernetes.NewManager(s.configuration.Kubeconfig, s.configuration.StaticConfig)
 	if err != nil {
 		return err
 	}

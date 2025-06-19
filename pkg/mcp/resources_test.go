@@ -54,6 +54,26 @@ func TestResourcesList(t *testing.T) {
 				t.Fatalf("invalid error message, got %v", toolResult.Content[0].(mcp.TextContent).Text)
 			}
 		})
+		t.Run("resources_list with a resource in denied list as kind", func(t *testing.T) {
+			toolResult, _ := c.callTool("resources_list", map[string]interface{}{"apiVersion": "v1", "kind": "Secret"})
+			if !toolResult.IsError {
+				t.Fatalf("call tool should fail")
+			}
+			//failed to list resources: resource not allowed: /v1, Kind=Secret
+			if toolResult.Content[0].(mcp.TextContent).Text != `failed to list resources: resource not allowed: /v1, Kind=Secret` {
+				t.Fatalf("invalid error message, got %v", toolResult.Content[0].(mcp.TextContent).Text)
+			}
+		})
+		t.Run("resources_list with a resource in denied list as group", func(t *testing.T) {
+			toolResult, _ := c.callTool("resources_list", map[string]interface{}{"apiVersion": "rbac.authorization.k8s.io/v1", "kind": "Role"})
+			if !toolResult.IsError {
+				t.Fatalf("call tool should fail")
+			}
+			//failed to list resources: resource not allowed: /v1, Kind=Secret
+			if toolResult.Content[0].(mcp.TextContent).Text != `failed to list resources: resource not allowed: rbac.authorization.k8s.io/v1, Kind=Role` {
+				t.Fatalf("invalid error message, got %v", toolResult.Content[0].(mcp.TextContent).Text)
+			}
+		})
 		namespaces, err := c.callTool("resources_list", map[string]interface{}{"apiVersion": "v1", "kind": "Namespace"})
 		t.Run("resources_list returns namespaces", func(t *testing.T) {
 			if err != nil {

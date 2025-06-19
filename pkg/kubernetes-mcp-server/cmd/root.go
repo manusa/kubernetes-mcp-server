@@ -16,6 +16,7 @@ import (
 	"k8s.io/kubectl/pkg/util/i18n"
 	"k8s.io/kubectl/pkg/util/templates"
 
+	"github.com/manusa/kubernetes-mcp-server/pkg/config"
 	"github.com/manusa/kubernetes-mcp-server/pkg/mcp"
 	"github.com/manusa/kubernetes-mcp-server/pkg/output"
 	"github.com/manusa/kubernetes-mcp-server/pkg/version"
@@ -53,6 +54,9 @@ type MCPServerOptions struct {
 	ReadOnly           bool
 	DisableDestructive bool
 
+	ConfigPath   string
+	StaticConfig *config.StaticConfig
+
 	genericiooptions.IOStreams
 }
 
@@ -86,6 +90,7 @@ func NewMCPServer(streams genericiooptions.IOStreams) *cobra.Command {
 		},
 	}
 
+	cmd.Flags().StringVar(&o.ConfigPath, "config", o.ConfigPath, "Path of the config file. Each profile has its set of defaults.")
 	cmd.Flags().BoolVar(&o.Version, "version", o.Version, "Print version information and quit")
 	cmd.Flags().IntVar(&o.LogLevel, "log-level", o.LogLevel, "Set the log level (from 0 to 9)")
 	cmd.Flags().IntVar(&o.SSEPort, "sse-port", o.SSEPort, "Start a SSE server on the specified port")
@@ -102,6 +107,14 @@ func NewMCPServer(streams genericiooptions.IOStreams) *cobra.Command {
 
 func (m *MCPServerOptions) Complete() error {
 	m.initializeLogging()
+
+	if m.ConfigPath != "" {
+		cnf, err := config.ReadConfig(m.ConfigPath)
+		if err != nil {
+			return err
+		}
+		m.StaticConfig = cnf
+	}
 
 	return nil
 }
@@ -141,12 +154,13 @@ func (m *MCPServerOptions) Run() error {
 		fmt.Fprintf(m.Out, "%s\n", version.Version)
 		return nil
 	}
-	mcpServer, err := mcp.NewSever(mcp.Configuration{
+	mcpServer, err := mcp.NewServer(mcp.Configuration{
 		Profile:            profile,
 		ListOutput:         listOutput,
 		ReadOnly:           m.ReadOnly,
 		DisableDestructive: m.DisableDestructive,
 		Kubeconfig:         m.Kubeconfig,
+		StaticConfig:       m.StaticConfig,
 	})
 	if err != nil {
 		return fmt.Errorf("Failed to initialize MCP server: %w\n", err)

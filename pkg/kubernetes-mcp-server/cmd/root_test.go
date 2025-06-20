@@ -66,6 +66,19 @@ func TestConfig(t *testing.T) {
 			t.Fatalf("Expected config to be %s, got %s %v", expected, out.String(), err)
 		}
 	})
+	t.Run("invalid path throws error", func(t *testing.T) {
+		ioStreams, _ := testStream()
+		rootCmd := NewMCPServer(ioStreams)
+		rootCmd.SetArgs([]string{"--version", "--log-level=1", "--config", "invalid-path-to-config.toml"})
+		err := rootCmd.Execute()
+		if err == nil {
+			t.Fatal("Expected error for invalid config path, got nil")
+		}
+		expected := "open invalid-path-to-config.toml: "
+		if !strings.HasPrefix(err.Error(), expected) {
+			t.Fatalf("Expected error to be %s, got %s", expected, err.Error())
+		}
+	})
 }
 
 func TestProfile(t *testing.T) {

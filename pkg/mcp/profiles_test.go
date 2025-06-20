@@ -19,6 +19,7 @@ func TestFullProfileTools(t *testing.T) {
 		"pods_list_in_namespace",
 		"pods_get",
 		"pods_delete",
+		"pods_top",
 		"pods_log",
 		"pods_run",
 		"pods_exec",

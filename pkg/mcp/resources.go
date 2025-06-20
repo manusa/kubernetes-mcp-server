@@ -110,14 +110,25 @@ func (s *Server) resourcesList(ctx context.Context, ctr mcp.CallToolRequest) (*m
 	resourceListOptions := kubernetes.ResourceListOptions{
 		AsTable: s.configuration.ListOutput.AsTable(),
 	}
+
 	if labelSelector != nil {
-		resourceListOptions.ListOptions.LabelSelector = labelSelector.(string)
+		l, ok := labelSelector.(string)
+		if !ok {
+			return NewTextResult("", fmt.Errorf("labelSelector is not a string")), nil
+		}
+		resourceListOptions.ListOptions.LabelSelector = l
 	}
 	gvk, err := parseGroupVersionKind(ctr.GetArguments())
 	if err != nil {
 		return NewTextResult("", fmt.Errorf("failed to list resources, %s", err)), nil
 	}
-	ret, err := s.k.Derived(ctx).ResourcesList(ctx, gvk, namespace.(string), resourceListOptions)
+
+	ns, ok := namespace.(string)
+	if !ok {
+		return NewTextResult("", fmt.Errorf("namespace is not a string")), nil
+	}
+
+	ret, err := s.k.Derived(ctx).ResourcesList(ctx, gvk, ns, resourceListOptions)
 	if err != nil {
 		return NewTextResult("", fmt.Errorf("failed to list resources: %v", err)), nil
 	}
@@ -137,7 +148,18 @@ func (s *Server) resourcesGet(ctx context.Context, ctr mcp.CallToolRequest) (*mc
 	if name == nil {
 		return NewTextResult("", errors.New("failed to get resource, missing argument name")), nil
 	}
-	ret, err := s.k.Derived(ctx).ResourcesGet(ctx, gvk, namespace.(string), name.(string))
+
+	ns, ok := namespace.(string)
+	if !ok {
+		return NewTextResult("", fmt.Errorf("namespace is not a string")), nil
+	}
+
+	n, ok := name.(string)
+	if !ok {
+		return NewTextResult("", fmt.Errorf("name is not a string")), nil
+	}
+
+	ret, err := s.k.Derived(ctx).ResourcesGet(ctx, gvk, ns, n)
 	if err != nil {
 		return NewTextResult("", fmt.Errorf("failed to get resource: %v", err)), nil
 	}
@@ -149,7 +171,13 @@ func (s *Server) resourcesCreateOrUpdate(ctx context.Context, ctr mcp.CallToolRe
 	if resource == nil || resource == "" {
 		return NewTextResult("", errors.New("failed to create or update resources, missing argument resource")), nil
 	}
-	resources, err := s.k.Derived(ctx).ResourcesCreateOrUpdate(ctx, resource.(string))
+
+	r, ok := resource.(string)
+	if !ok {
+		return NewTextResult("", fmt.Errorf("resource is not a string")), nil
+	}
+
+	resources, err := s.k.Derived(ctx).ResourcesCreateOrUpdate(ctx, r)
 	if err != nil {
 		return NewTextResult("", fmt.Errorf("failed to create or update resources: %v", err)), nil
 	}
@@ -173,7 +201,18 @@ func (s *Server) resourcesDelete(ctx context.Context, ctr mcp.CallToolRequest) (
 	if name == nil {
 		return NewTextResult("", errors.New("failed to delete resource, missing argument name")), nil
 	}
-	err = s.k.Derived(ctx).ResourcesDelete(ctx, gvk, namespace.(string), name.(string))
+
+	ns, ok := namespace.(string)
+	if !ok {
+		return NewTextResult("", fmt.Errorf("namespace is not a string")), nil
+	}
+
+	n, ok := name.(string)
+	if !ok {
+		return NewTextResult("", fmt.Errorf("name is not a string")), nil
+	}
+
+	err = s.k.Derived(ctx).ResourcesDelete(ctx, gvk, ns, n)
 	if err != nil {
 		return NewTextResult("", fmt.Errorf("failed to delete resource: %v", err)), nil
 	}
@@ -189,7 +228,13 @@ func parseGroupVersionKind(arguments map[string]interface{}) (*schema.GroupVersi
 	if kind == nil {
 		return nil, errors.New("missing argument kind")
 	}
-	gv, err := schema.ParseGroupVersion(apiVersion.(string))
+
+	a, ok := apiVersion.(string)
+	if !ok {
+		return nil, fmt.Errorf("name is not a string")
+	}
+
+	gv, err := schema.ParseGroupVersion(a)
 	if err != nil {
 		return nil, errors.New("invalid argument apiVersion")
 	}

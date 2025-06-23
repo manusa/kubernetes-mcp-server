@@ -62,7 +62,7 @@ func TestNamespacesListDenied(t *testing.T) {
 		t.Run("namespaces_list describes denial", func(t *testing.T) {
 			expectedMessage := "failed to list namespaces: resource not allowed: /v1, Kind=Namespace"
 			if namespacesList.Content[0].(mcp.TextContent).Text != expectedMessage {
-				t.Fatalf("expected desciptive error '%s', got %v", expectedMessage, namespacesList.Content[0].(mcp.TextContent).Text)
+				t.Fatalf("expected descriptive error '%s', got %v", expectedMessage, namespacesList.Content[0].(mcp.TextContent).Text)
 			}
 		})
 	})
@@ -167,7 +167,7 @@ func TestProjectsListInOpenShiftDenied(t *testing.T) {
 		t.Run("projects_list describes denial", func(t *testing.T) {
 			expectedMessage := "failed to list projects: resource not allowed: project.openshift.io/v1, Kind=Project"
 			if projectsList.Content[0].(mcp.TextContent).Text != expectedMessage {
-				t.Fatalf("expected desciptive error '%s', got %v", expectedMessage, projectsList.Content[0].(mcp.TextContent).Text)
+				t.Fatalf("expected descriptive error '%s', got %v", expectedMessage, projectsList.Content[0].(mcp.TextContent).Text)
 			}
 		})
 	})

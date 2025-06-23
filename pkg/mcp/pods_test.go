@@ -190,7 +190,7 @@ func TestPodsListDenied(t *testing.T) {
 		t.Run("pods_list describes denial", func(t *testing.T) {
 			expectedMessage := "failed to list pods in all namespaces: resource not allowed: /v1, Kind=Pod"
 			if podsList.Content[0].(mcp.TextContent).Text != expectedMessage {
-				t.Fatalf("expected desciptive error '%s', got %v", expectedMessage, podsList.Content[0].(mcp.TextContent).Text)
+				t.Fatalf("expected descriptive error '%s', got %v", expectedMessage, podsList.Content[0].(mcp.TextContent).Text)
 			}
 		})
 		podsListInNamespace, _ := c.callTool("pods_list_in_namespace", map[string]interface{}{"namespace": "ns-1"})
@@ -202,7 +202,7 @@ func TestPodsListDenied(t *testing.T) {
 		t.Run("pods_list_in_namespace describes denial", func(t *testing.T) {
 			expectedMessage := "failed to list pods in namespace ns-1: resource not allowed: /v1, Kind=Pod"
 			if podsListInNamespace.Content[0].(mcp.TextContent).Text != expectedMessage {
-				t.Fatalf("expected desciptive error '%s', got %v", expectedMessage, podsListInNamespace.Content[0].(mcp.TextContent).Text)
+				t.Fatalf("expected descriptive error '%s', got %v", expectedMessage, podsListInNamespace.Content[0].(mcp.TextContent).Text)
 			}
 		})
 	})
@@ -425,7 +425,7 @@ func TestPodsGetDenied(t *testing.T) {
 		t.Run("pods_get describes denial", func(t *testing.T) {
 			expectedMessage := "failed to get pod a-pod-in-default in namespace : resource not allowed: /v1, Kind=Pod"
 			if podsGet.Content[0].(mcp.TextContent).Text != expectedMessage {
-				t.Fatalf("expected desciptive error '%s', got %v", expectedMessage, podsGet.Content[0].(mcp.TextContent).Text)
+				t.Fatalf("expected descriptive error '%s', got %v", expectedMessage, podsGet.Content[0].(mcp.TextContent).Text)
 			}
 		})
 	})
@@ -576,7 +576,7 @@ func TestPodsDeleteDenied(t *testing.T) {
 		t.Run("pods_delete describes denial", func(t *testing.T) {
 			expectedMessage := "failed to delete pod a-pod-in-default in namespace : resource not allowed: /v1, Kind=Pod"
 			if podsDelete.Content[0].(mcp.TextContent).Text != expectedMessage {
-				t.Fatalf("expected desciptive error '%s', got %v", expectedMessage, podsDelete.Content[0].(mcp.TextContent).Text)
+				t.Fatalf("expected descriptive error '%s', got %v", expectedMessage, podsDelete.Content[0].(mcp.TextContent).Text)
 			}
 		})
 	})
@@ -736,7 +736,7 @@ func TestPodsLogDenied(t *testing.T) {
 		t.Run("pods_log describes denial", func(t *testing.T) {
 			expectedMessage := "failed to log pod a-pod-in-default in namespace : resource not allowed: /v1, Kind=Pod"
 			if podsLog.Content[0].(mcp.TextContent).Text != expectedMessage {
-				t.Fatalf("expected desciptive error '%s', got %v", expectedMessage, podsLog.Content[0].(mcp.TextContent).Text)
+				t.Fatalf("expected descriptive error '%s', got %v", expectedMessage, podsLog.Content[0].(mcp.TextContent).Text)
 			}
 		})
 	})
@@ -905,7 +905,7 @@ func TestPodsRunDenied(t *testing.T) {
 		t.Run("pods_run describes denial", func(t *testing.T) {
 			expectedMessage := "failed to run pod  in namespace : resource not allowed: /v1, Kind=Pod"
 			if podsRun.Content[0].(mcp.TextContent).Text != expectedMessage {
-				t.Fatalf("expected desciptive error '%s', got %v", expectedMessage, podsRun.Content[0].(mcp.TextContent).Text)
+				t.Fatalf("expected descriptive error '%s', got %v", expectedMessage, podsRun.Content[0].(mcp.TextContent).Text)
 			}
 		})
 	})

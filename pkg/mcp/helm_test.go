@@ -59,7 +59,6 @@ func TestHelmInstall(t *testing.T) {
 }
 
 func TestHelmInstallDenied(t *testing.T) {
-	t.Skip("To be implemented") // TODO: helm_install is not checking for denied resources
 	deniedResourcesServer := &config.StaticConfig{DeniedResources: []config.GroupVersionKind{{Version: "v1", Kind: "Secret"}}}
 	testCaseWithContext(t, &mcpContext{staticConfig: deniedResourcesServer}, func(c *mcpContext) {
 		c.withEnvTest()
@@ -74,9 +73,10 @@ func TestHelmInstallDenied(t *testing.T) {
 			}
 		})
 		t.Run("helm_install describes denial", func(t *testing.T) {
-			expectedMessage := "failed to install helm chart: resource not allowed: /v1, Kind=Secret"
-			if helmInstall.Content[0].(mcp.TextContent).Text != expectedMessage {
-				t.Fatalf("expected desciptive error '%s', got %v", expectedMessage, helmInstall.Content[0].(mcp.TextContent).Text)
+			toolOutput := helmInstall.Content[0].(mcp.TextContent).Text
+			expectedMessage := ": resource not allowed: /v1, Kind=Secret"
+			if !strings.HasPrefix(toolOutput, "failed to install helm chart") || !strings.HasSuffix(toolOutput, expectedMessage) {
+				t.Fatalf("expected descriptive error '%s', got %v", expectedMessage, helmInstall.Content[0].(mcp.TextContent).Text)
 			}
 		})
 	})

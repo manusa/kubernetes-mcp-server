@@ -204,3 +204,7 @@ func TestPodsTopMetricsAvailable(t *testing.T) {
 		})
 	})
 }
+
+func TestPodsTopDenied(t *testing.T) {
+	t.Skip("To be implemented") // TODO: top is not checking for denied resources
+}

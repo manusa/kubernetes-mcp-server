@@ -1,6 +1,7 @@
 package mcp
 
 import (
+	"github.com/manusa/kubernetes-mcp-server/pkg/config"
 	"github.com/manusa/kubernetes-mcp-server/pkg/output"
 	"regexp"
 	"strings"
@@ -171,6 +172,37 @@ func TestPodsListInNamespace(t *testing.T) {
 		t.Run("pods_list_in_namespace omits managed fields", func(t *testing.T) {
 			if decoded[0].GetManagedFields() != nil {
 				t.Fatalf("managed fields should be omitted, got %v", decoded[0].GetManagedFields())
+			}
+		})
+	})
+}
+
+func TestPodsListDenied(t *testing.T) {
+	deniedResourcesServer := &config.StaticConfig{DeniedResources: []config.GroupVersionKind{{Version: "v1", Kind: "Pod"}}}
+	testCaseWithContext(t, &mcpContext{staticConfig: deniedResourcesServer}, func(c *mcpContext) {
+		c.withEnvTest()
+		podsList, _ := c.callTool("pods_list", map[string]interface{}{})
+		t.Run("pods_list has error", func(t *testing.T) {
+			if !podsList.IsError {
+				t.Fatalf("call tool should fail")
+			}
+		})
+		t.Run("pods_list describes denial", func(t *testing.T) {
+			expectedMessage := "failed to list pods in all namespaces: resource not allowed: /v1, Kind=Pod"
+			if podsList.Content[0].(mcp.TextContent).Text != expectedMessage {
+				t.Fatalf("expected desciptive error '%s', got %v", expectedMessage, podsList.Content[0].(mcp.TextContent).Text)
+			}
+		})
+		podsListInNamespace, _ := c.callTool("pods_list_in_namespace", map[string]interface{}{"namespace": "ns-1"})
+		t.Run("pods_list_in_namespace has error", func(t *testing.T) {
+			if !podsListInNamespace.IsError {
+				t.Fatalf("call tool should fail")
+			}
+		})
+		t.Run("pods_list_in_namespace describes denial", func(t *testing.T) {
+			expectedMessage := "failed to list pods in namespace ns-1: resource not allowed: /v1, Kind=Pod"
+			if podsListInNamespace.Content[0].(mcp.TextContent).Text != expectedMessage {
+				t.Fatalf("expected desciptive error '%s', got %v", expectedMessage, podsListInNamespace.Content[0].(mcp.TextContent).Text)
 			}
 		})
 	})
@@ -380,6 +412,25 @@ func TestPodsGet(t *testing.T) {
 	})
 }
 
+func TestPodsGetDenied(t *testing.T) {
+	deniedResourcesServer := &config.StaticConfig{DeniedResources: []config.GroupVersionKind{{Version: "v1", Kind: "Pod"}}}
+	testCaseWithContext(t, &mcpContext{staticConfig: deniedResourcesServer}, func(c *mcpContext) {
+		c.withEnvTest()
+		podsGet, _ := c.callTool("pods_get", map[string]interface{}{"name": "a-pod-in-default"})
+		t.Run("pods_get has error", func(t *testing.T) {
+			if !podsGet.IsError {
+				t.Fatalf("call tool should fail")
+			}
+		})
+		t.Run("pods_get describes denial", func(t *testing.T) {
+			expectedMessage := "failed to get pod a-pod-in-default in namespace : resource not allowed: /v1, Kind=Pod"
+			if podsGet.Content[0].(mcp.TextContent).Text != expectedMessage {
+				t.Fatalf("expected desciptive error '%s', got %v", expectedMessage, podsGet.Content[0].(mcp.TextContent).Text)
+			}
+		})
+	})
+}
+
 func TestPodsDelete(t *testing.T) {
 	testCase(t, func(c *mcpContext) {
 		c.withEnvTest()
@@ -506,6 +557,26 @@ func TestPodsDelete(t *testing.T) {
 			if sErr == nil && s != nil && s.ObjectMeta.DeletionTimestamp == nil {
 				t.Errorf("Service not deleted")
 				return
+			}
+		})
+	})
+}
+
+func TestPodsDeleteDenied(t *testing.T) {
+	t.Skip("To be implemented") // TODO: delete is not checking for denied resources
+	deniedResourcesServer := &config.StaticConfig{DeniedResources: []config.GroupVersionKind{{Version: "v1", Kind: "Pod"}}}
+	testCaseWithContext(t, &mcpContext{staticConfig: deniedResourcesServer}, func(c *mcpContext) {
+		c.withEnvTest()
+		podsDelete, _ := c.callTool("pods_delete", map[string]interface{}{"name": "a-pod-in-default"})
+		t.Run("pods_delete has error", func(t *testing.T) {
+			if !podsDelete.IsError {
+				t.Fatalf("call tool should fail")
+			}
+		})
+		t.Run("pods_delete describes denial", func(t *testing.T) {
+			expectedMessage := "failed to delete pod a-pod-in-default in namespace : resource not allowed: /v1, Kind=Pod"
+			if podsDelete.Content[0].(mcp.TextContent).Text != expectedMessage {
+				t.Fatalf("expected desciptive error '%s', got %v", expectedMessage, podsDelete.Content[0].(mcp.TextContent).Text)
 			}
 		})
 	})
@@ -646,6 +717,26 @@ func TestPodsLog(t *testing.T) {
 			if toolResult.Content[0].(mcp.TextContent).Text != "failed to get pod a-pod-in-ns-1 log in namespace ns-1: container a-not-existing-container is not valid for pod a-pod-in-ns-1" {
 				t.Fatalf("invalid error message, got %v", toolResult.Content[0].(mcp.TextContent).Text)
 				return
+			}
+		})
+	})
+}
+
+func TestPodsLogDenied(t *testing.T) {
+	t.Skip("To be implemented") // TODO: log is not checking for denied resources
+	deniedResourcesServer := &config.StaticConfig{DeniedResources: []config.GroupVersionKind{{Version: "v1", Kind: "Pod"}}}
+	testCaseWithContext(t, &mcpContext{staticConfig: deniedResourcesServer}, func(c *mcpContext) {
+		c.withEnvTest()
+		podsLog, _ := c.callTool("pods_log", map[string]interface{}{"name": "a-pod-in-default"})
+		t.Run("pods_log has error", func(t *testing.T) {
+			if !podsLog.IsError {
+				t.Fatalf("call tool should fail")
+			}
+		})
+		t.Run("pods_log describes denial", func(t *testing.T) {
+			expectedMessage := "failed to log pod a-pod-in-default in namespace : resource not allowed: /v1, Kind=Pod"
+			if podsLog.Content[0].(mcp.TextContent).Text != expectedMessage {
+				t.Fatalf("expected desciptive error '%s', got %v", expectedMessage, podsLog.Content[0].(mcp.TextContent).Text)
 			}
 		})
 	})
@@ -796,6 +887,25 @@ func TestPodsRun(t *testing.T) {
 			if selector["app.kubernetes.io/part-of"] != "kubernetes-mcp-server-run-sandbox" {
 				t.Errorf("invalid service selector, expected app.kubernetes.io/part-of, got %v", selector)
 				return
+			}
+		})
+	})
+}
+
+func TestPodsRunDenied(t *testing.T) {
+	deniedResourcesServer := &config.StaticConfig{DeniedResources: []config.GroupVersionKind{{Version: "v1", Kind: "Pod"}}}
+	testCaseWithContext(t, &mcpContext{staticConfig: deniedResourcesServer}, func(c *mcpContext) {
+		c.withEnvTest()
+		podsRun, _ := c.callTool("pods_run", map[string]interface{}{"image": "nginx"})
+		t.Run("pods_run has error", func(t *testing.T) {
+			if !podsRun.IsError {
+				t.Fatalf("call tool should fail")
+			}
+		})
+		t.Run("pods_run describes denial", func(t *testing.T) {
+			expectedMessage := "failed to run pod  in namespace : resource not allowed: /v1, Kind=Pod"
+			if podsRun.Content[0].(mcp.TextContent).Text != expectedMessage {
+				t.Fatalf("expected desciptive error '%s', got %v", expectedMessage, podsRun.Content[0].(mcp.TextContent).Text)
 			}
 		})
 	})

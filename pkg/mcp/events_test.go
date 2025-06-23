@@ -1,6 +1,7 @@
 package mcp
 
 import (
+	"github.com/manusa/kubernetes-mcp-server/pkg/config"
 	"github.com/mark3labs/mcp-go/mcp"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -89,6 +90,25 @@ func TestEventsList(t *testing.T) {
 				"  Timestamp: 0001-01-01 00:00:00 +0000 UTC\n"+
 				"  Type: Normal\n" {
 				t.Fatalf("unexpected result %v", toolResult.Content[0].(mcp.TextContent).Text)
+			}
+		})
+	})
+}
+
+func TestEventsListDenied(t *testing.T) {
+	deniedResourcesServer := &config.StaticConfig{DeniedResources: []config.GroupVersionKind{{Version: "v1", Kind: "Event"}}}
+	testCaseWithContext(t, &mcpContext{staticConfig: deniedResourcesServer}, func(c *mcpContext) {
+		c.withEnvTest()
+		eventList, _ := c.callTool("events_list", map[string]interface{}{})
+		t.Run("events_list has error", func(t *testing.T) {
+			if !eventList.IsError {
+				t.Fatalf("call tool should fail")
+			}
+		})
+		t.Run("events_list describes denial", func(t *testing.T) {
+			expectedMessage := "failed to list events in all namespaces: resource not allowed: /v1, Kind=Event"
+			if eventList.Content[0].(mcp.TextContent).Text != expectedMessage {
+				t.Fatalf("expected desciptive error '%s', got %v", expectedMessage, eventList.Content[0].(mcp.TextContent).Text)
 			}
 		})
 	})

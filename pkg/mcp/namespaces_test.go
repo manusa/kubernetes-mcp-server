@@ -1,6 +1,7 @@
 package mcp
 
 import (
+	"github.com/manusa/kubernetes-mcp-server/pkg/config"
 	"github.com/manusa/kubernetes-mcp-server/pkg/output"
 	"github.com/mark3labs/mcp-go/mcp"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -43,6 +44,25 @@ func TestNamespacesList(t *testing.T) {
 				if idx == -1 {
 					t.Errorf("namespace %s not found in the list", expectedNamespace)
 				}
+			}
+		})
+	})
+}
+
+func TestNamespacesListDenied(t *testing.T) {
+	deniedResourcesServer := &config.StaticConfig{DeniedResources: []config.GroupVersionKind{{Version: "v1", Kind: "Namespace"}}}
+	testCaseWithContext(t, &mcpContext{staticConfig: deniedResourcesServer}, func(c *mcpContext) {
+		c.withEnvTest()
+		namespacesList, _ := c.callTool("namespaces_list", map[string]interface{}{})
+		t.Run("namespaces_list has error", func(t *testing.T) {
+			if !namespacesList.IsError {
+				t.Fatalf("call tool should fail")
+			}
+		})
+		t.Run("namespaces_list describes denial", func(t *testing.T) {
+			expectedMessage := "failed to list namespaces: resource not allowed: /v1, Kind=Namespace"
+			if namespacesList.Content[0].(mcp.TextContent).Text != expectedMessage {
+				t.Fatalf("expected desciptive error '%s', got %v", expectedMessage, namespacesList.Content[0].(mcp.TextContent).Text)
 			}
 		})
 	})
@@ -129,6 +149,25 @@ func TestProjectsListInOpenShift(t *testing.T) {
 			})
 			if idx == -1 {
 				t.Errorf("namespace %s not found in the list", "an-openshift-project")
+			}
+		})
+	})
+}
+
+func TestProjectsListInOpenShiftDenied(t *testing.T) {
+	deniedResourcesServer := &config.StaticConfig{DeniedResources: []config.GroupVersionKind{{Group: "project.openshift.io", Version: "v1"}}}
+	testCaseWithContext(t, &mcpContext{staticConfig: deniedResourcesServer, before: inOpenShift, after: inOpenShiftClear}, func(c *mcpContext) {
+		c.withEnvTest()
+		projectsList, _ := c.callTool("projects_list", map[string]interface{}{})
+		t.Run("projects_list has error", func(t *testing.T) {
+			if !projectsList.IsError {
+				t.Fatalf("call tool should fail")
+			}
+		})
+		t.Run("projects_list describes denial", func(t *testing.T) {
+			expectedMessage := "failed to list projects: resource not allowed: project.openshift.io/v1, Kind=Project"
+			if projectsList.Content[0].(mcp.TextContent).Text != expectedMessage {
+				t.Fatalf("expected desciptive error '%s', got %v", expectedMessage, projectsList.Content[0].(mcp.TextContent).Text)
 			}
 		})
 	})

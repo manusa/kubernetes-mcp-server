@@ -3,6 +3,7 @@ package mcp
 import (
 	"context"
 	"encoding/base64"
+	"github.com/manusa/kubernetes-mcp-server/pkg/config"
 	"github.com/mark3labs/mcp-go/mcp"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -52,6 +53,30 @@ func TestHelmInstall(t *testing.T) {
 			}
 			if decoded[0]["revision"] != float64(1) {
 				t.Fatalf("invalid helm install revision, expected 1, got %v", decoded[0]["revision"])
+			}
+		})
+	})
+}
+
+func TestHelmInstallDenied(t *testing.T) {
+	t.Skip("To be implemented") // TODO: helm_install is not checking for denied resources
+	deniedResourcesServer := &config.StaticConfig{DeniedResources: []config.GroupVersionKind{{Version: "v1", Kind: "Secret"}}}
+	testCaseWithContext(t, &mcpContext{staticConfig: deniedResourcesServer}, func(c *mcpContext) {
+		c.withEnvTest()
+		_, file, _, _ := runtime.Caller(0)
+		chartPath := filepath.Join(filepath.Dir(file), "testdata", "helm-chart-secret")
+		helmInstall, _ := c.callTool("helm_install", map[string]interface{}{
+			"chart": chartPath,
+		})
+		t.Run("helm_install has error", func(t *testing.T) {
+			if !helmInstall.IsError {
+				t.Fatalf("call tool should fail")
+			}
+		})
+		t.Run("helm_install describes denial", func(t *testing.T) {
+			expectedMessage := "failed to install helm chart: resource not allowed: /v1, Kind=Secret"
+			if helmInstall.Content[0].(mcp.TextContent).Text != expectedMessage {
+				t.Fatalf("expected desciptive error '%s', got %v", expectedMessage, helmInstall.Content[0].(mcp.TextContent).Text)
 			}
 		})
 	})
@@ -197,6 +222,10 @@ func TestHelmUninstall(t *testing.T) {
 			}
 		})
 	})
+}
+
+func TestHelmUninstallDenied(t *testing.T) {
+	t.Skip("To be implemented") // TODO: helm_uninstall is not checking for denied resources
 }
 
 func clearHelmReleases(ctx context.Context, kc *kubernetes.Clientset) {

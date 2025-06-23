@@ -99,3 +99,7 @@ func TestPodsExec(t *testing.T) {
 		})
 	})
 }
+
+func TestPodsExecDenied(t *testing.T) {
+	t.Skip("To be implemented") // TODO: exec is not checking for denied resources
+}

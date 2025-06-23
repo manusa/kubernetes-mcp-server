@@ -124,22 +124,11 @@ func (c *mcpContext) beforeEach(t *testing.T) {
 	if c.listOutput == nil {
 		c.listOutput = output.Yaml
 	}
+	if c.staticConfig == nil {
+		c.staticConfig = &config.StaticConfig{}
+	}
 	if c.before != nil {
 		c.before(c)
-	}
-	if c.staticConfig == nil {
-		c.staticConfig = &config.StaticConfig{
-			DeniedResources: []config.GroupVersionKind{
-				{
-					Version: "v1",
-					Kind:    "Secret",
-				},
-				{
-					Group:   "rbac.authorization.k8s.io",
-					Version: "v1",
-				},
-			},
-		}
 	}
 	if c.mcpServer, err = NewServer(Configuration{
 		Profile:            c.profile,
@@ -220,10 +209,6 @@ func (c *mcpContext) withKubeConfig(rc *rest.Config) *api.Config {
 		}
 	}
 	return fakeConfig
-}
-
-func (c *mcpContext) withStaticConfig(config *config.StaticConfig) {
-	c.staticConfig = config
 }
 
 // withEnvTest sets up the environment for kubeconfig to be used with envTest

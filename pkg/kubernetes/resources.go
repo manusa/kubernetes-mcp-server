@@ -34,10 +34,6 @@ func (k *Kubernetes) ResourcesList(ctx context.Context, gvk *schema.GroupVersion
 		return nil, err
 	}
 
-	if !k.isAllowed(gvk) {
-		return nil, fmt.Errorf("resource not allowed: %s", gvk.String())
-	}
-
 	// Check if operation is allowed for all namespaces (applicable for namespaced resources)
 	isNamespaced, _ := k.isNamespaced(gvk)
 	if isNamespaced && !k.canIUse(ctx, gvr, namespace, "list") && namespace == "" {
@@ -53,10 +49,6 @@ func (k *Kubernetes) ResourcesGet(ctx context.Context, gvk *schema.GroupVersionK
 	gvr, err := k.resourceFor(gvk)
 	if err != nil {
 		return nil, err
-	}
-
-	if !k.isAllowed(gvk) {
-		return nil, fmt.Errorf("resource not allowed: %s", gvk.String())
 	}
 
 	// If it's a namespaced resource and namespace wasn't provided, try to use the default configured one
@@ -84,10 +76,6 @@ func (k *Kubernetes) ResourcesDelete(ctx context.Context, gvk *schema.GroupVersi
 	gvr, err := k.resourceFor(gvk)
 	if err != nil {
 		return err
-	}
-
-	if !k.isAllowed(gvk) {
-		return fmt.Errorf("resource not allowed: %s", gvk.String())
 	}
 
 	// If it's a namespaced resource and namespace wasn't provided, try to use the default configured one
@@ -152,10 +140,6 @@ func (k *Kubernetes) resourcesCreateOrUpdate(ctx context.Context, resources []*u
 			return nil, rErr
 		}
 
-		if !k.isAllowed(&gvk) {
-			return nil, fmt.Errorf("resource not allowed: %s", gvk.String())
-		}
-
 		namespace := obj.GetNamespace()
 		// If it's a namespaced resource and namespace wasn't provided, try to use the default configured one
 		if namespaced, nsErr := k.isNamespaced(&gvk); nsErr == nil && namespaced {
@@ -169,42 +153,18 @@ func (k *Kubernetes) resourcesCreateOrUpdate(ctx context.Context, resources []*u
 		}
 		// Clear the cache to ensure the next operation is performed on the latest exposed APIs (will change after the CRD creation)
 		if gvk.Kind == "CustomResourceDefinition" {
-			k.manager.deferredDiscoveryRESTMapper.Reset()
+			k.manager.accessControlRESTMapper.Reset()
 		}
 	}
 	return resources, nil
 }
 
 func (k *Kubernetes) resourceFor(gvk *schema.GroupVersionKind) (*schema.GroupVersionResource, error) {
-	m, err := k.manager.deferredDiscoveryRESTMapper.RESTMapping(schema.GroupKind{Group: gvk.Group, Kind: gvk.Kind}, gvk.Version)
+	m, err := k.manager.accessControlRESTMapper.RESTMapping(schema.GroupKind{Group: gvk.Group, Kind: gvk.Kind}, gvk.Version)
 	if err != nil {
 		return nil, err
 	}
 	return &m.Resource, nil
-}
-
-// isAllowed checks the resource is in denied list or not.
-// If it is in denied list, this function returns false.
-func (k *Kubernetes) isAllowed(gvk *schema.GroupVersionKind) bool {
-	if k.manager.StaticConfig == nil {
-		return true
-	}
-
-	for _, val := range k.manager.StaticConfig.DeniedResources {
-		// If kind is empty, that means Group/Version pair is denied entirely
-		if val.Kind == "" {
-			if gvk.Group == val.Group && gvk.Version == val.Version {
-				return false
-			}
-		}
-		if gvk.Group == val.Group &&
-			gvk.Version == val.Version &&
-			gvk.Kind == val.Kind {
-			return false
-		}
-	}
-
-	return true
 }
 
 func (k *Kubernetes) isNamespaced(gvk *schema.GroupVersionKind) (bool, error) {

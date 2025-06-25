@@ -563,7 +563,6 @@ func TestPodsDelete(t *testing.T) {
 }
 
 func TestPodsDeleteDenied(t *testing.T) {
-	t.Skip("To be implemented") // TODO: delete is not checking for denied resources
 	deniedResourcesServer := &config.StaticConfig{DeniedResources: []config.GroupVersionKind{{Version: "v1", Kind: "Pod"}}}
 	testCaseWithContext(t, &mcpContext{staticConfig: deniedResourcesServer}, func(c *mcpContext) {
 		c.withEnvTest()
@@ -723,7 +722,6 @@ func TestPodsLog(t *testing.T) {
 }
 
 func TestPodsLogDenied(t *testing.T) {
-	t.Skip("To be implemented") // TODO: log is not checking for denied resources
 	deniedResourcesServer := &config.StaticConfig{DeniedResources: []config.GroupVersionKind{{Version: "v1", Kind: "Pod"}}}
 	testCaseWithContext(t, &mcpContext{staticConfig: deniedResourcesServer}, func(c *mcpContext) {
 		c.withEnvTest()
@@ -734,7 +732,7 @@ func TestPodsLogDenied(t *testing.T) {
 			}
 		})
 		t.Run("pods_log describes denial", func(t *testing.T) {
-			expectedMessage := "failed to log pod a-pod-in-default in namespace : resource not allowed: /v1, Kind=Pod"
+			expectedMessage := "failed to get pod a-pod-in-default log in namespace : resource not allowed: /v1, Kind=Pod"
 			if podsLog.Content[0].(mcp.TextContent).Text != expectedMessage {
 				t.Fatalf("expected descriptive error '%s', got %v", expectedMessage, podsLog.Content[0].(mcp.TextContent).Text)
 			}

@@ -2,6 +2,7 @@ package mcp
 
 import (
 	"bytes"
+	"github.com/manusa/kubernetes-mcp-server/pkg/config"
 	"github.com/mark3labs/mcp-go/mcp"
 	"io"
 	v1 "k8s.io/api/core/v1"
@@ -101,5 +102,25 @@ func TestPodsExec(t *testing.T) {
 }
 
 func TestPodsExecDenied(t *testing.T) {
-	t.Skip("To be implemented") // TODO: exec is not checking for denied resources
+	deniedResourcesServer := &config.StaticConfig{DeniedResources: []config.GroupVersionKind{{Version: "v1", Kind: "Pod"}}}
+	testCaseWithContext(t, &mcpContext{staticConfig: deniedResourcesServer}, func(c *mcpContext) {
+		c.withEnvTest()
+		podsRun, _ := c.callTool("pods_exec", map[string]interface{}{
+			"namespace": "default",
+			"name":      "pod-to-exec",
+			"command":   []interface{}{"ls", "-l"},
+			"container": "a-specific-container",
+		})
+		t.Run("pods_exec has error", func(t *testing.T) {
+			if !podsRun.IsError {
+				t.Fatalf("call tool should fail")
+			}
+		})
+		t.Run("pods_exec describes denial", func(t *testing.T) {
+			expectedMessage := "failed to exec in pod pod-to-exec in namespace default: resource not allowed: /v1, Kind=Pod"
+			if podsRun.Content[0].(mcp.TextContent).Text != expectedMessage {
+				t.Fatalf("expected descriptive error '%s', got %v", expectedMessage, podsRun.Content[0].(mcp.TextContent).Text)
+			}
+		})
+	})
 }

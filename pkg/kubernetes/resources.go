@@ -101,7 +101,7 @@ func (k *Kubernetes) resourcesListAsTable(ctx context.Context, gvk *schema.Group
 	}
 	url = append(url, gvr.Resource)
 	var table metav1.Table
-	err := k.manager.clientSet.CoreV1().RESTClient().
+	err := k.manager.discoveryClient.RESTClient().
 		Get().
 		SetHeader("Accept", strings.Join([]string{
 			fmt.Sprintf("application/json;as=Table;v=%s;g=%s", metav1.SchemeGroupVersion.Version, metav1.GroupName),
@@ -188,7 +188,11 @@ func (k *Kubernetes) supportsGroupVersion(groupVersion string) bool {
 }
 
 func (k *Kubernetes) canIUse(ctx context.Context, gvr *schema.GroupVersionResource, namespace, verb string) bool {
-	response, err := k.manager.clientSet.AuthorizationV1().SelfSubjectAccessReviews().Create(ctx, &authv1.SelfSubjectAccessReview{
+	accessReviews, err := k.manager.accessControlClientSet.SelfSubjectAccessReviews()
+	if err != nil {
+		return false
+	}
+	response, err := accessReviews.Create(ctx, &authv1.SelfSubjectAccessReview{
 		Spec: authv1.SelfSubjectAccessReviewSpec{ResourceAttributes: &authv1.ResourceAttributes{
 			Namespace: namespace,
 			Verb:      verb,

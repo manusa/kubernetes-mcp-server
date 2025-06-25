@@ -12,7 +12,6 @@ import (
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/dynamic"
-	"k8s.io/client-go/kubernetes"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/restmapper"
@@ -41,8 +40,8 @@ type Manager struct {
 	clientCmdConfig         clientcmd.ClientConfig
 	scheme                  *runtime.Scheme
 	parameterCodec          runtime.ParameterCodec
-	clientSet               kubernetes.Interface
 	discoveryClient         discovery.CachedDiscoveryInterface
+	accessControlClientSet  *AccessControlClientset
 	accessControlRESTMapper *AccessControlRESTMapper
 	dynamicClient           *dynamic.DynamicClient
 
@@ -65,11 +64,11 @@ func NewManager(kubeconfig string, config *config.StaticConfig) (*Manager, error
 	//	return &impersonateRoundTripper{original}
 	//})
 	var err error
-	k8s.clientSet, err = kubernetes.NewForConfig(k8s.cfg)
+	k8s.accessControlClientSet, err = NewAccessControlClientset(k8s.cfg, k8s.staticConfig)
 	if err != nil {
 		return nil, err
 	}
-	k8s.discoveryClient = memory.NewMemCacheClient(discovery.NewDiscoveryClient(k8s.clientSet.CoreV1().RESTClient()))
+	k8s.discoveryClient = memory.NewMemCacheClient(k8s.accessControlClientSet.DiscoveryClient())
 	k8s.accessControlRESTMapper = NewAccessControlRESTMapper(
 		restmapper.NewDeferredDiscoveryRESTMapper(k8s.discoveryClient),
 		k8s.staticConfig,
@@ -163,11 +162,11 @@ func (m *Manager) Derived(ctx context.Context) *Kubernetes {
 		scheme:          m.scheme,
 		parameterCodec:  m.parameterCodec,
 	}}
-	derived.manager.clientSet, err = kubernetes.NewForConfig(derived.manager.cfg)
+	derived.manager.accessControlClientSet, err = NewAccessControlClientset(derived.manager.cfg, derived.manager.staticConfig)
 	if err != nil {
 		return &Kubernetes{manager: m}
 	}
-	derived.manager.discoveryClient = memory.NewMemCacheClient(discovery.NewDiscoveryClient(derived.manager.clientSet.CoreV1().RESTClient()))
+	derived.manager.discoveryClient = memory.NewMemCacheClient(derived.manager.accessControlClientSet.DiscoveryClient())
 	derived.manager.accessControlRESTMapper = NewAccessControlRESTMapper(
 		restmapper.NewDeferredDiscoveryRESTMapper(derived.manager.discoveryClient),
 		derived.manager.staticConfig,

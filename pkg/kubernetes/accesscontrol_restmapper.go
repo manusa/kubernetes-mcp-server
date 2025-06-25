@@ -1,8 +1,6 @@
 package kubernetes
 
 import (
-	"fmt"
-
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/restmapper"
@@ -17,37 +15,13 @@ type AccessControlRESTMapper struct {
 
 var _ meta.RESTMapper = &AccessControlRESTMapper{}
 
-// isAllowed checks the resource is in denied list or not.
-// If it is in denied list, this function returns false.
-func (a AccessControlRESTMapper) isAllowed(gvk *schema.GroupVersionKind) bool {
-	if a.staticConfig == nil {
-		return true
-	}
-
-	for _, val := range a.staticConfig.DeniedResources {
-		// If kind is empty, that means Group/Version pair is denied entirely
-		if val.Kind == "" {
-			if gvk.Group == val.Group && gvk.Version == val.Version {
-				return false
-			}
-		}
-		if gvk.Group == val.Group &&
-			gvk.Version == val.Version &&
-			gvk.Kind == val.Kind {
-			return false
-		}
-	}
-
-	return true
-}
-
 func (a AccessControlRESTMapper) KindFor(resource schema.GroupVersionResource) (schema.GroupVersionKind, error) {
 	gvk, err := a.delegate.KindFor(resource)
 	if err != nil {
 		return schema.GroupVersionKind{}, err
 	}
-	if !a.isAllowed(&gvk) {
-		return schema.GroupVersionKind{}, fmt.Errorf("resource not allowed: %s", gvk.String())
+	if !isAllowed(a.staticConfig, &gvk) {
+		return schema.GroupVersionKind{}, isNotAllowedError(&gvk)
 	}
 	return gvk, nil
 }
@@ -58,8 +32,8 @@ func (a AccessControlRESTMapper) KindsFor(resource schema.GroupVersionResource) 
 		return nil, err
 	}
 	for i := range gvks {
-		if !a.isAllowed(&gvks[i]) {
-			return nil, fmt.Errorf("resource not allowed: %s", gvks[i].String())
+		if !isAllowed(a.staticConfig, &gvks[i]) {
+			return nil, isNotAllowedError(&gvks[i])
 		}
 	}
 	return gvks, nil
@@ -76,8 +50,8 @@ func (a AccessControlRESTMapper) ResourcesFor(input schema.GroupVersionResource)
 func (a AccessControlRESTMapper) RESTMapping(gk schema.GroupKind, versions ...string) (*meta.RESTMapping, error) {
 	for _, version := range versions {
 		gvk := &schema.GroupVersionKind{Group: gk.Group, Version: version, Kind: gk.Kind}
-		if !a.isAllowed(gvk) {
-			return nil, fmt.Errorf("resource not allowed: %s", gvk.String())
+		if !isAllowed(a.staticConfig, gvk) {
+			return nil, isNotAllowedError(gvk)
 		}
 	}
 	return a.delegate.RESTMapping(gk, versions...)
@@ -86,8 +60,8 @@ func (a AccessControlRESTMapper) RESTMapping(gk schema.GroupKind, versions ...st
 func (a AccessControlRESTMapper) RESTMappings(gk schema.GroupKind, versions ...string) ([]*meta.RESTMapping, error) {
 	for _, version := range versions {
 		gvk := &schema.GroupVersionKind{Group: gk.Group, Version: version, Kind: gk.Kind}
-		if !a.isAllowed(gvk) {
-			return nil, fmt.Errorf("resource not allowed: %s", gvk.String())
+		if !isAllowed(a.staticConfig, gvk) {
+			return nil, isNotAllowedError(gvk)
 		}
 	}
 	return a.delegate.RESTMappings(gk, versions...)

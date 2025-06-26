@@ -108,7 +108,7 @@ func TestEventsListDenied(t *testing.T) {
 		t.Run("events_list describes denial", func(t *testing.T) {
 			expectedMessage := "failed to list events in all namespaces: resource not allowed: /v1, Kind=Event"
 			if eventList.Content[0].(mcp.TextContent).Text != expectedMessage {
-				t.Fatalf("expected desciptive error '%s', got %v", expectedMessage, eventList.Content[0].(mcp.TextContent).Text)
+				t.Fatalf("expected descriptive error '%s', got %v", expectedMessage, eventList.Content[0].(mcp.TextContent).Text)
 			}
 		})
 	})

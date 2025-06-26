@@ -59,7 +59,6 @@ func TestHelmInstall(t *testing.T) {
 }
 
 func TestHelmInstallDenied(t *testing.T) {
-	t.Skip("To be implemented") // TODO: helm_install is not checking for denied resources
 	deniedResourcesServer := &config.StaticConfig{DeniedResources: []config.GroupVersionKind{{Version: "v1", Kind: "Secret"}}}
 	testCaseWithContext(t, &mcpContext{staticConfig: deniedResourcesServer}, func(c *mcpContext) {
 		c.withEnvTest()
@@ -74,9 +73,10 @@ func TestHelmInstallDenied(t *testing.T) {
 			}
 		})
 		t.Run("helm_install describes denial", func(t *testing.T) {
-			expectedMessage := "failed to install helm chart: resource not allowed: /v1, Kind=Secret"
-			if helmInstall.Content[0].(mcp.TextContent).Text != expectedMessage {
-				t.Fatalf("expected desciptive error '%s', got %v", expectedMessage, helmInstall.Content[0].(mcp.TextContent).Text)
+			toolOutput := helmInstall.Content[0].(mcp.TextContent).Text
+			expectedMessage := ": resource not allowed: /v1, Kind=Secret"
+			if !strings.HasPrefix(toolOutput, "failed to install helm chart") || !strings.HasSuffix(toolOutput, expectedMessage) {
+				t.Fatalf("expected descriptive error '%s', got %v", expectedMessage, helmInstall.Content[0].(mcp.TextContent).Text)
 			}
 		})
 	})
@@ -225,7 +225,33 @@ func TestHelmUninstall(t *testing.T) {
 }
 
 func TestHelmUninstallDenied(t *testing.T) {
-	t.Skip("To be implemented") // TODO: helm_uninstall is not checking for denied resources
+	deniedResourcesServer := &config.StaticConfig{DeniedResources: []config.GroupVersionKind{{Version: "v1", Kind: "Secret"}}}
+	testCaseWithContext(t, &mcpContext{staticConfig: deniedResourcesServer}, func(c *mcpContext) {
+		c.withEnvTest()
+		kc := c.newKubernetesClient()
+		clearHelmReleases(c.ctx, kc)
+		_, _ = kc.CoreV1().Secrets("default").Create(c.ctx, &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:   "sh.helm.release.v1.existent-release-to-uninstall.v0",
+				Labels: map[string]string{"owner": "helm", "name": "existent-release-to-uninstall"},
+			},
+			Data: map[string][]byte{
+				"release": []byte(base64.StdEncoding.EncodeToString([]byte("{" +
+					"\"name\":\"existent-release-to-uninstall\"," +
+					"\"info\":{\"status\":\"deployed\"}," +
+					"\"manifest\":\"apiVersion: v1\\nkind: Secret\\nmetadata:\\n  name: secret-to-deny\\n  namespace: default\\n\"" +
+					"}"))),
+			},
+		}, metav1.CreateOptions{})
+		helmUninstall, _ := c.callTool("helm_uninstall", map[string]interface{}{
+			"name": "existent-release-to-uninstall",
+		})
+		t.Run("helm_uninstall has error", func(t *testing.T) {
+			if !helmUninstall.IsError {
+				t.Fatalf("call tool should fail")
+			}
+		})
+	})
 }
 
 func clearHelmReleases(ctx context.Context, kc *kubernetes.Clientset) {

@@ -169,7 +169,7 @@ func TestResourcesListDenied(t *testing.T) {
 		t.Run("resources_list (denied by kind) describes denial", func(t *testing.T) {
 			expectedMessage := "failed to list resources: resource not allowed: /v1, Kind=Secret"
 			if deniedByKind.Content[0].(mcp.TextContent).Text != expectedMessage {
-				t.Fatalf("expected desciptive error '%s', got %v", expectedMessage, deniedByKind.Content[0].(mcp.TextContent).Text)
+				t.Fatalf("expected descriptive error '%s', got %v", expectedMessage, deniedByKind.Content[0].(mcp.TextContent).Text)
 			}
 		})
 		deniedByGroup, _ := c.callTool("resources_list", map[string]interface{}{"apiVersion": "rbac.authorization.k8s.io/v1", "kind": "Role"})
@@ -181,7 +181,7 @@ func TestResourcesListDenied(t *testing.T) {
 		t.Run("resources_list (denied by group) describes denial", func(t *testing.T) {
 			expectedMessage := "failed to list resources: resource not allowed: rbac.authorization.k8s.io/v1, Kind=Role"
 			if deniedByGroup.Content[0].(mcp.TextContent).Text != expectedMessage {
-				t.Fatalf("expected desciptive error '%s', got %v", expectedMessage, deniedByKind.Content[0].(mcp.TextContent).Text)
+				t.Fatalf("expected descriptive error '%s', got %v", expectedMessage, deniedByKind.Content[0].(mcp.TextContent).Text)
 			}
 		})
 		allowedResource, _ := c.callTool("resources_list", map[string]interface{}{"apiVersion": "v1", "kind": "Namespace"})
@@ -381,7 +381,7 @@ func TestResourcesGetDenied(t *testing.T) {
 		t.Run("resources_get (denied by kind) describes denial", func(t *testing.T) {
 			expectedMessage := "failed to get resource: resource not allowed: /v1, Kind=Secret"
 			if deniedByKind.Content[0].(mcp.TextContent).Text != expectedMessage {
-				t.Fatalf("expected desciptive error '%s', got %v", expectedMessage, deniedByKind.Content[0].(mcp.TextContent).Text)
+				t.Fatalf("expected descriptive error '%s', got %v", expectedMessage, deniedByKind.Content[0].(mcp.TextContent).Text)
 			}
 		})
 		deniedByGroup, _ := c.callTool("resources_get", map[string]interface{}{"apiVersion": "rbac.authorization.k8s.io/v1", "kind": "Role", "namespace": "default", "name": "denied-role"})
@@ -393,7 +393,7 @@ func TestResourcesGetDenied(t *testing.T) {
 		t.Run("resources_get (denied by group) describes denial", func(t *testing.T) {
 			expectedMessage := "failed to get resource: resource not allowed: rbac.authorization.k8s.io/v1, Kind=Role"
 			if deniedByGroup.Content[0].(mcp.TextContent).Text != expectedMessage {
-				t.Fatalf("expected desciptive error '%s', got %v", expectedMessage, deniedByKind.Content[0].(mcp.TextContent).Text)
+				t.Fatalf("expected descriptive error '%s', got %v", expectedMessage, deniedByKind.Content[0].(mcp.TextContent).Text)
 			}
 		})
 		allowedResource, _ := c.callTool("resources_get", map[string]interface{}{"apiVersion": "v1", "kind": "Namespace", "name": "default"})
@@ -601,7 +601,7 @@ func TestResourcesCreateOrUpdateDenied(t *testing.T) {
 		t.Run("resources_create_or_update (denied by kind) describes denial", func(t *testing.T) {
 			expectedMessage := "failed to create or update resources: resource not allowed: /v1, Kind=Secret"
 			if deniedByKind.Content[0].(mcp.TextContent).Text != expectedMessage {
-				t.Fatalf("expected desciptive error '%s', got %v", expectedMessage, deniedByKind.Content[0].(mcp.TextContent).Text)
+				t.Fatalf("expected descriptive error '%s', got %v", expectedMessage, deniedByKind.Content[0].(mcp.TextContent).Text)
 			}
 		})
 		roleYaml := "apiVersion: rbac.authorization.k8s.io/v1\nkind: Role\nmetadata:\n  name: a-denied-role\n  namespace: default\n"
@@ -614,7 +614,7 @@ func TestResourcesCreateOrUpdateDenied(t *testing.T) {
 		t.Run("resources_create_or_update (denied by group) describes denial", func(t *testing.T) {
 			expectedMessage := "failed to create or update resources: resource not allowed: rbac.authorization.k8s.io/v1, Kind=Role"
 			if deniedByGroup.Content[0].(mcp.TextContent).Text != expectedMessage {
-				t.Fatalf("expected desciptive error '%s', got %v", expectedMessage, deniedByKind.Content[0].(mcp.TextContent).Text)
+				t.Fatalf("expected descriptive error '%s', got %v", expectedMessage, deniedByKind.Content[0].(mcp.TextContent).Text)
 			}
 		})
 		configMapYaml := "apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: a-cm-created-or-updated\n  namespace: default\n"
@@ -766,7 +766,7 @@ func TestResourcesDeleteDenied(t *testing.T) {
 		t.Run("resources_delete (denied by kind) describes denial", func(t *testing.T) {
 			expectedMessage := "failed to delete resource: resource not allowed: /v1, Kind=Secret"
 			if deniedByKind.Content[0].(mcp.TextContent).Text != expectedMessage {
-				t.Fatalf("expected desciptive error '%s', got %v", expectedMessage, deniedByKind.Content[0].(mcp.TextContent).Text)
+				t.Fatalf("expected descriptive error '%s', got %v", expectedMessage, deniedByKind.Content[0].(mcp.TextContent).Text)
 			}
 		})
 		deniedByGroup, _ := c.callTool("resources_delete", map[string]interface{}{"apiVersion": "rbac.authorization.k8s.io/v1", "kind": "Role", "namespace": "default", "name": "denied-role"})
@@ -778,7 +778,7 @@ func TestResourcesDeleteDenied(t *testing.T) {
 		t.Run("resources_delete (denied by group) describes denial", func(t *testing.T) {
 			expectedMessage := "failed to delete resource: resource not allowed: rbac.authorization.k8s.io/v1, Kind=Role"
 			if deniedByGroup.Content[0].(mcp.TextContent).Text != expectedMessage {
-				t.Fatalf("expected desciptive error '%s', got %v", expectedMessage, deniedByKind.Content[0].(mcp.TextContent).Text)
+				t.Fatalf("expected descriptive error '%s', got %v", expectedMessage, deniedByKind.Content[0].(mcp.TextContent).Text)
 			}
 		})
 		allowedResource, _ := c.callTool("resources_delete", map[string]interface{}{"apiVersion": "v1", "kind": "ConfigMap", "name": "allowed-configmap-to-delete"})

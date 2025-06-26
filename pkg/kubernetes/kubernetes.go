@@ -12,7 +12,7 @@ import (
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/dynamic"
-	"k8s.io/client-go/kubernetes"
+	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/restmapper"
 	"k8s.io/client-go/tools/clientcmd"
@@ -21,8 +21,6 @@ import (
 
 	"github.com/manusa/kubernetes-mcp-server/pkg/config"
 	"github.com/manusa/kubernetes-mcp-server/pkg/helm"
-
-	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc"
 )
 
 const (
@@ -37,24 +35,26 @@ type Kubernetes struct {
 
 type Manager struct {
 	// Kubeconfig path override
-	Kubeconfig                  string
-	cfg                         *rest.Config
-	clientCmdConfig             clientcmd.ClientConfig
-	CloseWatchKubeConfig        CloseWatchKubeConfig
-	scheme                      *runtime.Scheme
-	parameterCodec              runtime.ParameterCodec
-	clientSet                   kubernetes.Interface
-	discoveryClient             discovery.CachedDiscoveryInterface
-	deferredDiscoveryRESTMapper *restmapper.DeferredDiscoveryRESTMapper
-	dynamicClient               *dynamic.DynamicClient
+	Kubeconfig              string
+	cfg                     *rest.Config
+	clientCmdConfig         clientcmd.ClientConfig
+	scheme                  *runtime.Scheme
+	parameterCodec          runtime.ParameterCodec
+	discoveryClient         discovery.CachedDiscoveryInterface
+	accessControlClientSet  *AccessControlClientset
+	accessControlRESTMapper *AccessControlRESTMapper
+	dynamicClient           *dynamic.DynamicClient
 
-	StaticConfig *config.StaticConfig
+	staticConfig         *config.StaticConfig
+	CloseWatchKubeConfig CloseWatchKubeConfig
 }
+
+var _ helm.Kubernetes = &Manager{}
 
 func NewManager(kubeconfig string, config *config.StaticConfig) (*Manager, error) {
 	k8s := &Manager{
 		Kubeconfig:   kubeconfig,
-		StaticConfig: config,
+		staticConfig: config,
 	}
 	if err := resolveKubernetesConfigurations(k8s); err != nil {
 		return nil, err
@@ -64,12 +64,15 @@ func NewManager(kubeconfig string, config *config.StaticConfig) (*Manager, error
 	//	return &impersonateRoundTripper{original}
 	//})
 	var err error
-	k8s.clientSet, err = kubernetes.NewForConfig(k8s.cfg)
+	k8s.accessControlClientSet, err = NewAccessControlClientset(k8s.cfg, k8s.staticConfig)
 	if err != nil {
 		return nil, err
 	}
-	k8s.discoveryClient = memory.NewMemCacheClient(discovery.NewDiscoveryClient(k8s.clientSet.CoreV1().RESTClient()))
-	k8s.deferredDiscoveryRESTMapper = restmapper.NewDeferredDiscoveryRESTMapper(k8s.discoveryClient)
+	k8s.discoveryClient = memory.NewMemCacheClient(k8s.accessControlClientSet.DiscoveryClient())
+	k8s.accessControlRESTMapper = NewAccessControlRESTMapper(
+		restmapper.NewDeferredDiscoveryRESTMapper(k8s.discoveryClient),
+		k8s.staticConfig,
+	)
 	k8s.dynamicClient, err = dynamic.NewForConfig(k8s.cfg)
 	if err != nil {
 		return nil, err
@@ -129,7 +132,7 @@ func (m *Manager) ToDiscoveryClient() (discovery.CachedDiscoveryInterface, error
 }
 
 func (m *Manager) ToRESTMapper() (meta.RESTMapper, error) {
-	return m.deferredDiscoveryRESTMapper, nil
+	return m.accessControlRESTMapper, nil
 }
 
 func (m *Manager) Derived(ctx context.Context) *Kubernetes {
@@ -159,12 +162,15 @@ func (m *Manager) Derived(ctx context.Context) *Kubernetes {
 		scheme:          m.scheme,
 		parameterCodec:  m.parameterCodec,
 	}}
-	derived.manager.clientSet, err = kubernetes.NewForConfig(derived.manager.cfg)
+	derived.manager.accessControlClientSet, err = NewAccessControlClientset(derived.manager.cfg, derived.manager.staticConfig)
 	if err != nil {
 		return &Kubernetes{manager: m}
 	}
-	derived.manager.discoveryClient = memory.NewMemCacheClient(discovery.NewDiscoveryClient(derived.manager.clientSet.CoreV1().RESTClient()))
-	derived.manager.deferredDiscoveryRESTMapper = restmapper.NewDeferredDiscoveryRESTMapper(derived.manager.discoveryClient)
+	derived.manager.discoveryClient = memory.NewMemCacheClient(derived.manager.accessControlClientSet.DiscoveryClient())
+	derived.manager.accessControlRESTMapper = NewAccessControlRESTMapper(
+		restmapper.NewDeferredDiscoveryRESTMapper(derived.manager.discoveryClient),
+		derived.manager.staticConfig,
+	)
 	derived.manager.dynamicClient, err = dynamic.NewForConfig(derived.manager.cfg)
 	if err != nil {
 		return &Kubernetes{manager: m}

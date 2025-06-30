@@ -62,9 +62,10 @@ type MCPServerOptions struct {
 
 func NewMCPServerOptions(streams genericiooptions.IOStreams) *MCPServerOptions {
 	return &MCPServerOptions{
-		IOStreams:  streams,
-		Profile:    "full",
-		ListOutput: "table",
+		IOStreams:    streams,
+		Profile:      "full",
+		ListOutput:   "table",
+		StaticConfig: &config.StaticConfig{},
 	}
 }
 
@@ -76,7 +77,7 @@ func NewMCPServer(streams genericiooptions.IOStreams) *cobra.Command {
 		Long:    long,
 		Example: examples,
 		RunE: func(c *cobra.Command, args []string) error {
-			if err := o.Complete(); err != nil {
+			if err := o.Complete(c); err != nil {
 				return err
 			}
 			if err := o.Validate(); err != nil {
@@ -98,16 +99,14 @@ func NewMCPServer(streams genericiooptions.IOStreams) *cobra.Command {
 	cmd.Flags().StringVar(&o.SSEBaseUrl, "sse-base-url", o.SSEBaseUrl, "SSE public base URL to use when sending the endpoint message (e.g. https://example.com)")
 	cmd.Flags().StringVar(&o.Kubeconfig, "kubeconfig", o.Kubeconfig, "Path to the kubeconfig file to use for authentication")
 	cmd.Flags().StringVar(&o.Profile, "profile", o.Profile, "MCP profile to use (one of: "+strings.Join(mcp.ProfileNames, ", ")+")")
-	cmd.Flags().StringVar(&o.ListOutput, "list-output", o.ListOutput, "Output format for resource list operations (one of: "+strings.Join(output.Names, ", ")+")")
+	cmd.Flags().StringVar(&o.ListOutput, "list-output", o.ListOutput, "Output format for resource list operations (one of: "+strings.Join(output.Names, ", ")+"). Defaults to table.")
 	cmd.Flags().BoolVar(&o.ReadOnly, "read-only", o.ReadOnly, "If true, only tools annotated with readOnlyHint=true are exposed")
 	cmd.Flags().BoolVar(&o.DisableDestructive, "disable-destructive", o.DisableDestructive, "If true, tools annotated with destructiveHint=true are disabled")
 
 	return cmd
 }
 
-func (m *MCPServerOptions) Complete() error {
-	m.initializeLogging()
-
+func (m *MCPServerOptions) Complete(cmd *cobra.Command) error {
 	if m.ConfigPath != "" {
 		cnf, err := config.ReadConfig(m.ConfigPath)
 		if err != nil {
@@ -116,16 +115,47 @@ func (m *MCPServerOptions) Complete() error {
 		m.StaticConfig = cnf
 	}
 
+	m.loadFlags(cmd)
+
+	m.initializeLogging()
+
 	return nil
+}
+
+func (m *MCPServerOptions) loadFlags(cmd *cobra.Command) {
+	if cmd.Flag("log-level").Changed {
+		m.StaticConfig.LogLevel = m.LogLevel
+	}
+	if cmd.Flag("sse-port").Changed {
+		m.StaticConfig.SSEPort = m.SSEPort
+	}
+	if cmd.Flag("http-port").Changed {
+		m.StaticConfig.HTTPPort = m.HttpPort
+	}
+	if cmd.Flag("sse-base-url").Changed {
+		m.StaticConfig.SSEBaseURL = m.SSEBaseUrl
+	}
+	if cmd.Flag("kubeconfig").Changed {
+		m.StaticConfig.KubeConfig = m.Kubeconfig
+	}
+	if cmd.Flag("list-output").Changed || m.StaticConfig.ListOutput == "" {
+		m.StaticConfig.ListOutput = m.ListOutput
+	}
+	if cmd.Flag("read-only").Changed {
+		m.StaticConfig.ReadOnly = m.ReadOnly
+	}
+	if cmd.Flag("disable-destructive").Changed {
+		m.StaticConfig.DisableDestructive = m.DisableDestructive
+	}
 }
 
 func (m *MCPServerOptions) initializeLogging() {
 	flagSet := flag.NewFlagSet("klog", flag.ContinueOnError)
 	klog.InitFlags(flagSet)
 	loggerOptions := []textlogger.ConfigOption{textlogger.Output(m.Out)}
-	if m.LogLevel >= 0 {
-		loggerOptions = append(loggerOptions, textlogger.Verbosity(m.LogLevel))
-		_ = flagSet.Parse([]string{"--v", strconv.Itoa(m.LogLevel)})
+	if m.StaticConfig.LogLevel >= 0 {
+		loggerOptions = append(loggerOptions, textlogger.Verbosity(m.StaticConfig.LogLevel))
+		_ = flagSet.Parse([]string{"--v", strconv.Itoa(m.StaticConfig.LogLevel)})
 	}
 	logger := textlogger.NewLogger(textlogger.NewConfig(loggerOptions...))
 	klog.SetLoggerWithOptions(logger)
@@ -140,16 +170,16 @@ func (m *MCPServerOptions) Run() error {
 	if profile == nil {
 		return fmt.Errorf("Invalid profile name: %s, valid names are: %s\n", m.Profile, strings.Join(mcp.ProfileNames, ", "))
 	}
-	listOutput := output.FromString(m.ListOutput)
+	listOutput := output.FromString(m.StaticConfig.ListOutput)
 	if listOutput == nil {
-		return fmt.Errorf("Invalid output name: %s, valid names are: %s\n", m.ListOutput, strings.Join(output.Names, ", "))
+		return fmt.Errorf("Invalid output name: %s, valid names are: %s\n", m.StaticConfig.ListOutput, strings.Join(output.Names, ", "))
 	}
 	klog.V(1).Info("Starting kubernetes-mcp-server")
 	klog.V(1).Infof(" - Config: %s", m.ConfigPath)
 	klog.V(1).Infof(" - Profile: %s", profile.GetName())
 	klog.V(1).Infof(" - ListOutput: %s", listOutput.GetName())
-	klog.V(1).Infof(" - Read-only mode: %t", m.ReadOnly)
-	klog.V(1).Infof(" - Disable destructive tools: %t", m.DisableDestructive)
+	klog.V(1).Infof(" - Read-only mode: %t", m.StaticConfig.ReadOnly)
+	klog.V(1).Infof(" - Disable destructive tools: %t", m.StaticConfig.DisableDestructive)
 
 	if m.Version {
 		_, _ = fmt.Fprintf(m.Out, "%s\n", version.Version)
@@ -158,9 +188,9 @@ func (m *MCPServerOptions) Run() error {
 	mcpServer, err := mcp.NewServer(mcp.Configuration{
 		Profile:            profile,
 		ListOutput:         listOutput,
-		ReadOnly:           m.ReadOnly,
-		DisableDestructive: m.DisableDestructive,
-		Kubeconfig:         m.Kubeconfig,
+		ReadOnly:           m.StaticConfig.ReadOnly,
+		DisableDestructive: m.StaticConfig.DisableDestructive,
+		Kubeconfig:         m.StaticConfig.KubeConfig,
 		StaticConfig:       m.StaticConfig,
 	})
 	if err != nil {
@@ -170,19 +200,19 @@ func (m *MCPServerOptions) Run() error {
 
 	ctx := context.Background()
 
-	if m.SSEPort > 0 {
-		sseServer := mcpServer.ServeSse(m.SSEBaseUrl)
+	if m.StaticConfig.SSEPort > 0 {
+		sseServer := mcpServer.ServeSse(m.StaticConfig.SSEBaseURL)
 		defer func() { _ = sseServer.Shutdown(ctx) }()
-		klog.V(0).Infof("SSE server starting on port %d and path /sse", m.SSEPort)
-		if err := sseServer.Start(fmt.Sprintf(":%d", m.SSEPort)); err != nil {
+		klog.V(0).Infof("SSE server starting on port %d and path /sse", m.StaticConfig.SSEPort)
+		if err := sseServer.Start(fmt.Sprintf(":%d", m.StaticConfig.SSEPort)); err != nil {
 			return fmt.Errorf("failed to start SSE server: %w\n", err)
 		}
 	}
 
-	if m.HttpPort > 0 {
+	if m.StaticConfig.HTTPPort > 0 {
 		httpServer := mcpServer.ServeHTTP()
-		klog.V(0).Infof("Streaming HTTP server starting on port %d and path /mcp", m.HttpPort)
-		if err := httpServer.Start(fmt.Sprintf(":%d", m.HttpPort)); err != nil {
+		klog.V(0).Infof("Streaming HTTP server starting on port %d and path /mcp", m.StaticConfig.HTTPPort)
+		if err := httpServer.Start(fmt.Sprintf(":%d", m.StaticConfig.HTTPPort)); err != nil {
 			return fmt.Errorf("failed to start streaming HTTP server: %w\n", err)
 		}
 	}

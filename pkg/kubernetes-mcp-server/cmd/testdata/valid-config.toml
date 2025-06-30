@@ -1,0 +1,15 @@
+log_level = 1
+sse_port = 9999
+kubeconfig = "test"
+list_output = "yaml"
+read_only = true
+disable_destructive = true
+
+[[denied_resources]]
+group = "apps"
+version = "v1"
+kind = "Deployment"
+
+[[denied_resources]]
+group = "rbac.authorization.k8s.io"
+version = "v1"

@@ -50,6 +50,13 @@ kind = "Role
 
 func TestReadConfigValid(t *testing.T) {
 	validConfigPath := writeConfig(t, `
+log_level = 1
+sse_port = 9999
+kubeconfig = "test"
+list_output = "yaml"
+read_only = true
+disable_destructive = false
+
 [[denied_resources]]
 group = "apps"
 version = "v1"
@@ -77,6 +84,30 @@ version = "v1"
 			config.DeniedResources[0].Version != "v1" ||
 			config.DeniedResources[0].Kind != "Deployment" {
 			t.Errorf("Unexpected denied resources: %v", config.DeniedResources[0])
+		}
+		if config.LogLevel != 1 {
+			t.Fatalf("Unexpected log level: %v", config.LogLevel)
+		}
+		if config.SSEPort != 9999 {
+			t.Fatalf("Unexpected sse_port value: %v", config.SSEPort)
+		}
+		if config.SSEBaseURL != "" {
+			t.Fatalf("Unexpected sse_base_url value: %v", config.SSEBaseURL)
+		}
+		if config.HTTPPort != 0 {
+			t.Fatalf("Unexpected http_port value: %v", config.HTTPPort)
+		}
+		if config.KubeConfig != "test" {
+			t.Fatalf("Unexpected kubeconfig value: %v", config.KubeConfig)
+		}
+		if config.ListOutput != "yaml" {
+			t.Fatalf("Unexpected list_output value: %v", config.ListOutput)
+		}
+		if !config.ReadOnly {
+			t.Fatalf("Unexpected read-only mode: %v", config.ReadOnly)
+		}
+		if config.DisableDestructive {
+			t.Fatalf("Unexpected disable destructive: %v", config.DisableDestructive)
 		}
 	})
 }

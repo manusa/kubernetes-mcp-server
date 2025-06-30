@@ -79,6 +79,54 @@ func TestConfig(t *testing.T) {
 			t.Fatalf("Expected error to be %s, got %s", expected, err.Error())
 		}
 	})
+	t.Run("set with valid --config", func(t *testing.T) {
+		ioStreams, out := testStream()
+		rootCmd := NewMCPServer(ioStreams)
+		_, file, _, _ := runtime.Caller(0)
+		validConfigPath := filepath.Join(filepath.Dir(file), "testdata", "valid-config.toml")
+		rootCmd.SetArgs([]string{"--version", "--config", validConfigPath})
+		_ = rootCmd.Execute()
+		expectedConfig := `(?m)\" - Config\:[^\"]+valid-config\.toml\"`
+		if m, err := regexp.MatchString(expectedConfig, out.String()); !m || err != nil {
+			t.Fatalf("Expected config to be %s, got %s %v", expectedConfig, out.String(), err)
+		}
+		expectedListOutput := `(?m)\" - ListOutput\: yaml"`
+		if m, err := regexp.MatchString(expectedListOutput, out.String()); !m || err != nil {
+			t.Fatalf("Expected config to be %s, got %s %v", expectedListOutput, out.String(), err)
+		}
+		expectedReadOnly := `(?m)\" - Read-only mode: true"`
+		if m, err := regexp.MatchString(expectedReadOnly, out.String()); !m || err != nil {
+			t.Fatalf("Expected config to be %s, got %s %v", expectedReadOnly, out.String(), err)
+		}
+		expectedDisableDestruction := `(?m)\" - Disable destructive tools: true"`
+		if m, err := regexp.MatchString(expectedDisableDestruction, out.String()); !m || err != nil {
+			t.Fatalf("Expected config to be %s, got %s %v", expectedDisableDestruction, out.String(), err)
+		}
+	})
+	t.Run("set with valid --config, flags override", func(t *testing.T) {
+		ioStreams, out := testStream()
+		rootCmd := NewMCPServer(ioStreams)
+		_, file, _, _ := runtime.Caller(0)
+		validConfigPath := filepath.Join(filepath.Dir(file), "testdata", "valid-config.toml")
+		rootCmd.SetArgs([]string{"--version", "--list-output=table", "--disable-destructive=false", "--read-only=false", "--config", validConfigPath})
+		_ = rootCmd.Execute()
+		expected := `(?m)\" - Config\:[^\"]+valid-config\.toml\"`
+		if m, err := regexp.MatchString(expected, out.String()); !m || err != nil {
+			t.Fatalf("Expected config to be %s, got %s %v", expected, out.String(), err)
+		}
+		expectedListOutput := `(?m)\" - ListOutput\: table"`
+		if m, err := regexp.MatchString(expectedListOutput, out.String()); !m || err != nil {
+			t.Fatalf("Expected config to be %s, got %s %v", expectedListOutput, out.String(), err)
+		}
+		expectedReadOnly := `(?m)\" - Read-only mode: false"`
+		if m, err := regexp.MatchString(expectedReadOnly, out.String()); !m || err != nil {
+			t.Fatalf("Expected config to be %s, got %s %v", expectedReadOnly, out.String(), err)
+		}
+		expectedDisableDestruction := `(?m)\" - Disable destructive tools: false"`
+		if m, err := regexp.MatchString(expectedDisableDestruction, out.String()); !m || err != nil {
+			t.Fatalf("Expected config to be %s, got %s %v", expectedDisableDestruction, out.String(), err)
+		}
+	})
 }
 
 func TestProfile(t *testing.T) {

@@ -12,7 +12,6 @@ import (
 	labelutil "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/util/httpstream"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/client-go/tools/remotecommand"
@@ -231,7 +230,7 @@ func (k *Kubernetes) PodsExec(ctx context.Context, namespace, name, container st
 		Stdout:    true,
 		Stderr:    true,
 	}
-	executor, err := k.createExecutor(namespace, name, podExecOptions)
+	executor, err := k.manager.accessControlClientSet.PodsExec(namespace, name, podExecOptions)
 	if err != nil {
 		return "", err
 	}
@@ -249,25 +248,4 @@ func (k *Kubernetes) PodsExec(ctx context.Context, namespace, name, container st
 		return stderr.String(), nil
 	}
 	return "", nil
-}
-
-func (k *Kubernetes) createExecutor(namespace, name string, podExecOptions *v1.PodExecOptions) (remotecommand.Executor, error) {
-	// Compute URL
-	// https://github.com/kubernetes/kubectl/blob/5366de04e168bcbc11f5e340d131a9ca8b7d0df4/pkg/cmd/exec/exec.go#L382-L397
-	req, err := k.manager.accessControlClientSet.PodsExec(namespace, name)
-	if err != nil {
-		return nil, err
-	}
-	req.VersionedParams(podExecOptions, k.manager.parameterCodec)
-	spdyExec, err := remotecommand.NewSPDYExecutor(k.manager.cfg, "POST", req.URL())
-	if err != nil {
-		return nil, err
-	}
-	webSocketExec, err := remotecommand.NewWebSocketExecutor(k.manager.cfg, "GET", req.URL().String())
-	if err != nil {
-		return nil, err
-	}
-	return remotecommand.NewFallbackExecutor(webSocketExec, spdyExec, func(err error) bool {
-		return httpstream.IsUpgradeFailure(err) || httpstream.IsHTTPSProxyError(err)
-	})
 }

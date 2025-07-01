@@ -2,16 +2,16 @@ package kubernetes
 
 import (
 	"context"
+	"k8s.io/apimachinery/pkg/runtime"
 	"strings"
 
 	"github.com/fsnotify/fsnotify"
 
-	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/restmapper"
 	"k8s.io/client-go/tools/clientcmd"
@@ -39,8 +39,6 @@ type Manager struct {
 	Kubeconfig              string
 	cfg                     *rest.Config
 	clientCmdConfig         clientcmd.ClientConfig
-	scheme                  *runtime.Scheme
-	parameterCodec          runtime.ParameterCodec
 	discoveryClient         discovery.CachedDiscoveryInterface
 	accessControlClientSet  *AccessControlClientset
 	accessControlRESTMapper *AccessControlRESTMapper
@@ -49,6 +47,9 @@ type Manager struct {
 	staticConfig         *config.StaticConfig
 	CloseWatchKubeConfig CloseWatchKubeConfig
 }
+
+var Scheme = scheme.Scheme
+var ParameterCodec = runtime.NewParameterCodec(Scheme)
 
 var _ helm.Kubernetes = &Manager{}
 
@@ -78,11 +79,6 @@ func NewManager(kubeconfig string, config *config.StaticConfig) (*Manager, error
 	if err != nil {
 		return nil, err
 	}
-	k8s.scheme = runtime.NewScheme()
-	if err = v1.AddToScheme(k8s.scheme); err != nil {
-		return nil, err
-	}
-	k8s.parameterCodec = runtime.NewParameterCodec(k8s.scheme)
 	return k8s, nil
 }
 
@@ -160,8 +156,6 @@ func (m *Manager) Derived(ctx context.Context) *Kubernetes {
 		Kubeconfig:      m.Kubeconfig,
 		clientCmdConfig: clientcmd.NewDefaultClientConfig(clientCmdApiConfig, nil),
 		cfg:             derivedCfg,
-		scheme:          m.scheme,
-		parameterCodec:  m.parameterCodec,
 	}}
 	derived.manager.accessControlClientSet, err = NewAccessControlClientset(derived.manager.cfg, derived.manager.staticConfig)
 	if err != nil {

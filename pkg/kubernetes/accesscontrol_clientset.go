@@ -5,13 +5,16 @@ import (
 	"fmt"
 
 	authorizationv1api "k8s.io/api/authorization/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/httpstream"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/kubernetes"
 	authorizationv1 "k8s.io/client-go/kubernetes/typed/authorization/v1"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/remotecommand"
 	"k8s.io/metrics/pkg/apis/metrics"
 	metricsv1beta1api "k8s.io/metrics/pkg/apis/metrics/v1beta1"
 	metricsv1beta1 "k8s.io/metrics/pkg/client/clientset/versioned/typed/metrics/v1beta1"
@@ -23,6 +26,7 @@ import (
 // Only a limited set of functions are implemented with a single point of access to the kubernetes API where
 // apiVersion and kinds are checked for allowed access
 type AccessControlClientset struct {
+	cfg             *rest.Config
 	delegate        kubernetes.Interface
 	discoveryClient discovery.DiscoveryInterface
 	metricsV1beta1  *metricsv1beta1.MetricsV1beta1Client
@@ -41,18 +45,31 @@ func (a *AccessControlClientset) Pods(namespace string) (corev1.PodInterface, er
 	return a.delegate.CoreV1().Pods(namespace), nil
 }
 
-func (a *AccessControlClientset) PodsExec(namespace, name string) (*rest.Request, error) {
+func (a *AccessControlClientset) PodsExec(namespace, name string, podExecOptions *v1.PodExecOptions) (remotecommand.Executor, error) {
 	gvk := &schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"}
 	if !isAllowed(a.staticConfig, gvk) {
 		return nil, isNotAllowedError(gvk)
 	}
+	// Compute URL
 	// https://github.com/kubernetes/kubectl/blob/5366de04e168bcbc11f5e340d131a9ca8b7d0df4/pkg/cmd/exec/exec.go#L382-L397
-	return a.delegate.CoreV1().RESTClient().
+	execRequest := a.delegate.CoreV1().RESTClient().
 		Post().
 		Resource("pods").
 		Namespace(namespace).
 		Name(name).
-		SubResource("exec"), nil
+		SubResource("exec")
+	execRequest.VersionedParams(podExecOptions, ParameterCodec)
+	spdyExec, err := remotecommand.NewSPDYExecutor(a.cfg, "POST", execRequest.URL())
+	if err != nil {
+		return nil, err
+	}
+	webSocketExec, err := remotecommand.NewWebSocketExecutor(a.cfg, "GET", execRequest.URL().String())
+	if err != nil {
+		return nil, err
+	}
+	return remotecommand.NewFallbackExecutor(webSocketExec, spdyExec, func(err error) bool {
+		return httpstream.IsUpgradeFailure(err) || httpstream.IsHTTPSProxyError(err)
+	})
 }
 
 func (a *AccessControlClientset) PodsMetricses(ctx context.Context, namespace, name string, listOptions metav1.ListOptions) (*metrics.PodMetricsList, error) {
@@ -104,6 +121,7 @@ func NewAccessControlClientset(cfg *rest.Config, staticConfig *config.StaticConf
 		return nil, err
 	}
 	return &AccessControlClientset{
+		cfg:             cfg,
 		delegate:        clientSet,
 		discoveryClient: clientSet.DiscoveryClient,
 		metricsV1beta1:  metricsClient,

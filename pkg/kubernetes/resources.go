@@ -109,7 +109,7 @@ func (k *Kubernetes) resourcesListAsTable(ctx context.Context, gvk *schema.Group
 			"application/json",
 		}, ",")).
 		AbsPath(url...).
-		SpecificallyVersionedParams(&options.ListOptions, k.manager.parameterCodec, schema.GroupVersion{Version: "v1"}).
+		SpecificallyVersionedParams(&options.ListOptions, ParameterCodec, schema.GroupVersion{Version: "v1"}).
 		Do(ctx).Into(&table)
 	if err != nil {
 		return nil, err

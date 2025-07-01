@@ -85,18 +85,19 @@ func (s *Server) ServeStdio() error {
 	return server.ServeStdio(s.server)
 }
 
-func (s *Server) ServeSse(baseUrl string) *server.SSEServer {
+func (s *Server) ServeSse(baseUrl string, httpServer *http.Server) *server.SSEServer {
 	options := make([]server.SSEOption, 0)
-	options = append(options, server.WithSSEContextFunc(contextFunc))
+	options = append(options, server.WithSSEContextFunc(contextFunc), server.WithHTTPServer(httpServer))
 	if baseUrl != "" {
 		options = append(options, server.WithBaseURL(baseUrl))
 	}
 	return server.NewSSEServer(s.server, options...)
 }
 
-func (s *Server) ServeHTTP() *server.StreamableHTTPServer {
+func (s *Server) ServeHTTP(httpServer *http.Server) *server.StreamableHTTPServer {
 	options := []server.StreamableHTTPOption{
 		server.WithHTTPContextFunc(contextFunc),
+		server.WithStreamableHTTPServer(httpServer),
 	}
 	return server.NewStreamableHTTPServer(s.server, options...)
 }

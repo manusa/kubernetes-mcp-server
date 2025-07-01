@@ -5,6 +5,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"net/http"
 	"strconv"
 	"strings"
 
@@ -35,16 +36,17 @@ kubernetes-mcp-server --version
 kubernetes-mcp-server
 
 # start a SSE server on port 8080
-kubernetes-mcp-server --sse-port 8080
+kubernetes-mcp-server --port 8080
 
 # start a SSE server on port 8443 with a public HTTPS host of example.com
-kubernetes-mcp-server --sse-port 8443 --sse-base-url https://example.com:8443
+kubernetes-mcp-server --port 8443 --sse-base-url https://example.com:8443
 `))
 )
 
 type MCPServerOptions struct {
 	Version            bool
 	LogLevel           int
+	Port               string
 	SSEPort            int
 	HttpPort           int
 	SSEBaseUrl         string
@@ -95,7 +97,10 @@ func NewMCPServer(streams genericiooptions.IOStreams) *cobra.Command {
 	cmd.Flags().IntVar(&o.LogLevel, "log-level", o.LogLevel, "Set the log level (from 0 to 9)")
 	cmd.Flags().StringVar(&o.ConfigPath, "config", o.ConfigPath, "Path of the config file. Each profile has its set of defaults.")
 	cmd.Flags().IntVar(&o.SSEPort, "sse-port", o.SSEPort, "Start a SSE server on the specified port")
+	cmd.Flag("sse-port").Deprecated = "Use --port instead"
 	cmd.Flags().IntVar(&o.HttpPort, "http-port", o.HttpPort, "Start a streamable HTTP server on the specified port")
+	cmd.Flag("http-port").Deprecated = "Use --port instead"
+	cmd.Flags().StringVar(&o.Port, "port", o.Port, "Start a streamable HTTP and SSE HTTP server on the specified port (e.g. 8080)")
 	cmd.Flags().StringVar(&o.SSEBaseUrl, "sse-base-url", o.SSEBaseUrl, "SSE public base URL to use when sending the endpoint message (e.g. https://example.com)")
 	cmd.Flags().StringVar(&o.Kubeconfig, "kubeconfig", o.Kubeconfig, "Path to the kubeconfig file to use for authentication")
 	cmd.Flags().StringVar(&o.Profile, "profile", o.Profile, "MCP profile to use (one of: "+strings.Join(mcp.ProfileNames, ", ")+")")
@@ -126,11 +131,12 @@ func (m *MCPServerOptions) loadFlags(cmd *cobra.Command) {
 	if cmd.Flag("log-level").Changed {
 		m.StaticConfig.LogLevel = m.LogLevel
 	}
-	if cmd.Flag("sse-port").Changed {
-		m.StaticConfig.SSEPort = m.SSEPort
-	}
-	if cmd.Flag("http-port").Changed {
-		m.StaticConfig.HTTPPort = m.HttpPort
+	if cmd.Flag("port").Changed {
+		m.StaticConfig.Port = m.Port
+	} else if cmd.Flag("sse-port").Changed {
+		m.StaticConfig.Port = strconv.Itoa(m.SSEPort)
+	} else if cmd.Flag("http-port").Changed {
+		m.StaticConfig.Port = strconv.Itoa(m.HttpPort)
 	}
 	if cmd.Flag("sse-base-url").Changed {
 		m.StaticConfig.SSEBaseURL = m.SSEBaseUrl
@@ -162,6 +168,9 @@ func (m *MCPServerOptions) initializeLogging() {
 }
 
 func (m *MCPServerOptions) Validate() error {
+	if m.Port != "" && (m.SSEPort > 0 || m.HttpPort > 0) {
+		return fmt.Errorf("--port is mutually exclusive with deprecated --http-port and --sse-port flags")
+	}
 	return nil
 }
 
@@ -195,23 +204,27 @@ func (m *MCPServerOptions) Run() error {
 	}
 	defer mcpServer.Close()
 
-	ctx := context.Background()
-
-	if m.StaticConfig.SSEPort > 0 {
-		sseServer := mcpServer.ServeSse(m.StaticConfig.SSEBaseURL)
-		defer func() { _ = sseServer.Shutdown(ctx) }()
-		klog.V(0).Infof("SSE server starting on port %d and path /sse", m.StaticConfig.SSEPort)
-		if err := sseServer.Start(fmt.Sprintf(":%d", m.StaticConfig.SSEPort)); err != nil {
-			return fmt.Errorf("failed to start SSE server: %w\n", err)
+	if m.StaticConfig.Port != "" {
+		mux := http.NewServeMux()
+		httpServer := &http.Server{
+			Addr:    ":" + m.StaticConfig.Port,
+			Handler: mux,
 		}
-	}
 
-	if m.StaticConfig.HTTPPort > 0 {
-		httpServer := mcpServer.ServeHTTP()
-		klog.V(0).Infof("Streaming HTTP server starting on port %d and path /mcp", m.StaticConfig.HTTPPort)
-		if err := httpServer.Start(fmt.Sprintf(":%d", m.StaticConfig.HTTPPort)); err != nil {
-			return fmt.Errorf("failed to start streaming HTTP server: %w\n", err)
+		sseServer := mcpServer.ServeSse(m.SSEBaseUrl, httpServer)
+		streamableHttpServer := mcpServer.ServeHTTP(httpServer)
+		mux.Handle("/sse", sseServer)
+		mux.Handle("/message", sseServer)
+		mux.Handle("/mcp", streamableHttpServer)
+		mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusOK)
+		})
+
+		klog.V(0).Infof("Streaming and SSE HTTP servers starting on port %s and paths /mcp, /sse, /message", m.StaticConfig.Port)
+		if err := httpServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			return err
 		}
+		return nil
 	}
 
 	if err := mcpServer.ServeStdio(); err != nil && !errors.Is(err, context.Canceled) {

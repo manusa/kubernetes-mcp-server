@@ -12,8 +12,7 @@ type StaticConfig struct {
 	DeniedResources []GroupVersionKind `toml:"denied_resources"`
 
 	LogLevel   int    `toml:"log_level,omitempty"`
-	SSEPort    int    `toml:"sse_port,omitempty"`
-	HTTPPort   int    `toml:"http_port,omitempty"`
+	Port       string `toml:"port,omitempty"`
 	SSEBaseURL string `toml:"sse_base_url,omitempty"`
 	KubeConfig string `toml:"kubeconfig,omitempty"`
 	ListOutput string `toml:"list_output,omitempty"`

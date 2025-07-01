@@ -51,7 +51,7 @@ kind = "Role
 func TestReadConfigValid(t *testing.T) {
 	validConfigPath := writeConfig(t, `
 log_level = 1
-sse_port = 9999
+port = "9999"
 kubeconfig = "test"
 list_output = "yaml"
 read_only = true
@@ -87,14 +87,11 @@ disabled_tools = ["pods_delete", "pods_top", "pods_log", "pods_run", "pods_exec"
 		if config.LogLevel != 1 {
 			t.Fatalf("Unexpected log level: %v", config.LogLevel)
 		}
-		if config.SSEPort != 9999 {
-			t.Fatalf("Unexpected sse_port value: %v", config.SSEPort)
+		if config.Port != "9999" {
+			t.Fatalf("Unexpected port value: %v", config.Port)
 		}
 		if config.SSEBaseURL != "" {
 			t.Fatalf("Unexpected sse_base_url value: %v", config.SSEBaseURL)
-		}
-		if config.HTTPPort != 0 {
-			t.Fatalf("Unexpected http_port value: %v", config.HTTPPort)
 		}
 		if config.KubeConfig != "test" {
 			t.Fatalf("Unexpected kubeconfig value: %v", config.KubeConfig)

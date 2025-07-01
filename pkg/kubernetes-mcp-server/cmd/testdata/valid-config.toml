@@ -1,5 +1,5 @@
 log_level = 1
-sse_port = 9999
+port = "9999"
 kubeconfig = "test"
 list_output = "yaml"
 read_only = true

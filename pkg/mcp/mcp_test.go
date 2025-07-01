@@ -56,7 +56,7 @@ func TestWatchKubeConfig(t *testing.T) {
 }
 
 func TestReadOnly(t *testing.T) {
-	readOnlyServer := func(c *mcpContext) { c.readOnly = true }
+	readOnlyServer := func(c *mcpContext) { c.staticConfig = &config.StaticConfig{ReadOnly: true} }
 	testCaseWithContext(t, &mcpContext{before: readOnlyServer}, func(c *mcpContext) {
 		tools, err := c.mcpClient.ListTools(c.ctx, mcp.ListToolsRequest{})
 		t.Run("ListTools returns tools", func(t *testing.T) {
@@ -245,7 +245,7 @@ func TestIsToolApplicableDeniedTools(t *testing.T) {
 }
 
 func TestDisableDestructive(t *testing.T) {
-	disableDestructiveServer := func(c *mcpContext) { c.disableDestructive = true }
+	disableDestructiveServer := func(c *mcpContext) { c.staticConfig = &config.StaticConfig{DisableDestructive: true} }
 	testCaseWithContext(t, &mcpContext{before: disableDestructiveServer}, func(c *mcpContext) {
 		tools, err := c.mcpClient.ListTools(c.ctx, mcp.ListToolsRequest{})
 		t.Run("ListTools returns tools", func(t *testing.T) {

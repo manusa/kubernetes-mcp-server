@@ -98,20 +98,19 @@ func TestMain(m *testing.M) {
 }
 
 type mcpContext struct {
-	profile            Profile
-	listOutput         output.Output
-	readOnly           bool
-	disableDestructive bool
-	staticConfig       *config.StaticConfig
-	clientOptions      []transport.ClientOption
-	before             func(*mcpContext)
-	after              func(*mcpContext)
-	ctx                context.Context
-	tempDir            string
-	cancel             context.CancelFunc
-	mcpServer          *Server
-	mcpHttpServer      *httptest.Server
-	mcpClient          *client.Client
+	profile    Profile
+	listOutput output.Output
+
+	staticConfig  *config.StaticConfig
+	clientOptions []transport.ClientOption
+	before        func(*mcpContext)
+	after         func(*mcpContext)
+	ctx           context.Context
+	tempDir       string
+	cancel        context.CancelFunc
+	mcpServer     *Server
+	mcpHttpServer *httptest.Server
+	mcpClient     *client.Client
 }
 
 func (c *mcpContext) beforeEach(t *testing.T) {
@@ -127,8 +126,8 @@ func (c *mcpContext) beforeEach(t *testing.T) {
 	}
 	if c.staticConfig == nil {
 		c.staticConfig = &config.StaticConfig{
-			ReadOnly:           c.readOnly,
-			DisableDestructive: c.disableDestructive,
+			ReadOnly:           false,
+			DisableDestructive: false,
 		}
 	}
 	if c.before != nil {

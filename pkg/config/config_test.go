@@ -57,14 +57,13 @@ list_output = "yaml"
 read_only = true
 disable_destructive = false
 
-[[denied_resources]]
-group = "apps"
-version = "v1"
-kind = "Deployment"
+denied_resources = [
+    {group = "apps", version = "v1", kind = "Deployment"},
+    {group = "rbac.authorization.k8s.io", version = "v1", kind = "Role"}
+]
 
-[[denied_resources]]
-group = "rbac.authorization.k8s.io"
-version = "v1"
+allowed_tools = ["configuration_view", "events_list", "namespaces_list", "pods_list", "resources_list", "resources_get", "resources_create_or_update", "resources_delete"]
+denied_tools = ["pods_delete", "pods_top", "pods_log", "pods_run", "pods_exec"]
 `)
 
 	config, err := ReadConfig(validConfigPath)
@@ -108,6 +107,12 @@ version = "v1"
 		}
 		if config.DisableDestructive {
 			t.Fatalf("Unexpected disable destructive: %v", config.DisableDestructive)
+		}
+		if len(config.AllowedTools) != 8 {
+			t.Fatalf("Unexpected allowed tools: %v", config.AllowedTools)
+		}
+		if len(config.DeniedTools) != 5 {
+			t.Fatalf("Unexpected denied tools: %v", config.DeniedTools)
 		}
 	})
 }

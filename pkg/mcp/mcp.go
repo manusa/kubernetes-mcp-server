@@ -2,8 +2,10 @@ package mcp
 
 import (
 	"context"
-	"github.com/manusa/kubernetes-mcp-server/pkg/config"
 	"net/http"
+	"slices"
+
+	"github.com/manusa/kubernetes-mcp-server/pkg/config"
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
@@ -64,6 +66,12 @@ func (s *Server) reloadKubernetesClient() error {
 			continue
 		}
 		if s.configuration.DisableDestructive && !ptr.Deref(tool.Tool.Annotations.ReadOnlyHint, false) && ptr.Deref(tool.Tool.Annotations.DestructiveHint, false) {
+			continue
+		}
+		if s.configuration.StaticConfig.AllowedTools != nil && !slices.Contains(s.configuration.StaticConfig.AllowedTools, tool.Tool.Name) {
+			continue
+		}
+		if s.configuration.StaticConfig.DeniedTools != nil && slices.Contains(s.configuration.StaticConfig.DeniedTools, tool.Tool.Name) {
 			continue
 		}
 		applicableTools = append(applicableTools, tool)

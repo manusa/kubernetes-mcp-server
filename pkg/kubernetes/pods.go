@@ -5,11 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"k8s.io/metrics/pkg/apis/metrics"
-	metricsv1beta1api "k8s.io/metrics/pkg/apis/metrics/v1beta1"
-	metricsclientset "k8s.io/metrics/pkg/client/clientset/versioned"
 
-	"github.com/manusa/kubernetes-mcp-server/pkg/version"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -20,6 +16,10 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/client-go/tools/remotecommand"
+	"k8s.io/metrics/pkg/apis/metrics"
+	metricsv1beta1api "k8s.io/metrics/pkg/apis/metrics/v1beta1"
+
+	"github.com/manusa/kubernetes-mcp-server/pkg/version"
 )
 
 type PodsTopOptions struct {
@@ -205,25 +205,7 @@ func (k *Kubernetes) PodsTop(ctx context.Context, options PodsTopOptions) (*metr
 	} else {
 		namespace = k.NamespaceOrDefault(namespace)
 	}
-	metricsClient, err := metricsclientset.NewForConfig(k.manager.cfg)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create metrics client: %w", err)
-	}
-	versionedMetrics := &metricsv1beta1api.PodMetricsList{}
-	if options.Name != "" {
-		m, err := metricsClient.MetricsV1beta1().PodMetricses(namespace).Get(ctx, options.Name, metav1.GetOptions{})
-		if err != nil {
-			return nil, fmt.Errorf("failed to get metrics for pod %s/%s: %w", namespace, options.Name, err)
-		}
-		versionedMetrics.Items = []metricsv1beta1api.PodMetrics{*m}
-	} else {
-		versionedMetrics, err = metricsClient.MetricsV1beta1().PodMetricses(namespace).List(ctx, options.ListOptions)
-		if err != nil {
-			return nil, fmt.Errorf("failed to list pod metrics in namespace %s: %w", namespace, err)
-		}
-	}
-	convertedMetrics := &metrics.PodMetricsList{}
-	return convertedMetrics, metricsv1beta1api.Convert_v1beta1_PodMetricsList_To_metrics_PodMetricsList(versionedMetrics, convertedMetrics, nil)
+	return k.manager.accessControlClientSet.PodsMetricses(ctx, namespace, options.Name, options.ListOptions)
 }
 
 func (k *Kubernetes) PodsExec(ctx context.Context, namespace, name, container string, command []string) (string, error) {

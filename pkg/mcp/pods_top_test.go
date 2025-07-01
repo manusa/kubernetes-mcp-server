@@ -1,10 +1,13 @@
 package mcp
 
 import (
-	"github.com/mark3labs/mcp-go/mcp"
 	"net/http"
 	"regexp"
 	"testing"
+
+	"github.com/mark3labs/mcp-go/mcp"
+
+	"github.com/manusa/kubernetes-mcp-server/pkg/config"
 )
 
 func TestPodsTopMetricsUnavailable(t *testing.T) {
@@ -206,5 +209,40 @@ func TestPodsTopMetricsAvailable(t *testing.T) {
 }
 
 func TestPodsTopDenied(t *testing.T) {
-	t.Skip("To be implemented") // TODO: top is not checking for denied resources
+	deniedResourcesServer := &config.StaticConfig{DeniedResources: []config.GroupVersionKind{{Group: "metrics.k8s.io", Version: "v1beta1"}}}
+	testCaseWithContext(t, &mcpContext{staticConfig: deniedResourcesServer}, func(c *mcpContext) {
+		mockServer := NewMockServer()
+		defer mockServer.Close()
+		c.withKubeConfig(mockServer.config)
+		mockServer.Handle(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			// Request Performed by DiscoveryClient to Kube API (Get API Groups legacy -core-)
+			if req.URL.Path == "/api" {
+				_, _ = w.Write([]byte(`{"kind":"APIVersions","versions":["metrics.k8s.io/v1beta1"],"serverAddressByClientCIDRs":[{"clientCIDR":"0.0.0.0/0"}]}`))
+				return
+			}
+			// Request Performed by DiscoveryClient to Kube API (Get API Groups)
+			if req.URL.Path == "/apis" {
+				_, _ = w.Write([]byte(`{"kind":"APIGroupList","apiVersion":"v1","groups":[]}`))
+				return
+			}
+			// Request Performed by DiscoveryClient to Kube API (Get API Resources)
+			if req.URL.Path == "/apis/metrics.k8s.io/v1beta1" {
+				_, _ = w.Write([]byte(`{"kind":"APIResourceList","apiVersion":"v1","groupVersion":"metrics.k8s.io/v1beta1","resources":[{"name":"pods","singularName":"","namespaced":true,"kind":"PodMetrics","verbs":["get","list"]}]}`))
+				return
+			}
+		}))
+		podsTop, _ := c.callTool("pods_top", map[string]interface{}{})
+		t.Run("pods_run has error", func(t *testing.T) {
+			if !podsTop.IsError {
+				t.Fatalf("call tool should fail")
+			}
+		})
+		t.Run("pods_run describes denial", func(t *testing.T) {
+			expectedMessage := "failed to get pods top: resource not allowed: metrics.k8s.io/v1beta1, Kind=PodMetrics"
+			if podsTop.Content[0].(mcp.TextContent).Text != expectedMessage {
+				t.Fatalf("expected descriptive error '%s', got %v", expectedMessage, podsTop.Content[0].(mcp.TextContent).Text)
+			}
+		})
+	})
 }

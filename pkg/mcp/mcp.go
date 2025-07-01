@@ -5,12 +5,11 @@ import (
 	"net/http"
 	"slices"
 
-	"github.com/manusa/kubernetes-mcp-server/pkg/config"
-
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 	"k8s.io/utils/ptr"
 
+	"github.com/manusa/kubernetes-mcp-server/pkg/config"
 	"github.com/manusa/kubernetes-mcp-server/pkg/kubernetes"
 	"github.com/manusa/kubernetes-mcp-server/pkg/output"
 	"github.com/manusa/kubernetes-mcp-server/pkg/version"
@@ -21,6 +20,22 @@ type Configuration struct {
 	ListOutput output.Output
 
 	StaticConfig *config.StaticConfig
+}
+
+func (c *Configuration) isToolApplicable(tool server.ServerTool) bool {
+	if c.StaticConfig.ReadOnly && !ptr.Deref(tool.Tool.Annotations.ReadOnlyHint, false) {
+		return false
+	}
+	if c.StaticConfig.DisableDestructive && !ptr.Deref(tool.Tool.Annotations.ReadOnlyHint, false) && ptr.Deref(tool.Tool.Annotations.DestructiveHint, false) {
+		return false
+	}
+	if c.StaticConfig.AllowedTools != nil && !slices.Contains(c.StaticConfig.AllowedTools, tool.Tool.Name) {
+		return false
+	}
+	if c.StaticConfig.DeniedTools != nil && slices.Contains(c.StaticConfig.DeniedTools, tool.Tool.Name) {
+		return false
+	}
+	return true
 }
 
 type Server struct {
@@ -57,16 +72,7 @@ func (s *Server) reloadKubernetesClient() error {
 	s.k = k
 	applicableTools := make([]server.ServerTool, 0)
 	for _, tool := range s.configuration.Profile.GetTools(s) {
-		if s.configuration.StaticConfig.ReadOnly && !ptr.Deref(tool.Tool.Annotations.ReadOnlyHint, false) {
-			continue
-		}
-		if s.configuration.StaticConfig.DisableDestructive && !ptr.Deref(tool.Tool.Annotations.ReadOnlyHint, false) && ptr.Deref(tool.Tool.Annotations.DestructiveHint, false) {
-			continue
-		}
-		if s.configuration.StaticConfig.AllowedTools != nil && !slices.Contains(s.configuration.StaticConfig.AllowedTools, tool.Tool.Name) {
-			continue
-		}
-		if s.configuration.StaticConfig.DeniedTools != nil && slices.Contains(s.configuration.StaticConfig.DeniedTools, tool.Tool.Name) {
+		if !s.configuration.isToolApplicable(tool) {
 			continue
 		}
 		applicableTools = append(applicableTools, tool)

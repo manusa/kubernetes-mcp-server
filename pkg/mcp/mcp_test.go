@@ -9,8 +9,12 @@ import (
 	"testing"
 	"time"
 
+	"k8s.io/utils/ptr"
+
+	"github.com/manusa/kubernetes-mcp-server/pkg/config"
 	"github.com/mark3labs/mcp-go/client"
 	"github.com/mark3labs/mcp-go/mcp"
+	"github.com/mark3labs/mcp-go/server"
 )
 
 func TestWatchKubeConfig(t *testing.T) {
@@ -67,6 +71,173 @@ func TestReadOnly(t *testing.T) {
 				}
 				if tool.Annotations.DestructiveHint != nil && *tool.Annotations.DestructiveHint {
 					t.Errorf("Tool %s is destructive but should not be in read-only mode", tool.Name)
+				}
+			}
+		})
+	})
+}
+
+func TestIsToolApplicableReadOnly(t *testing.T) {
+	tests := []struct {
+		config   Configuration
+		expected bool
+		tool     server.ServerTool
+	}{
+		{
+			config: Configuration{
+				StaticConfig: &config.StaticConfig{
+					ReadOnly: true,
+				},
+			},
+			expected: true,
+			tool: server.ServerTool{
+				Tool: mcp.Tool{
+					Annotations: mcp.ToolAnnotation{
+						ReadOnlyHint: ptr.To(true),
+					},
+				},
+			},
+		},
+		{
+			config: Configuration{
+				StaticConfig: &config.StaticConfig{
+					ReadOnly: true,
+				},
+			},
+			expected: false,
+			tool: server.ServerTool{
+				Tool: mcp.Tool{
+					Annotations: mcp.ToolAnnotation{
+						ReadOnlyHint: ptr.To(false),
+					},
+				},
+			},
+		},
+		{
+			config: Configuration{
+				StaticConfig: &config.StaticConfig{
+					DisableDestructive: true,
+				},
+			},
+			expected: true,
+			tool: server.ServerTool{
+				Tool: mcp.Tool{
+					Annotations: mcp.ToolAnnotation{
+						DestructiveHint: ptr.To(false),
+					},
+				},
+			},
+		},
+		{
+			config: Configuration{
+				StaticConfig: &config.StaticConfig{
+					DisableDestructive: true,
+				},
+			},
+			expected: true,
+			tool: server.ServerTool{
+				Tool: mcp.Tool{
+					Annotations: mcp.ToolAnnotation{
+						DestructiveHint: ptr.To(true),
+						ReadOnlyHint:    ptr.To(true),
+					},
+				},
+			},
+		},
+		{
+			config: Configuration{
+				StaticConfig: &config.StaticConfig{
+					DisableDestructive: true,
+				},
+			},
+			expected: false,
+			tool: server.ServerTool{
+				Tool: mcp.Tool{
+					Annotations: mcp.ToolAnnotation{
+						DestructiveHint: ptr.To(true),
+					},
+				},
+			},
+		},
+		{
+			config: Configuration{
+				StaticConfig: &config.StaticConfig{
+					AllowedTools: []string{"namespaces_list"},
+				},
+			},
+			expected: true,
+			tool: server.ServerTool{
+				Tool: mcp.Tool{
+					Name: "namespaces_list",
+				},
+			},
+		},
+		{
+			config: Configuration{
+				StaticConfig: &config.StaticConfig{
+					DeniedTools: []string{"namespaces_list"},
+				},
+			},
+			expected: false,
+			tool: server.ServerTool{
+				Tool: mcp.Tool{
+					Name: "namespaces_list",
+				},
+			},
+		},
+	}
+	for _, test := range tests {
+		t.Run("", func(t *testing.T) {
+			isToolApplicable := test.config.isToolApplicable(test.tool)
+			if isToolApplicable != test.expected {
+				t.Errorf("isToolApplicable should return %t, got %t", test.expected, isToolApplicable)
+			}
+		})
+	}
+
+}
+
+func TestIsToolApplicableAllowedTools(t *testing.T) {
+	testCaseWithContext(t, &mcpContext{
+		staticConfig: &config.StaticConfig{
+			AllowedTools: []string{"namespaces_list", "events_list"},
+		},
+	}, func(c *mcpContext) {
+		tools, err := c.mcpClient.ListTools(c.ctx, mcp.ListToolsRequest{})
+		t.Run("ListTools returns tools", func(t *testing.T) {
+			if err != nil {
+				t.Fatalf("call ListTools failed %v", err)
+			}
+		})
+		t.Run("ListTools does not only return allowed tools", func(t *testing.T) {
+			if len(tools.Tools) != 2 {
+				t.Fatalf("ListTools should return 2 tools, got %d", len(tools.Tools))
+			}
+			for _, tool := range tools.Tools {
+				if tool.Name != "namespaces_list" && tool.Name != "events_list" {
+					t.Errorf("Tool %s is not allowed but should be", tool.Name)
+				}
+			}
+		})
+	})
+}
+
+func TestIsToolApplicableDeniedTools(t *testing.T) {
+	testCaseWithContext(t, &mcpContext{
+		staticConfig: &config.StaticConfig{
+			DeniedTools: []string{"namespaces_list", "events_list"},
+		},
+	}, func(c *mcpContext) {
+		tools, err := c.mcpClient.ListTools(c.ctx, mcp.ListToolsRequest{})
+		t.Run("ListTools returns tools", func(t *testing.T) {
+			if err != nil {
+				t.Fatalf("call ListTools failed %v", err)
+			}
+		})
+		t.Run("ListTools does not only return allowed tools", func(t *testing.T) {
+			for _, tool := range tools.Tools {
+				if tool.Name == "namespaces_list" || tool.Name == "events_list" {
+					t.Errorf("Tool %s is not denied but should be", tool.Name)
 				}
 			}
 		})

@@ -186,12 +186,9 @@ func (m *MCPServerOptions) Run() error {
 		return nil
 	}
 	mcpServer, err := mcp.NewServer(mcp.Configuration{
-		Profile:            profile,
-		ListOutput:         listOutput,
-		ReadOnly:           m.StaticConfig.ReadOnly,
-		DisableDestructive: m.StaticConfig.DisableDestructive,
-		Kubeconfig:         m.StaticConfig.KubeConfig,
-		StaticConfig:       m.StaticConfig,
+		Profile:      profile,
+		ListOutput:   listOutput,
+		StaticConfig: m.StaticConfig,
 	})
 	if err != nil {
 		return fmt.Errorf("Failed to initialize MCP server: %w\n", err)

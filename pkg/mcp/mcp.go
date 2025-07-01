@@ -19,11 +19,6 @@ import (
 type Configuration struct {
 	Profile    Profile
 	ListOutput output.Output
-	// When true, expose only tools annotated with readOnlyHint=true
-	ReadOnly bool
-	// When true, disable tools annotated with destructiveHint=true
-	DisableDestructive bool
-	Kubeconfig         string
 
 	StaticConfig *config.StaticConfig
 }
@@ -55,17 +50,17 @@ func NewServer(configuration Configuration) (*Server, error) {
 }
 
 func (s *Server) reloadKubernetesClient() error {
-	k, err := kubernetes.NewManager(s.configuration.Kubeconfig, s.configuration.StaticConfig)
+	k, err := kubernetes.NewManager(s.configuration.StaticConfig.KubeConfig, s.configuration.StaticConfig)
 	if err != nil {
 		return err
 	}
 	s.k = k
 	applicableTools := make([]server.ServerTool, 0)
 	for _, tool := range s.configuration.Profile.GetTools(s) {
-		if s.configuration.ReadOnly && !ptr.Deref(tool.Tool.Annotations.ReadOnlyHint, false) {
+		if s.configuration.StaticConfig.ReadOnly && !ptr.Deref(tool.Tool.Annotations.ReadOnlyHint, false) {
 			continue
 		}
-		if s.configuration.DisableDestructive && !ptr.Deref(tool.Tool.Annotations.ReadOnlyHint, false) && ptr.Deref(tool.Tool.Annotations.DestructiveHint, false) {
+		if s.configuration.StaticConfig.DisableDestructive && !ptr.Deref(tool.Tool.Annotations.ReadOnlyHint, false) && ptr.Deref(tool.Tool.Annotations.DestructiveHint, false) {
 			continue
 		}
 		if s.configuration.StaticConfig.AllowedTools != nil && !slices.Contains(s.configuration.StaticConfig.AllowedTools, tool.Tool.Name) {

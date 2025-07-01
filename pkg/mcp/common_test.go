@@ -4,6 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"runtime"
+	"testing"
+	"time"
+
 	"github.com/manusa/kubernetes-mcp-server/pkg/config"
 	"github.com/manusa/kubernetes-mcp-server/pkg/output"
 	"github.com/mark3labs/mcp-go/client"
@@ -28,18 +35,12 @@ import (
 	"k8s.io/client-go/tools/clientcmd/api"
 	toolswatch "k8s.io/client-go/tools/watch"
 	"k8s.io/utils/ptr"
-	"net/http/httptest"
-	"os"
-	"path/filepath"
-	"runtime"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	"sigs.k8s.io/controller-runtime/tools/setup-envtest/env"
 	"sigs.k8s.io/controller-runtime/tools/setup-envtest/remote"
 	"sigs.k8s.io/controller-runtime/tools/setup-envtest/store"
 	"sigs.k8s.io/controller-runtime/tools/setup-envtest/versions"
 	"sigs.k8s.io/controller-runtime/tools/setup-envtest/workflows"
-	"testing"
-	"time"
 )
 
 // envTest has an expensive setup, so we only want to do it once per entire test run.
@@ -125,17 +126,18 @@ func (c *mcpContext) beforeEach(t *testing.T) {
 		c.listOutput = output.Yaml
 	}
 	if c.staticConfig == nil {
-		c.staticConfig = &config.StaticConfig{}
+		c.staticConfig = &config.StaticConfig{
+			ReadOnly:           c.readOnly,
+			DisableDestructive: c.disableDestructive,
+		}
 	}
 	if c.before != nil {
 		c.before(c)
 	}
 	if c.mcpServer, err = NewServer(Configuration{
-		Profile:            c.profile,
-		ListOutput:         c.listOutput,
-		ReadOnly:           c.readOnly,
-		DisableDestructive: c.disableDestructive,
-		StaticConfig:       c.staticConfig,
+		Profile:      c.profile,
+		ListOutput:   c.listOutput,
+		StaticConfig: c.staticConfig,
 	}); err != nil {
 		t.Fatal(err)
 		return

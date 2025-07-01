@@ -29,10 +29,10 @@ func (c *Configuration) isToolApplicable(tool server.ServerTool) bool {
 	if c.StaticConfig.DisableDestructive && !ptr.Deref(tool.Tool.Annotations.ReadOnlyHint, false) && ptr.Deref(tool.Tool.Annotations.DestructiveHint, false) {
 		return false
 	}
-	if c.StaticConfig.AllowedTools != nil && !slices.Contains(c.StaticConfig.AllowedTools, tool.Tool.Name) {
+	if c.StaticConfig.EnabledTools != nil && !slices.Contains(c.StaticConfig.EnabledTools, tool.Tool.Name) {
 		return false
 	}
-	if c.StaticConfig.DeniedTools != nil && slices.Contains(c.StaticConfig.DeniedTools, tool.Tool.Name) {
+	if c.StaticConfig.DisabledTools != nil && slices.Contains(c.StaticConfig.DisabledTools, tool.Tool.Name) {
 		return false
 	}
 	return true

@@ -162,7 +162,7 @@ func TestIsToolApplicableReadOnly(t *testing.T) {
 		{
 			config: Configuration{
 				StaticConfig: &config.StaticConfig{
-					AllowedTools: []string{"namespaces_list"},
+					EnabledTools: []string{"namespaces_list"},
 				},
 			},
 			expected: true,
@@ -175,7 +175,7 @@ func TestIsToolApplicableReadOnly(t *testing.T) {
 		{
 			config: Configuration{
 				StaticConfig: &config.StaticConfig{
-					DeniedTools: []string{"namespaces_list"},
+					DisabledTools: []string{"namespaces_list"},
 				},
 			},
 			expected: false,
@@ -197,10 +197,10 @@ func TestIsToolApplicableReadOnly(t *testing.T) {
 
 }
 
-func TestIsToolApplicableAllowedTools(t *testing.T) {
+func TestIsToolApplicableEnabledTools(t *testing.T) {
 	testCaseWithContext(t, &mcpContext{
 		staticConfig: &config.StaticConfig{
-			AllowedTools: []string{"namespaces_list", "events_list"},
+			EnabledTools: []string{"namespaces_list", "events_list"},
 		},
 	}, func(c *mcpContext) {
 		tools, err := c.mcpClient.ListTools(c.ctx, mcp.ListToolsRequest{})
@@ -209,23 +209,23 @@ func TestIsToolApplicableAllowedTools(t *testing.T) {
 				t.Fatalf("call ListTools failed %v", err)
 			}
 		})
-		t.Run("ListTools does not only return allowed tools", func(t *testing.T) {
+		t.Run("ListTools does not only return enabled tools", func(t *testing.T) {
 			if len(tools.Tools) != 2 {
 				t.Fatalf("ListTools should return 2 tools, got %d", len(tools.Tools))
 			}
 			for _, tool := range tools.Tools {
 				if tool.Name != "namespaces_list" && tool.Name != "events_list" {
-					t.Errorf("Tool %s is not allowed but should be", tool.Name)
+					t.Errorf("Tool %s is not enabled but should be", tool.Name)
 				}
 			}
 		})
 	})
 }
 
-func TestIsToolApplicableDeniedTools(t *testing.T) {
+func TestIsToolApplicableDisabledTools(t *testing.T) {
 	testCaseWithContext(t, &mcpContext{
 		staticConfig: &config.StaticConfig{
-			DeniedTools: []string{"namespaces_list", "events_list"},
+			DisabledTools: []string{"namespaces_list", "events_list"},
 		},
 	}, func(c *mcpContext) {
 		tools, err := c.mcpClient.ListTools(c.ctx, mcp.ListToolsRequest{})
@@ -234,10 +234,10 @@ func TestIsToolApplicableDeniedTools(t *testing.T) {
 				t.Fatalf("call ListTools failed %v", err)
 			}
 		})
-		t.Run("ListTools does not only return allowed tools", func(t *testing.T) {
+		t.Run("ListTools does not only return disabled tools", func(t *testing.T) {
 			for _, tool := range tools.Tools {
 				if tool.Name == "namespaces_list" || tool.Name == "events_list" {
-					t.Errorf("Tool %s is not denied but should be", tool.Name)
+					t.Errorf("Tool %s is not disabled but should be", tool.Name)
 				}
 			}
 		})

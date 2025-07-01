@@ -10,6 +10,6 @@ denied_resources = [
     {group = "rbac.authorization.k8s.io", version = "v1", kind = "Role"}
 ]
 
-allowed_tools = ["configuration_view", "events_list", "namespaces_list", "pods_list", "resources_list", "resources_get", "resources_create_or_update", "resources_delete"]
-denied_tools = ["pods_delete", "pods_top", "pods_log", "pods_run", "pods_exec"]
+enabled_tools = ["configuration_view", "events_list", "namespaces_list", "pods_list", "resources_list", "resources_get", "resources_create_or_update", "resources_delete"]
+disabled_tools = ["pods_delete", "pods_top", "pods_log", "pods_run", "pods_exec"]
 

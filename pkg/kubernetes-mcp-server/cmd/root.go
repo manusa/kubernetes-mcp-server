@@ -9,8 +9,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/manusa/kubernetes-mcp-server/pkg/middleware"
-
 	"github.com/spf13/cobra"
 
 	"k8s.io/cli-runtime/pkg/genericiooptions"
@@ -20,6 +18,7 @@ import (
 	"k8s.io/kubectl/pkg/util/templates"
 
 	"github.com/manusa/kubernetes-mcp-server/pkg/config"
+	internalhttp "github.com/manusa/kubernetes-mcp-server/pkg/http"
 	"github.com/manusa/kubernetes-mcp-server/pkg/mcp"
 	"github.com/manusa/kubernetes-mcp-server/pkg/output"
 	"github.com/manusa/kubernetes-mcp-server/pkg/version"
@@ -208,7 +207,7 @@ func (m *MCPServerOptions) Run() error {
 
 	if m.StaticConfig.Port != "" {
 		mux := http.NewServeMux()
-		wrappedMux := middleware.RequestMiddleware(mux)
+		wrappedMux := internalhttp.RequestMiddleware(mux)
 
 		httpServer := &http.Server{
 			Addr:    ":" + m.StaticConfig.Port,

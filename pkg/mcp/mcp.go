@@ -98,6 +98,7 @@ func (s *Server) ServeHTTP(httpServer *http.Server) *server.StreamableHTTPServer
 	options := []server.StreamableHTTPOption{
 		server.WithHTTPContextFunc(contextFunc),
 		server.WithStreamableHTTPServer(httpServer),
+		server.WithStateLess(true),
 	}
 	return server.NewStreamableHTTPServer(s.server, options...)
 }

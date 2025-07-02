@@ -156,6 +156,7 @@ func (m *Manager) Derived(ctx context.Context) *Kubernetes {
 		Kubeconfig:      m.Kubeconfig,
 		clientCmdConfig: clientcmd.NewDefaultClientConfig(clientCmdApiConfig, nil),
 		cfg:             derivedCfg,
+		staticConfig:    m.staticConfig,
 	}}
 	derived.manager.accessControlClientSet, err = NewAccessControlClientset(derived.manager.cfg, derived.manager.staticConfig)
 	if err != nil {

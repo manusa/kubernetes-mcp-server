@@ -10,7 +10,7 @@ import (
 	"k8s.io/utils/ptr"
 
 	"github.com/manusa/kubernetes-mcp-server/pkg/config"
-	"github.com/manusa/kubernetes-mcp-server/pkg/kubernetes"
+	internalk8s "github.com/manusa/kubernetes-mcp-server/pkg/kubernetes"
 	"github.com/manusa/kubernetes-mcp-server/pkg/output"
 	"github.com/manusa/kubernetes-mcp-server/pkg/version"
 )
@@ -41,7 +41,7 @@ func (c *Configuration) isToolApplicable(tool server.ServerTool) bool {
 type Server struct {
 	configuration *Configuration
 	server        *server.MCPServer
-	k             *kubernetes.Manager
+	k             *internalk8s.Manager
 }
 
 func NewServer(configuration Configuration) (*Server, error) {
@@ -65,7 +65,7 @@ func NewServer(configuration Configuration) (*Server, error) {
 }
 
 func (s *Server) reloadKubernetesClient() error {
-	k, err := kubernetes.NewManager(s.configuration.StaticConfig.KubeConfig, s.configuration.StaticConfig)
+	k, err := internalk8s.NewManager(s.configuration.StaticConfig.KubeConfig, s.configuration.StaticConfig)
 	if err != nil {
 		return err
 	}
@@ -130,5 +130,17 @@ func NewTextResult(content string, err error) *mcp.CallToolResult {
 }
 
 func contextFunc(ctx context.Context, r *http.Request) context.Context {
-	return context.WithValue(ctx, kubernetes.AuthorizationHeader, r.Header.Get(kubernetes.AuthorizationHeader))
+	// Get the standard Authorization header (OAuth compliant)
+	authHeader := r.Header.Get(internalk8s.OAuthAuthorizationHeader)
+	if authHeader != "" {
+		return context.WithValue(ctx, internalk8s.OAuthAuthorizationHeader, authHeader)
+	}
+
+	// Fallback to custom header for backward compatibility
+	customAuthHeader := r.Header.Get(internalk8s.CustomAuthorizationHeader)
+	if customAuthHeader != "" {
+		return context.WithValue(ctx, internalk8s.OAuthAuthorizationHeader, customAuthHeader)
+	}
+
+	return ctx
 }

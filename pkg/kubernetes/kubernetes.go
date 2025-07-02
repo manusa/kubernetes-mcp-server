@@ -2,8 +2,9 @@ package kubernetes
 
 import (
 	"context"
-	"k8s.io/apimachinery/pkg/runtime"
 	"strings"
+
+	"k8s.io/apimachinery/pkg/runtime"
 
 	"github.com/fsnotify/fsnotify"
 
@@ -25,7 +26,8 @@ import (
 )
 
 const (
-	AuthorizationHeader = "kubernetes-authorization"
+	CustomAuthorizationHeader = "kubernetes-authorization"
+	OAuthAuthorizationHeader  = "Authorization"
 )
 
 type CloseWatchKubeConfig func() error
@@ -133,11 +135,11 @@ func (m *Manager) ToRESTMapper() (meta.RESTMapper, error) {
 }
 
 func (m *Manager) Derived(ctx context.Context) *Kubernetes {
-	authorization, ok := ctx.Value(AuthorizationHeader).(string)
+	authorization, ok := ctx.Value(OAuthAuthorizationHeader).(string)
 	if !ok || !strings.HasPrefix(authorization, "Bearer ") {
 		return &Kubernetes{manager: m}
 	}
-	klog.V(5).Infof("%s header found (Bearer), using provided bearer token", AuthorizationHeader)
+	klog.V(5).Infof("%s header found (Bearer), using provided bearer token", OAuthAuthorizationHeader)
 	derivedCfg := rest.CopyConfig(m.cfg)
 	derivedCfg.BearerToken = strings.TrimPrefix(authorization, "Bearer ")
 	derivedCfg.BearerTokenFile = ""

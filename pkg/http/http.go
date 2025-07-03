@@ -1,61 +1,35 @@
 package http
 
 import (
-	"bufio"
-	"net"
+	"errors"
 	"net/http"
-	"time"
 
 	"k8s.io/klog/v2"
+
+	"github.com/manusa/kubernetes-mcp-server/pkg/mcp"
 )
 
-func RequestMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		start := time.Now()
+func Serve(mcpServer *mcp.Server, port, sseBaseUrl string) error {
+	mux := http.NewServeMux()
+	wrappedMux := RequestMiddleware(mux)
 
-		lrw := &loggingResponseWriter{
-			ResponseWriter: w,
-			statusCode:     http.StatusOK,
-		}
+	httpServer := &http.Server{
+		Addr:    ":" + port,
+		Handler: wrappedMux,
+	}
 
-		next.ServeHTTP(lrw, r)
-
-		duration := time.Since(start)
-		klog.V(5).Infof("%s %s %d %v", r.Method, r.URL.Path, lrw.statusCode, duration)
+	sseServer := mcpServer.ServeSse(sseBaseUrl, httpServer)
+	streamableHttpServer := mcpServer.ServeHTTP(httpServer)
+	mux.Handle("/sse", sseServer)
+	mux.Handle("/message", sseServer)
+	mux.Handle("/mcp", streamableHttpServer)
+	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
 	})
-}
 
-type loggingResponseWriter struct {
-	http.ResponseWriter
-	statusCode    int
-	headerWritten bool
-}
-
-func (lrw *loggingResponseWriter) WriteHeader(code int) {
-	if !lrw.headerWritten {
-		lrw.statusCode = code
-		lrw.headerWritten = true
-		lrw.ResponseWriter.WriteHeader(code)
+	klog.V(0).Infof("Streaming and SSE HTTP servers starting on port %s and paths /mcp, /sse, /message", port)
+	if err := httpServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		return err
 	}
-}
-
-func (lrw *loggingResponseWriter) Write(b []byte) (int, error) {
-	if !lrw.headerWritten {
-		lrw.statusCode = http.StatusOK
-		lrw.headerWritten = true
-	}
-	return lrw.ResponseWriter.Write(b)
-}
-
-func (lrw *loggingResponseWriter) Flush() {
-	if flusher, ok := lrw.ResponseWriter.(http.Flusher); ok {
-		flusher.Flush()
-	}
-}
-
-func (lrw *loggingResponseWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
-	if hijacker, ok := lrw.ResponseWriter.(http.Hijacker); ok {
-		return hijacker.Hijack()
-	}
-	return nil, nil, http.ErrNotSupported
+	return nil
 }

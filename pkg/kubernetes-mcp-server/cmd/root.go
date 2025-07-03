@@ -5,7 +5,6 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"net/http"
 	"strconv"
 	"strings"
 
@@ -206,28 +205,8 @@ func (m *MCPServerOptions) Run() error {
 	defer mcpServer.Close()
 
 	if m.StaticConfig.Port != "" {
-		mux := http.NewServeMux()
-		wrappedMux := internalhttp.RequestMiddleware(mux)
-
-		httpServer := &http.Server{
-			Addr:    ":" + m.StaticConfig.Port,
-			Handler: wrappedMux,
-		}
-
-		sseServer := mcpServer.ServeSse(m.SSEBaseUrl, httpServer)
-		streamableHttpServer := mcpServer.ServeHTTP(httpServer)
-		mux.Handle("/sse", sseServer)
-		mux.Handle("/message", sseServer)
-		mux.Handle("/mcp", streamableHttpServer)
-		mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
-			w.WriteHeader(http.StatusOK)
-		})
-
-		klog.V(0).Infof("Streaming and SSE HTTP servers starting on port %s and paths /mcp, /sse, /message", m.StaticConfig.Port)
-		if err := httpServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			return err
-		}
-		return nil
+		ctx := context.Background()
+		return internalhttp.Serve(ctx, mcpServer, m.StaticConfig.Port, m.SSEBaseUrl)
 	}
 
 	if err := mcpServer.ServeStdio(); err != nil && !errors.Is(err, context.Canceled) {

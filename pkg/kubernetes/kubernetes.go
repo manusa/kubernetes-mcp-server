@@ -28,6 +28,8 @@ import (
 const (
 	CustomAuthorizationHeader = "kubernetes-authorization"
 	OAuthAuthorizationHeader  = "Authorization"
+
+	CustomUserAgent = "kubernetes-mcp-server/bearer-token-auth"
 )
 
 type CloseWatchKubeConfig func() error
@@ -140,15 +142,24 @@ func (m *Manager) Derived(ctx context.Context) *Kubernetes {
 		return &Kubernetes{manager: m}
 	}
 	klog.V(5).Infof("%s header found (Bearer), using provided bearer token", OAuthAuthorizationHeader)
-	derivedCfg := rest.CopyConfig(m.cfg)
-	derivedCfg.BearerToken = strings.TrimPrefix(authorization, "Bearer ")
-	derivedCfg.BearerTokenFile = ""
-	derivedCfg.Username = ""
-	derivedCfg.Password = ""
-	derivedCfg.AuthProvider = nil
-	derivedCfg.AuthConfigPersister = nil
-	derivedCfg.ExecProvider = nil
-	derivedCfg.Impersonate = rest.ImpersonationConfig{}
+	derivedCfg := &rest.Config{
+		Host:    m.cfg.Host,
+		APIPath: m.cfg.APIPath,
+		// Copy only server verification TLS settings (CA bundle and server name)
+		TLSClientConfig: rest.TLSClientConfig{
+			Insecure:   m.cfg.TLSClientConfig.Insecure,
+			ServerName: m.cfg.TLSClientConfig.ServerName,
+			CAFile:     m.cfg.TLSClientConfig.CAFile,
+			CAData:     m.cfg.TLSClientConfig.CAData,
+		},
+		BearerToken: strings.TrimPrefix(authorization, "Bearer "),
+		// pass custom UserAgent to identify the client
+		UserAgent:   CustomUserAgent,
+		QPS:         m.cfg.QPS,
+		Burst:       m.cfg.Burst,
+		Timeout:     m.cfg.Timeout,
+		Impersonate: rest.ImpersonationConfig{},
+	}
 	clientCmdApiConfig, err := m.clientCmdConfig.RawConfig()
 	if err != nil {
 		return &Kubernetes{manager: m}

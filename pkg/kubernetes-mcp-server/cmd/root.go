@@ -205,7 +205,8 @@ func (m *MCPServerOptions) Run() error {
 	defer mcpServer.Close()
 
 	if m.StaticConfig.Port != "" {
-		return internalhttp.Serve(mcpServer, m.StaticConfig.Port, m.SSEBaseUrl)
+		ctx := context.Background()
+		return internalhttp.Serve(ctx, mcpServer, m.StaticConfig.Port, m.SSEBaseUrl)
 	}
 
 	if err := mcpServer.ServeStdio(); err != nil && !errors.Is(err, context.Canceled) {

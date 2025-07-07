@@ -45,7 +45,7 @@ users:
 			},
 		}
 
-		testManager, err := NewManager(kubeconfigPath, testStaticConfig)
+		testManager, err := NewManager(testStaticConfig)
 		if err != nil {
 			t.Fatalf("failed to create manager: %v", err)
 		}
@@ -67,7 +67,7 @@ users:
 			},
 		}
 
-		testManager, err := NewManager(kubeconfigPath, testStaticConfig)
+		testManager, err := NewManager(testStaticConfig)
 		if err != nil {
 			t.Fatalf("failed to create manager: %v", err)
 		}
@@ -89,7 +89,7 @@ users:
 			},
 		}
 
-		testManager, err := NewManager(kubeconfigPath, testStaticConfig)
+		testManager, err := NewManager(testStaticConfig)
 		if err != nil {
 			t.Fatalf("failed to create manager: %v", err)
 		}
@@ -104,10 +104,6 @@ users:
 
 		if derived.manager.staticConfig != testStaticConfig {
 			t.Errorf("staticConfig not properly wired to derived manager")
-		}
-
-		if derived.manager.Kubeconfig != testManager.Kubeconfig {
-			t.Errorf("expected Kubeconfig %s, got %s", testManager.Kubeconfig, derived.manager.Kubeconfig)
 		}
 
 		derivedCfg := derived.manager.cfg

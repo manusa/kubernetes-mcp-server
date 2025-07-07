@@ -65,7 +65,7 @@ func NewServer(configuration Configuration) (*Server, error) {
 }
 
 func (s *Server) reloadKubernetesClient() error {
-	k, err := internalk8s.NewManager(s.configuration.StaticConfig.KubeConfig, s.configuration.StaticConfig)
+	k, err := internalk8s.NewManager(s.configuration.StaticConfig)
 	if err != nil {
 		return err
 	}

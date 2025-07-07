@@ -39,8 +39,6 @@ type Kubernetes struct {
 }
 
 type Manager struct {
-	// Kubeconfig path override
-	Kubeconfig              string
 	cfg                     *rest.Config
 	clientCmdConfig         clientcmd.ClientConfig
 	discoveryClient         discovery.CachedDiscoveryInterface
@@ -57,9 +55,8 @@ var ParameterCodec = runtime.NewParameterCodec(Scheme)
 
 var _ helm.Kubernetes = &Manager{}
 
-func NewManager(kubeconfig string, config *config.StaticConfig) (*Manager, error) {
+func NewManager(config *config.StaticConfig) (*Manager, error) {
 	k8s := &Manager{
-		Kubeconfig:   kubeconfig,
 		staticConfig: config,
 	}
 	if err := resolveKubernetesConfigurations(k8s); err != nil {
@@ -166,7 +163,6 @@ func (m *Manager) Derived(ctx context.Context) *Kubernetes {
 	}
 	clientCmdApiConfig.AuthInfos = make(map[string]*clientcmdapi.AuthInfo)
 	derived := &Kubernetes{manager: &Manager{
-		Kubeconfig:      m.Kubeconfig,
 		clientCmdConfig: clientcmd.NewDefaultClientConfig(clientCmdApiConfig, nil),
 		cfg:             derivedCfg,
 		staticConfig:    m.staticConfig,

@@ -24,8 +24,8 @@ var InClusterConfig = func() (*rest.Config, error) {
 func resolveKubernetesConfigurations(kubernetes *Manager) error {
 	// Always set clientCmdConfig
 	pathOptions := clientcmd.NewDefaultPathOptions()
-	if kubernetes.Kubeconfig != "" {
-		pathOptions.LoadingRules.ExplicitPath = kubernetes.Kubeconfig
+	if kubernetes.staticConfig.KubeConfig != "" {
+		pathOptions.LoadingRules.ExplicitPath = kubernetes.staticConfig.KubeConfig
 	}
 	kubernetes.clientCmdConfig = clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
 		pathOptions.LoadingRules,
@@ -46,7 +46,7 @@ func resolveKubernetesConfigurations(kubernetes *Manager) error {
 }
 
 func (m *Manager) IsInCluster() bool {
-	if m.Kubeconfig != "" {
+	if m.staticConfig.KubeConfig != "" {
 		return false
 	}
 	cfg, err := InClusterConfig()

@@ -103,7 +103,7 @@ func TestConfig(t *testing.T) {
 			t.Fatalf("Expected config to be %s, got %s %v", expectedDisableDestruction, out.String(), err)
 		}
 	})
-	t.Run("set with valid --config, flags override", func(t *testing.T) {
+	t.Run("set with valid --config, flags take precedence", func(t *testing.T) {
 		ioStreams, out := testStream()
 		rootCmd := NewMCPServer(ioStreams)
 		_, file, _, _ := runtime.Caller(0)

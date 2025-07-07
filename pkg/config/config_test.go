@@ -52,10 +52,11 @@ func TestReadConfigValid(t *testing.T) {
 	validConfigPath := writeConfig(t, `
 log_level = 1
 port = "9999"
-kubeconfig = "test"
+sse_base_url = "https://example.com"
+kubeconfig = "./path/to/config"
 list_output = "yaml"
 read_only = true
-disable_destructive = false
+disable_destructive = true
 
 denied_resources = [
     {group = "apps", version = "v1", kind = "Deployment"},
@@ -84,32 +85,61 @@ disabled_tools = ["pods_delete", "pods_top", "pods_log", "pods_run", "pods_exec"
 			config.DeniedResources[0].Kind != "Deployment" {
 			t.Errorf("Unexpected denied resources: %v", config.DeniedResources[0])
 		}
+	})
+	t.Run("log_level parsed correctly", func(t *testing.T) {
 		if config.LogLevel != 1 {
 			t.Fatalf("Unexpected log level: %v", config.LogLevel)
 		}
+	})
+	t.Run("port parsed correctly", func(t *testing.T) {
 		if config.Port != "9999" {
 			t.Fatalf("Unexpected port value: %v", config.Port)
 		}
-		if config.SSEBaseURL != "" {
+	})
+	t.Run("sse_base_url parsed correctly", func(t *testing.T) {
+		if config.SSEBaseURL != "https://example.com" {
 			t.Fatalf("Unexpected sse_base_url value: %v", config.SSEBaseURL)
 		}
-		if config.KubeConfig != "test" {
+	})
+	t.Run("kubeconfig parsed correctly", func(t *testing.T) {
+		if config.KubeConfig != "./path/to/config" {
 			t.Fatalf("Unexpected kubeconfig value: %v", config.KubeConfig)
 		}
+	})
+	t.Run("list_output parsed correctly", func(t *testing.T) {
 		if config.ListOutput != "yaml" {
 			t.Fatalf("Unexpected list_output value: %v", config.ListOutput)
 		}
+	})
+	t.Run("read_only parsed correctly", func(t *testing.T) {
 		if !config.ReadOnly {
 			t.Fatalf("Unexpected read-only mode: %v", config.ReadOnly)
 		}
-		if config.DisableDestructive {
+	})
+	t.Run("disable_destructive parsed correctly", func(t *testing.T) {
+		if !config.DisableDestructive {
 			t.Fatalf("Unexpected disable destructive: %v", config.DisableDestructive)
 		}
+	})
+	t.Run("enabled_tools parsed correctly", func(t *testing.T) {
 		if len(config.EnabledTools) != 8 {
 			t.Fatalf("Unexpected enabled tools: %v", config.EnabledTools)
+
 		}
+		for i, tool := range []string{"configuration_view", "events_list", "namespaces_list", "pods_list", "resources_list", "resources_get", "resources_create_or_update", "resources_delete"} {
+			if config.EnabledTools[i] != tool {
+				t.Errorf("Expected enabled tool %d to be %s, got %s", i, tool, config.EnabledTools[i])
+			}
+		}
+	})
+	t.Run("disabled_tools parsed correctly", func(t *testing.T) {
 		if len(config.DisabledTools) != 5 {
 			t.Fatalf("Unexpected disabled tools: %v", config.DisabledTools)
+		}
+		for i, tool := range []string{"pods_delete", "pods_top", "pods_log", "pods_run", "pods_exec"} {
+			if config.DisabledTools[i] != tool {
+				t.Errorf("Expected disabled tool %d to be %s, got %s", i, tool, config.DisabledTools[i])
+			}
 		}
 	})
 }

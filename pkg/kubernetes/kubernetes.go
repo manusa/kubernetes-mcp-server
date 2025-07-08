@@ -134,6 +134,13 @@ func (m *Manager) ToRESTMapper() (meta.RESTMapper, error) {
 }
 
 func (m *Manager) Derived(ctx context.Context) *Kubernetes {
+	// If RequireOAuth is enabled, we are not allowed to
+	// create a kubeconfig using the client token, as it violates the token passthrough.
+	// MCP Server must use its own service account.
+	if m.staticConfig.RequireOAuth {
+		return &Kubernetes{manager: m}
+	}
+
 	authorization, ok := ctx.Value(OAuthAuthorizationHeader).(string)
 	if !ok || !strings.HasPrefix(authorization, "Bearer ") {
 		return &Kubernetes{manager: m}

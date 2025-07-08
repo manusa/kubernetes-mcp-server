@@ -55,6 +55,7 @@ type MCPServerOptions struct {
 	ListOutput         string
 	ReadOnly           bool
 	DisableDestructive bool
+	RequireOAuth       bool
 
 	ConfigPath   string
 	StaticConfig *config.StaticConfig
@@ -107,6 +108,8 @@ func NewMCPServer(streams genericiooptions.IOStreams) *cobra.Command {
 	cmd.Flags().StringVar(&o.ListOutput, "list-output", o.ListOutput, "Output format for resource list operations (one of: "+strings.Join(output.Names, ", ")+"). Defaults to table.")
 	cmd.Flags().BoolVar(&o.ReadOnly, "read-only", o.ReadOnly, "If true, only tools annotated with readOnlyHint=true are exposed")
 	cmd.Flags().BoolVar(&o.DisableDestructive, "disable-destructive", o.DisableDestructive, "If true, tools annotated with destructiveHint=true are disabled")
+	cmd.Flags().BoolVar(&o.RequireOAuth, "require-oauth", o.RequireOAuth, "If true, requires OAuth authorization as defined in the Model Context Protocol (MCP) specification. This flag is ignored if transport type is stdio")
+	cmd.Flags().MarkHidden("require-oauth")
 
 	return cmd
 }
@@ -123,6 +126,11 @@ func (m *MCPServerOptions) Complete(cmd *cobra.Command) error {
 	m.loadFlags(cmd)
 
 	m.initializeLogging()
+
+	if m.StaticConfig.RequireOAuth && m.StaticConfig.Port == "" {
+		// RequireOAuth is not relevant flow for STDIO transport
+		m.StaticConfig.RequireOAuth = false
+	}
 
 	return nil
 }
@@ -152,6 +160,9 @@ func (m *MCPServerOptions) loadFlags(cmd *cobra.Command) {
 	}
 	if cmd.Flag("disable-destructive").Changed {
 		m.StaticConfig.DisableDestructive = m.DisableDestructive
+	}
+	if cmd.Flag("require-oauth").Changed {
+		m.StaticConfig.RequireOAuth = m.RequireOAuth
 	}
 }
 

@@ -22,6 +22,7 @@ type StaticConfig struct {
 	DisableDestructive bool     `toml:"disable_destructive,omitempty"`
 	EnabledTools       []string `toml:"enabled_tools,omitempty"`
 	DisabledTools      []string `toml:"disabled_tools,omitempty"`
+	RequireOAuth       bool     `toml:"require_oauth,omitempty"`
 }
 
 type GroupVersionKind struct {

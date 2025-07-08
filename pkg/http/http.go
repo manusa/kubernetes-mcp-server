@@ -19,7 +19,7 @@ func Serve(ctx context.Context, mcpServer *mcp.Server, staticConfig *config.Stat
 	mux := http.NewServeMux()
 
 	wrappedMux := RequestMiddleware(
-		AuthorizationMiddleware(staticConfig.RequireOAuth)(mux),
+		AuthorizationMiddleware(staticConfig.RequireOAuth, mcpServer)(mux),
 	)
 
 	httpServer := &http.Server{

@@ -2,11 +2,13 @@ package mcp
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"slices"
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
+	authenticationapiv1 "k8s.io/api/authentication/v1"
 	"k8s.io/utils/ptr"
 
 	"github.com/manusa/kubernetes-mcp-server/pkg/config"
@@ -101,6 +103,15 @@ func (s *Server) ServeHTTP(httpServer *http.Server) *server.StreamableHTTPServer
 		server.WithStateLess(true),
 	}
 	return server.NewStreamableHTTPServer(s.server, options...)
+}
+
+// VerifyToken verifies the given token with the audience by
+// sending an TokenReview request to API Server.
+func (s *Server) VerifyToken(ctx context.Context, token string, audience string) (*authenticationapiv1.UserInfo, []string, error) {
+	if s.k == nil {
+		return nil, nil, fmt.Errorf("kubernetes manager is not initialized")
+	}
+	return s.k.VerifyToken(ctx, token, audience)
 }
 
 func (s *Server) Close() {

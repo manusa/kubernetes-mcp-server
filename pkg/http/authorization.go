@@ -10,14 +10,16 @@ import (
 	"time"
 
 	"k8s.io/klog/v2"
+
+	"github.com/manusa/kubernetes-mcp-server/pkg/mcp"
 )
 
 const (
 	Audience = "kubernetes-mcp-server"
 )
 
-// AuthorizationMiddleware validates the OAuth flow
-func AuthorizationMiddleware(requireOAuth bool) func(http.Handler) http.Handler {
+// AuthorizationMiddleware validates the OAuth flow using Kubernetes TokenReview API
+func AuthorizationMiddleware(requireOAuth bool, mcpServer *mcp.Server) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if r.URL.Path == "/healthz" {
@@ -42,10 +44,20 @@ func AuthorizationMiddleware(requireOAuth bool) func(http.Handler) http.Handler 
 
 			err := validateJWTToken(token)
 			if err != nil {
-				klog.V(1).Infof("Authentication failed - invalid JWT token: %s %s from %s, error: %v", r.Method, r.URL.Path, r.RemoteAddr, err)
+				klog.V(1).Infof("Authentication failed - JWT validation error: %s %s from %s, error: %v", r.Method, r.URL.Path, r.RemoteAddr, err)
 
 				w.Header().Set("WWW-Authenticate", fmt.Sprintf(`Bearer realm="Kubernetes MCP Server", audience=%s, error="invalid_token"`, Audience))
-				http.Error(w, "Unauthorized: Bearer token required", http.StatusUnauthorized)
+				http.Error(w, "Unauthorized: Invalid token", http.StatusUnauthorized)
+				return
+			}
+
+			// Validate token using Kubernetes TokenReview API
+			_, _, err = mcpServer.VerifyToken(r.Context(), token, Audience)
+			if err != nil {
+				klog.V(1).Infof("Authentication failed - token validation error: %s %s from %s, error: %v", r.Method, r.URL.Path, r.RemoteAddr, err)
+
+				w.Header().Set("WWW-Authenticate", fmt.Sprintf(`Bearer realm="Kubernetes MCP Server", audience=%s, error="invalid_token"`, Audience))
+				http.Error(w, "Unauthorized: Invalid token", http.StatusUnauthorized)
 				return
 			}
 

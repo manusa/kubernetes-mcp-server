@@ -3,6 +3,8 @@ package http
 import (
 	"encoding/base64"
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
@@ -128,43 +130,143 @@ func TestValidateJWTToken(t *testing.T) {
 		}
 	})
 
-	t.Run("audience mismatch", func(t *testing.T) {
-		// Create a token with wrong audience
-		wrongAudienceClaims := JWTClaims{
+	t.Run("multiple audiences with correct one", func(t *testing.T) {
+		// Create a token with multiple audiences including the correct one
+		multiAudClaims := JWTClaims{
 			Issuer:    "test-issuer",
-			Audience:  []string{"wrong-audience", "another-wrong-audience"},
+			Audience:  []string{"other-audience", "kubernetes-mcp-server", "another-audience"},
 			ExpiresAt: time.Now().Add(time.Hour).Unix(),
 		}
 
-		jsonBytes, _ := json.Marshal(wrongAudienceClaims)
+		jsonBytes, _ := json.Marshal(multiAudClaims)
 		payload := base64.URLEncoding.EncodeToString(jsonBytes)
-		wrongAudienceToken := "header." + payload + ".signature"
+		multiAudToken := "header." + payload + ".signature"
 
-		err := validateJWTToken(wrongAudienceToken)
-		if err == nil {
-			t.Error("expected error for audience mismatch, got nil")
-		}
-
-		if !strings.Contains(err.Error(), "token audience mismatch") {
-			t.Errorf("expected audience mismatch error message, got %v", err)
+		err := validateJWTToken(multiAudToken)
+		if err != nil {
+			t.Errorf("expected no error for token with multiple audiences, got %v", err)
 		}
 	})
 
-	t.Run("multiple audiences with correct one", func(t *testing.T) {
-		// Create a token with multiple audiences including the correct one
-		multiAudienceClaims := JWTClaims{
+	t.Run("audience mismatch", func(t *testing.T) {
+		// Create a token with wrong audience
+		wrongAudClaims := JWTClaims{
 			Issuer:    "test-issuer",
-			Audience:  []string{"other-audience", "kubernetes-mcp-server", "third-audience"},
+			Audience:  []string{"wrong-audience"},
 			ExpiresAt: time.Now().Add(time.Hour).Unix(),
 		}
 
-		jsonBytes, _ := json.Marshal(multiAudienceClaims)
+		jsonBytes, _ := json.Marshal(wrongAudClaims)
 		payload := base64.URLEncoding.EncodeToString(jsonBytes)
-		multiAudienceToken := "header." + payload + ".signature"
+		wrongAudToken := "header." + payload + ".signature"
 
-		err := validateJWTToken(multiAudienceToken)
-		if err != nil {
-			t.Errorf("expected no error for token with correct audience among multiple, got %v", err)
+		err := validateJWTToken(wrongAudToken)
+		if err == nil {
+			t.Error("expected error for token with wrong audience, got nil")
+		}
+
+		if !strings.Contains(err.Error(), "audience mismatch") {
+			t.Errorf("expected audience mismatch error, got %v", err)
+		}
+	})
+}
+
+func TestAuthorizationMiddleware(t *testing.T) {
+	// Create a mock handler
+	handlerCalled := false
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		handlerCalled = true
+		w.WriteHeader(http.StatusOK)
+	})
+
+	t.Run("OAuth disabled - passes through", func(t *testing.T) {
+		handlerCalled = false
+
+		// Create middleware with OAuth disabled
+		middleware := AuthorizationMiddleware(false, nil)
+		wrappedHandler := middleware(handler)
+
+		// Create request without authorization header
+		req := httptest.NewRequest("GET", "/test", nil)
+		w := httptest.NewRecorder()
+
+		wrappedHandler.ServeHTTP(w, req)
+
+		if !handlerCalled {
+			t.Error("expected handler to be called when OAuth is disabled")
+		}
+		if w.Code != http.StatusOK {
+			t.Errorf("expected status 200, got %d", w.Code)
+		}
+	})
+
+	t.Run("healthz endpoint - passes through", func(t *testing.T) {
+		handlerCalled = false
+
+		// Create middleware with OAuth enabled
+		middleware := AuthorizationMiddleware(true, nil)
+		wrappedHandler := middleware(handler)
+
+		// Create request to healthz endpoint
+		req := httptest.NewRequest("GET", "/healthz", nil)
+		w := httptest.NewRecorder()
+
+		wrappedHandler.ServeHTTP(w, req)
+
+		if !handlerCalled {
+			t.Error("expected handler to be called for healthz endpoint")
+		}
+		if w.Code != http.StatusOK {
+			t.Errorf("expected status 200, got %d", w.Code)
+		}
+	})
+
+	t.Run("OAuth enabled - missing token", func(t *testing.T) {
+		handlerCalled = false
+
+		// Create middleware with OAuth enabled
+		middleware := AuthorizationMiddleware(true, nil)
+		wrappedHandler := middleware(handler)
+
+		// Create request without authorization header
+		req := httptest.NewRequest("GET", "/test", nil)
+		w := httptest.NewRecorder()
+
+		wrappedHandler.ServeHTTP(w, req)
+
+		if handlerCalled {
+			t.Error("expected handler NOT to be called when token is missing")
+		}
+		if w.Code != http.StatusUnauthorized {
+			t.Errorf("expected status 401, got %d", w.Code)
+		}
+		if !strings.Contains(w.Body.String(), "Bearer token required") {
+			t.Errorf("expected bearer token error message, got %s", w.Body.String())
+		}
+	})
+
+	t.Run("OAuth enabled - invalid token format", func(t *testing.T) {
+		handlerCalled = false
+
+		// Create middleware with OAuth enabled
+		middleware := AuthorizationMiddleware(true, nil)
+		wrappedHandler := middleware(handler)
+
+		// Create request with invalid bearer token
+		req := httptest.NewRequest("GET", "/test", nil)
+		req.Header.Set("Authorization", "Bearer invalid-token")
+		w := httptest.NewRecorder()
+
+		wrappedHandler.ServeHTTP(w, req)
+
+		if handlerCalled {
+			t.Error("expected handler NOT to be called when token is invalid")
+		}
+		if w.Code != http.StatusUnauthorized {
+			t.Errorf("expected status 401, got %d", w.Code)
+		}
+		if !strings.Contains(w.Body.String(), "Invalid token") {
+			t.Errorf("expected invalid token error message, got %s", w.Body.String())
 		}
 	})
 }

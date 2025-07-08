@@ -11,15 +11,19 @@ import (
 
 	"k8s.io/klog/v2"
 
+	"github.com/manusa/kubernetes-mcp-server/pkg/config"
 	"github.com/manusa/kubernetes-mcp-server/pkg/mcp"
 )
 
-func Serve(ctx context.Context, mcpServer *mcp.Server, port, sseBaseUrl string) error {
+func Serve(ctx context.Context, mcpServer *mcp.Server, staticConfig *config.StaticConfig, sseBaseUrl string) error {
 	mux := http.NewServeMux()
-	wrappedMux := RequestMiddleware(mux)
+
+	wrappedMux := RequestMiddleware(
+		AuthorizationMiddleware(staticConfig.RequireOAuth)(mux),
+	)
 
 	httpServer := &http.Server{
-		Addr:    ":" + port,
+		Addr:    ":" + staticConfig.Port,
 		Handler: wrappedMux,
 	}
 
@@ -40,7 +44,7 @@ func Serve(ctx context.Context, mcpServer *mcp.Server, port, sseBaseUrl string) 
 
 	serverErr := make(chan error, 1)
 	go func() {
-		klog.V(0).Infof("Streaming and SSE HTTP servers starting on port %s and paths /mcp, /sse, /message", port)
+		klog.V(0).Infof("Streaming and SSE HTTP servers starting on port %s and paths /mcp, /sse, /message", staticConfig.Port)
 		if err := httpServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			serverErr <- err
 		}

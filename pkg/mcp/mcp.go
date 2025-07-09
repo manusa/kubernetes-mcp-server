@@ -114,6 +114,14 @@ func (s *Server) VerifyToken(ctx context.Context, token string, audience string)
 	return s.k.VerifyToken(ctx, token, audience)
 }
 
+// GetKubernetesAPIServerHost returns the Kubernetes API server host from the configuration.
+func (s *Server) GetKubernetesAPIServerHost() string {
+	if s.k == nil {
+		return ""
+	}
+	return s.k.GetAPIServerHost()
+}
+
 func (s *Server) Close() {
 	if s.k != nil {
 		s.k.Close()

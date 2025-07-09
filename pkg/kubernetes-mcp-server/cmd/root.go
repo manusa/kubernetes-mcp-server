@@ -56,6 +56,7 @@ type MCPServerOptions struct {
 	ReadOnly           bool
 	DisableDestructive bool
 	RequireOAuth       bool
+	AuthorizationURL   string
 
 	ConfigPath   string
 	StaticConfig *config.StaticConfig
@@ -110,7 +111,8 @@ func NewMCPServer(streams genericiooptions.IOStreams) *cobra.Command {
 	cmd.Flags().BoolVar(&o.DisableDestructive, "disable-destructive", o.DisableDestructive, "If true, tools annotated with destructiveHint=true are disabled")
 	cmd.Flags().BoolVar(&o.RequireOAuth, "require-oauth", o.RequireOAuth, "If true, requires OAuth authorization as defined in the Model Context Protocol (MCP) specification. This flag is ignored if transport type is stdio")
 	cmd.Flags().MarkHidden("require-oauth")
-
+	cmd.Flags().StringVar(&o.AuthorizationURL, "authorization-url", o.AuthorizationURL, "OAuth authorization server URL for protected resource endpoint. If not provided, the Kubernetes API server host will be used. Only valid if require-oauth is enabled.")
+	cmd.Flags().MarkHidden("authorization-url")
 	return cmd
 }
 
@@ -164,6 +166,9 @@ func (m *MCPServerOptions) loadFlags(cmd *cobra.Command) {
 	if cmd.Flag("require-oauth").Changed {
 		m.StaticConfig.RequireOAuth = m.RequireOAuth
 	}
+	if cmd.Flag("authorization-url").Changed {
+		m.StaticConfig.AuthorizationServer = m.AuthorizationURL
+	}
 }
 
 func (m *MCPServerOptions) initializeLogging() {
@@ -181,6 +186,9 @@ func (m *MCPServerOptions) initializeLogging() {
 func (m *MCPServerOptions) Validate() error {
 	if m.Port != "" && (m.SSEPort > 0 || m.HttpPort > 0) {
 		return fmt.Errorf("--port is mutually exclusive with deprecated --http-port and --sse-port flags")
+	}
+	if !m.StaticConfig.RequireOAuth && m.StaticConfig.AuthorizationServer != "" {
+		return fmt.Errorf("authorization-url is only valid if require-oauth is enabled")
 	}
 	return nil
 }

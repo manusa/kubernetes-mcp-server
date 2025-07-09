@@ -2,6 +2,7 @@ package http
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"os"
@@ -34,6 +35,28 @@ func Serve(ctx context.Context, mcpServer *mcp.Server, staticConfig *config.Stat
 	mux.Handle("/mcp", streamableHttpServer)
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
+	})
+	mux.HandleFunc("/.well-known/oauth-protected-resource", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+
+		var authServers []string
+		if staticConfig.AuthorizationServer != "" {
+			authServers = []string{staticConfig.AuthorizationServer}
+		} else {
+			// Fallback to Kubernetes API server host if authorization_server is not configured
+			if apiServerHost := mcpServer.GetKubernetesAPIServerHost(); apiServerHost != "" {
+				authServers = []string{apiServerHost}
+			}
+		}
+
+		response := map[string]interface{}{
+			"authorization_servers": authServers,
+		}
+
+		w.WriteHeader(http.StatusOK)
+		if err := json.NewEncoder(w).Encode(response); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
 	})
 
 	ctx, cancel := context.WithCancel(ctx)

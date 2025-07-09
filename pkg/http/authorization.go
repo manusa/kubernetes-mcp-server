@@ -22,7 +22,7 @@ const (
 func AuthorizationMiddleware(requireOAuth bool, mcpServer *mcp.Server) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if r.URL.Path == "/healthz" {
+			if r.URL.Path == "/healthz" || r.URL.Path == "/.well-known/oauth-protected-resource" {
 				next.ServeHTTP(w, r)
 				return
 			}

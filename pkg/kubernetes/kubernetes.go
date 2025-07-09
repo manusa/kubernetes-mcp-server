@@ -125,6 +125,13 @@ func (m *Manager) Close() {
 	}
 }
 
+func (m *Manager) GetAPIServerHost() string {
+	if m.cfg == nil {
+		return ""
+	}
+	return m.cfg.Host
+}
+
 func (m *Manager) ToDiscoveryClient() (discovery.CachedDiscoveryInterface, error) {
 	return m.discoveryClient, nil
 }

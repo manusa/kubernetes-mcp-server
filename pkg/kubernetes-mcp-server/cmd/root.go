@@ -21,6 +21,8 @@ import (
 	"github.com/manusa/kubernetes-mcp-server/pkg/mcp"
 	"github.com/manusa/kubernetes-mcp-server/pkg/output"
 	"github.com/manusa/kubernetes-mcp-server/pkg/version"
+
+	_ "github.com/coreos/go-oidc/v3/oidc"
 )
 
 var (
@@ -235,6 +237,7 @@ func (m *MCPServerOptions) Run() error {
 		_, _ = fmt.Fprintf(m.Out, "%s\n", version.Version)
 		return nil
 	}
+
 	mcpServer, err := mcp.NewServer(mcp.Configuration{
 		Profile:      profile,
 		ListOutput:   listOutput,

@@ -19,7 +19,7 @@ const (
 )
 
 // AuthorizationMiddleware validates the OAuth flow using Kubernetes TokenReview API
-func AuthorizationMiddleware(requireOAuth bool, mcpServer *mcp.Server) func(http.Handler) http.Handler {
+func AuthorizationMiddleware(requireOAuth bool, serverURL string, mcpServer *mcp.Server) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if r.URL.Path == "/healthz" || r.URL.Path == "/.well-known/oauth-protected-resource" {
@@ -42,7 +42,12 @@ func AuthorizationMiddleware(requireOAuth bool, mcpServer *mcp.Server) func(http
 
 			token := strings.TrimPrefix(authHeader, "Bearer ")
 
-			err := validateJWTToken(token)
+			audience := Audience
+			if serverURL != "" {
+				audience = serverURL
+			}
+
+			err := validateJWTToken(token, audience)
 			if err != nil {
 				klog.V(1).Infof("Authentication failed - JWT validation error: %s %s from %s, error: %v", r.Method, r.URL.Path, r.RemoteAddr, err)
 
@@ -73,7 +78,7 @@ type JWTClaims struct {
 }
 
 // validateJWTToken validates basic JWT claims without signature verification
-func validateJWTToken(token string) error {
+func validateJWTToken(token, audience string) error {
 	parts := strings.Split(token, ".")
 	if len(parts) != 3 {
 		return fmt.Errorf("invalid JWT token format")
@@ -88,7 +93,7 @@ func validateJWTToken(token string) error {
 		return fmt.Errorf("token expired")
 	}
 
-	if !slices.Contains(claims.Audience, Audience) {
+	if !slices.Contains(claims.Audience, audience) {
 		return fmt.Errorf("token audience mismatch: %v", claims.Audience)
 	}
 

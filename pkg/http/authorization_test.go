@@ -98,7 +98,7 @@ func TestValidateJWTToken(t *testing.T) {
 	t.Run("invalid token format - not enough parts", func(t *testing.T) {
 		invalidToken := "header.payload"
 
-		err := validateJWTToken(invalidToken)
+		err := validateJWTToken(invalidToken, "test")
 		if err == nil {
 			t.Error("expected error for invalid token format, got nil")
 		}
@@ -120,7 +120,7 @@ func TestValidateJWTToken(t *testing.T) {
 		payload := base64.URLEncoding.EncodeToString(jsonBytes)
 		expiredToken := "header." + payload + ".signature"
 
-		err := validateJWTToken(expiredToken)
+		err := validateJWTToken(expiredToken, "kubernetes-mcp-server")
 		if err == nil {
 			t.Error("expected error for expired token, got nil")
 		}
@@ -142,7 +142,7 @@ func TestValidateJWTToken(t *testing.T) {
 		payload := base64.URLEncoding.EncodeToString(jsonBytes)
 		multiAudToken := "header." + payload + ".signature"
 
-		err := validateJWTToken(multiAudToken)
+		err := validateJWTToken(multiAudToken, "kubernetes-mcp-server")
 		if err != nil {
 			t.Errorf("expected no error for token with multiple audiences, got %v", err)
 		}
@@ -160,7 +160,7 @@ func TestValidateJWTToken(t *testing.T) {
 		payload := base64.URLEncoding.EncodeToString(jsonBytes)
 		wrongAudToken := "header." + payload + ".signature"
 
-		err := validateJWTToken(wrongAudToken)
+		err := validateJWTToken(wrongAudToken, "audience")
 		if err == nil {
 			t.Error("expected error for token with wrong audience, got nil")
 		}
@@ -183,7 +183,7 @@ func TestAuthorizationMiddleware(t *testing.T) {
 		handlerCalled = false
 
 		// Create middleware with OAuth disabled
-		middleware := AuthorizationMiddleware(false, nil)
+		middleware := AuthorizationMiddleware(false, "", nil)
 		wrappedHandler := middleware(handler)
 
 		// Create request without authorization header
@@ -204,7 +204,7 @@ func TestAuthorizationMiddleware(t *testing.T) {
 		handlerCalled = false
 
 		// Create middleware with OAuth enabled
-		middleware := AuthorizationMiddleware(true, nil)
+		middleware := AuthorizationMiddleware(true, "", nil)
 		wrappedHandler := middleware(handler)
 
 		// Create request to healthz endpoint
@@ -225,7 +225,7 @@ func TestAuthorizationMiddleware(t *testing.T) {
 		handlerCalled = false
 
 		// Create middleware with OAuth enabled
-		middleware := AuthorizationMiddleware(true, nil)
+		middleware := AuthorizationMiddleware(true, "", nil)
 		wrappedHandler := middleware(handler)
 
 		// Create request without authorization header
@@ -249,7 +249,7 @@ func TestAuthorizationMiddleware(t *testing.T) {
 		handlerCalled = false
 
 		// Create middleware with OAuth enabled
-		middleware := AuthorizationMiddleware(true, nil)
+		middleware := AuthorizationMiddleware(true, "", nil)
 		wrappedHandler := middleware(handler)
 
 		// Create request with invalid bearer token

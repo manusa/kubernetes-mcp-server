@@ -9,7 +9,6 @@ import (
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
-	authenticationapiv1 "k8s.io/api/authentication/v1"
 	"k8s.io/utils/ptr"
 
 	"github.com/manusa/kubernetes-mcp-server/pkg/config"
@@ -109,11 +108,27 @@ func (s *Server) ServeHTTP(httpServer *http.Server) *server.StreamableHTTPServer
 
 // VerifyToken verifies the given token with the audience by
 // sending an TokenReview request to API Server.
-func (s *Server) VerifyToken(ctx context.Context, token string, audience string) (*authenticationapiv1.UserInfo, []string, error) {
+func (s *Server) VerifyToken(ctx context.Context, token string, audience string) error {
 	if s.k == nil {
-		return nil, nil, fmt.Errorf("kubernetes manager is not initialized")
+		return fmt.Errorf("kubernetes manager is not initialized")
 	}
-	return s.k.VerifyToken(ctx, token, audience)
+
+	if s.configuration.OIDCProvider == nil {
+		_, _, err := s.k.VerifyToken(ctx, token, audience)
+		if err != nil {
+			return fmt.Errorf("token verification failed: %w", err)
+		}
+		return nil
+	}
+	oidcConfig := &oidc.Config{
+		ClientID: audience,
+	}
+	verifier := s.configuration.OIDCProvider.Verifier(oidcConfig)
+	_, err := verifier.Verify(ctx, token)
+	if err != nil {
+		return fmt.Errorf("oidc verification error: %w", err)
+	}
+	return nil
 }
 
 // GetKubernetesAPIServerHost returns the Kubernetes API server host from the configuration.

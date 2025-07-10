@@ -19,7 +19,7 @@ const (
 )
 
 // AuthorizationMiddleware validates the OAuth flow using Kubernetes TokenReview API
-func AuthorizationMiddleware(requireOAuth bool, serverURL string, mcpServer *mcp.Server) func(http.Handler) http.Handler {
+func AuthorizationMiddleware(requireOAuth bool, serverURL string, authorizationURL string, mcpServer *mcp.Server) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if r.URL.Path == "/healthz" || r.URL.Path == "/.well-known/oauth-protected-resource" {
@@ -47,17 +47,22 @@ func AuthorizationMiddleware(requireOAuth bool, serverURL string, mcpServer *mcp
 				audience = serverURL
 			}
 
-			err := validateJWTToken(token, audience)
-			if err != nil {
-				klog.V(1).Infof("Authentication failed - JWT validation error: %s %s from %s, error: %v", r.Method, r.URL.Path, r.RemoteAddr, err)
+			if authorizationURL == "" {
+				// If authorizationURL is empty we need to validate offline first
+				// prior to TokenReview request.
+				// On the other hand if authorizationURL is not empty, this validation
+				// will be performed by oidc provider.
+				err := validateJWTToken(token, audience)
+				if err != nil {
+					klog.V(1).Infof("Authentication failed - JWT validation error: %s %s from %s, error: %v", r.Method, r.URL.Path, r.RemoteAddr, err)
 
-				w.Header().Set("WWW-Authenticate", fmt.Sprintf(`Bearer realm="Kubernetes MCP Server", audience=%s, error="invalid_token"`, Audience))
-				http.Error(w, "Unauthorized: Invalid token", http.StatusUnauthorized)
-				return
+					w.Header().Set("WWW-Authenticate", fmt.Sprintf(`Bearer realm="Kubernetes MCP Server", audience=%s, error="invalid_token"`, Audience))
+					http.Error(w, "Unauthorized: Invalid token", http.StatusUnauthorized)
+					return
+				}
 			}
 
-			// Validate token using Kubernetes TokenReview API
-			_, _, err = mcpServer.VerifyToken(r.Context(), token, Audience)
+			err := mcpServer.VerifyToken(r.Context(), token, audience)
 			if err != nil {
 				klog.V(1).Infof("Authentication failed - token validation error: %s %s from %s, error: %v", r.Method, r.URL.Path, r.RemoteAddr, err)
 

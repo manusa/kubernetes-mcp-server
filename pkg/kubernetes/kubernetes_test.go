@@ -51,7 +51,10 @@ users:
 		}
 		defer testManager.Close()
 		ctx := context.Background()
-		derived := testManager.Derived(ctx)
+		derived, err := testManager.Derived(ctx)
+		if err != nil {
+			t.Fatalf("failed to create manager: %v", err)
+		}
 
 		if derived.manager != testManager {
 			t.Errorf("expected original manager, got different manager")
@@ -73,7 +76,10 @@ users:
 		}
 		defer testManager.Close()
 		ctx := context.WithValue(context.Background(), OAuthAuthorizationHeader, "invalid-token")
-		derived := testManager.Derived(ctx)
+		derived, err := testManager.Derived(ctx)
+		if err != nil {
+			t.Fatalf("failed to create manager: %v", err)
+		}
 
 		if derived.manager != testManager {
 			t.Errorf("expected original manager, got different manager")
@@ -96,7 +102,10 @@ users:
 		defer testManager.Close()
 		testBearerToken := "test-bearer-token-123"
 		ctx := context.WithValue(context.Background(), OAuthAuthorizationHeader, "Bearer "+testBearerToken)
-		derived := testManager.Derived(ctx)
+		derived, err := testManager.Derived(ctx)
+		if err != nil {
+			t.Fatalf("failed to create manager: %v", err)
+		}
 
 		if derived.manager == testManager {
 			t.Errorf("expected new derived manager, got original manager")

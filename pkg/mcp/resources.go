@@ -128,7 +128,11 @@ func (s *Server) resourcesList(ctx context.Context, ctr mcp.CallToolRequest) (*m
 		return NewTextResult("", fmt.Errorf("namespace is not a string")), nil
 	}
 
-	ret, err := s.k.Derived(ctx).ResourcesList(ctx, gvk, ns, resourceListOptions)
+	derived, err := s.k.Derived(ctx)
+	if err != nil {
+		return nil, err
+	}
+	ret, err := derived.ResourcesList(ctx, gvk, ns, resourceListOptions)
 	if err != nil {
 		return NewTextResult("", fmt.Errorf("failed to list resources: %v", err)), nil
 	}
@@ -159,7 +163,11 @@ func (s *Server) resourcesGet(ctx context.Context, ctr mcp.CallToolRequest) (*mc
 		return NewTextResult("", fmt.Errorf("name is not a string")), nil
 	}
 
-	ret, err := s.k.Derived(ctx).ResourcesGet(ctx, gvk, ns, n)
+	derived, err := s.k.Derived(ctx)
+	if err != nil {
+		return nil, err
+	}
+	ret, err := derived.ResourcesGet(ctx, gvk, ns, n)
 	if err != nil {
 		return NewTextResult("", fmt.Errorf("failed to get resource: %v", err)), nil
 	}
@@ -177,7 +185,11 @@ func (s *Server) resourcesCreateOrUpdate(ctx context.Context, ctr mcp.CallToolRe
 		return NewTextResult("", fmt.Errorf("resource is not a string")), nil
 	}
 
-	resources, err := s.k.Derived(ctx).ResourcesCreateOrUpdate(ctx, r)
+	derived, err := s.k.Derived(ctx)
+	if err != nil {
+		return nil, err
+	}
+	resources, err := derived.ResourcesCreateOrUpdate(ctx, r)
 	if err != nil {
 		return NewTextResult("", fmt.Errorf("failed to create or update resources: %v", err)), nil
 	}
@@ -212,7 +224,11 @@ func (s *Server) resourcesDelete(ctx context.Context, ctr mcp.CallToolRequest) (
 		return NewTextResult("", fmt.Errorf("name is not a string")), nil
 	}
 
-	err = s.k.Derived(ctx).ResourcesDelete(ctx, gvk, ns, n)
+	derived, err := s.k.Derived(ctx)
+	if err != nil {
+		return nil, err
+	}
+	err = derived.ResourcesDelete(ctx, gvk, ns, n)
 	if err != nil {
 		return NewTextResult("", fmt.Errorf("failed to delete resource: %v", err)), nil
 	}

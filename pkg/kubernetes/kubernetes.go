@@ -140,17 +140,17 @@ func (m *Manager) ToRESTMapper() (meta.RESTMapper, error) {
 	return m.accessControlRESTMapper, nil
 }
 
-func (m *Manager) Derived(ctx context.Context) *Kubernetes {
+func (m *Manager) Derived(ctx context.Context) (*Kubernetes, error) {
 	// If RequireOAuth is enabled, we are not allowed to
 	// create a kubeconfig using the client token, as it violates the token passthrough.
 	// MCP Server must use its own service account.
 	if m.staticConfig.RequireOAuth {
-		return &Kubernetes{manager: m}
+		return &Kubernetes{manager: m}, nil
 	}
 
 	authorization, ok := ctx.Value(OAuthAuthorizationHeader).(string)
 	if !ok || !strings.HasPrefix(authorization, "Bearer ") {
-		return &Kubernetes{manager: m}
+		return &Kubernetes{manager: m}, nil
 	}
 	klog.V(5).Infof("%s header found (Bearer), using provided bearer token", OAuthAuthorizationHeader)
 	derivedCfg := &rest.Config{
@@ -173,7 +173,7 @@ func (m *Manager) Derived(ctx context.Context) *Kubernetes {
 	}
 	clientCmdApiConfig, err := m.clientCmdConfig.RawConfig()
 	if err != nil {
-		return &Kubernetes{manager: m}
+		return &Kubernetes{manager: m}, nil
 	}
 	clientCmdApiConfig.AuthInfos = make(map[string]*clientcmdapi.AuthInfo)
 	derived := &Kubernetes{manager: &Manager{
@@ -183,7 +183,7 @@ func (m *Manager) Derived(ctx context.Context) *Kubernetes {
 	}}
 	derived.manager.accessControlClientSet, err = NewAccessControlClientset(derived.manager.cfg, derived.manager.staticConfig)
 	if err != nil {
-		return &Kubernetes{manager: m}
+		return &Kubernetes{manager: m}, nil
 	}
 	derived.manager.discoveryClient = memory.NewMemCacheClient(derived.manager.accessControlClientSet.DiscoveryClient())
 	derived.manager.accessControlRESTMapper = NewAccessControlRESTMapper(
@@ -192,9 +192,9 @@ func (m *Manager) Derived(ctx context.Context) *Kubernetes {
 	)
 	derived.manager.dynamicClient, err = dynamic.NewForConfig(derived.manager.cfg)
 	if err != nil {
-		return &Kubernetes{manager: m}
+		return &Kubernetes{manager: m}, nil
 	}
-	return derived
+	return derived, nil
 }
 
 func (k *Kubernetes) NewHelm() *helm.Helm {

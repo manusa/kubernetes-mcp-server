@@ -217,4 +217,100 @@ users:
 			t.Error("expected dynamicClient to be initialized")
 		}
 	})
+
+	t.Run("with RequireOAuth=true and no authorization header returns oauth token required error", func(t *testing.T) {
+		testStaticConfig := &config.StaticConfig{
+			KubeConfig:    kubeconfigPath,
+			RequireOAuth:  true,
+			DisabledTools: []string{"configuration_view"},
+			DeniedResources: []config.GroupVersionKind{
+				{Group: "apps", Version: "v1", Kind: "Deployment"},
+			},
+		}
+
+		testManager, err := NewManager(testStaticConfig)
+		if err != nil {
+			t.Fatalf("failed to create manager: %v", err)
+		}
+		defer testManager.Close()
+		ctx := context.Background()
+		derived, err := testManager.Derived(ctx)
+		if err == nil {
+			t.Fatal("expected error for missing oauth token, got nil")
+		}
+		if err.Error() != "oauth token required" {
+			t.Fatalf("expected error 'oauth token required', got %s", err.Error())
+		}
+		if derived != nil {
+			t.Error("expected nil derived manager when oauth token required")
+		}
+	})
+
+	t.Run("with RequireOAuth=true and invalid authorization header returns oauth token required error", func(t *testing.T) {
+		testStaticConfig := &config.StaticConfig{
+			KubeConfig:    kubeconfigPath,
+			RequireOAuth:  true,
+			DisabledTools: []string{"configuration_view"},
+			DeniedResources: []config.GroupVersionKind{
+				{Group: "apps", Version: "v1", Kind: "Deployment"},
+			},
+		}
+
+		testManager, err := NewManager(testStaticConfig)
+		if err != nil {
+			t.Fatalf("failed to create manager: %v", err)
+		}
+		defer testManager.Close()
+		ctx := context.WithValue(context.Background(), OAuthAuthorizationHeader, "invalid-token")
+		derived, err := testManager.Derived(ctx)
+		if err == nil {
+			t.Fatal("expected error for invalid oauth token, got nil")
+		}
+		if err.Error() != "oauth token required" {
+			t.Fatalf("expected error 'oauth token required', got %s", err.Error())
+		}
+		if derived != nil {
+			t.Error("expected nil derived manager when oauth token required")
+		}
+	})
+
+	t.Run("with RequireOAuth=true and valid bearer token creates derived manager", func(t *testing.T) {
+		testStaticConfig := &config.StaticConfig{
+			KubeConfig:    kubeconfigPath,
+			RequireOAuth:  true,
+			DisabledTools: []string{"configuration_view"},
+			DeniedResources: []config.GroupVersionKind{
+				{Group: "apps", Version: "v1", Kind: "Deployment"},
+			},
+		}
+
+		testManager, err := NewManager(testStaticConfig)
+		if err != nil {
+			t.Fatalf("failed to create manager: %v", err)
+		}
+		defer testManager.Close()
+		testBearerToken := "test-bearer-token-123"
+		ctx := context.WithValue(context.Background(), OAuthAuthorizationHeader, "Bearer "+testBearerToken)
+		derived, err := testManager.Derived(ctx)
+		if err != nil {
+			t.Fatalf("failed to create manager: %v", err)
+		}
+
+		if derived.manager == testManager {
+			t.Error("expected new derived manager, got original manager")
+		}
+
+		if derived.manager.staticConfig != testStaticConfig {
+			t.Error("staticConfig not properly wired to derived manager")
+		}
+
+		derivedCfg := derived.manager.cfg
+		if derivedCfg == nil {
+			t.Fatal("derived config is nil")
+		}
+
+		if derivedCfg.BearerToken != testBearerToken {
+			t.Errorf("expected BearerToken %s, got %s", testBearerToken, derivedCfg.BearerToken)
+		}
+	})
 }

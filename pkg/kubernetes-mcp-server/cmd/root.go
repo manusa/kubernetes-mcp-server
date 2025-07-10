@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/spf13/cobra"
 
 	"k8s.io/cli-runtime/pkg/genericiooptions"
@@ -21,8 +22,6 @@ import (
 	"github.com/manusa/kubernetes-mcp-server/pkg/mcp"
 	"github.com/manusa/kubernetes-mcp-server/pkg/output"
 	"github.com/manusa/kubernetes-mcp-server/pkg/version"
-
-	_ "github.com/coreos/go-oidc/v3/oidc"
 )
 
 var (
@@ -238,10 +237,20 @@ func (m *MCPServerOptions) Run() error {
 		return nil
 	}
 
+	var oidcProvider *oidc.Provider
+	if m.StaticConfig.AuthorizationURL != "" {
+		provider, err := oidc.NewProvider(context.TODO(), m.StaticConfig.AuthorizationURL)
+		if err != nil {
+			return fmt.Errorf("unable to setup OIDC provider: %w", err)
+		}
+		oidcProvider = provider
+	}
+
 	mcpServer, err := mcp.NewServer(mcp.Configuration{
 		Profile:      profile,
 		ListOutput:   listOutput,
 		StaticConfig: m.StaticConfig,
+		OIDCProvider: oidcProvider,
 	})
 	if err != nil {
 		return fmt.Errorf("Failed to initialize MCP server: %w\n", err)

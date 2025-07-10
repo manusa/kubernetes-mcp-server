@@ -3,6 +3,7 @@ package mcp
 import (
 	"context"
 	"fmt"
+	"github.com/coreos/go-oidc/v3/oidc"
 	"net/http"
 	"slices"
 
@@ -18,8 +19,9 @@ import (
 )
 
 type Configuration struct {
-	Profile    Profile
-	ListOutput output.Output
+	Profile      Profile
+	ListOutput   output.Output
+	OIDCProvider *oidc.Provider
 
 	StaticConfig *config.StaticConfig
 }

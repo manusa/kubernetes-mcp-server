@@ -2,6 +2,8 @@ package mcp
 
 import (
 	"context"
+	"fmt"
+	"github.com/coreos/go-oidc/v3/oidc"
 	"net/http"
 	"slices"
 
@@ -16,8 +18,9 @@ import (
 )
 
 type Configuration struct {
-	Profile    Profile
-	ListOutput output.Output
+	Profile      Profile
+	ListOutput   output.Output
+	OIDCProvider *oidc.Provider
 
 	StaticConfig *config.StaticConfig
 }
@@ -101,6 +104,39 @@ func (s *Server) ServeHTTP(httpServer *http.Server) *server.StreamableHTTPServer
 		server.WithStateLess(true),
 	}
 	return server.NewStreamableHTTPServer(s.server, options...)
+}
+
+// VerifyToken verifies the given token with the audience by
+// sending an TokenReview request to API Server.
+func (s *Server) VerifyToken(ctx context.Context, token string, audience string) error {
+	if s.k == nil {
+		return fmt.Errorf("kubernetes manager is not initialized")
+	}
+
+	if s.configuration.OIDCProvider == nil {
+		_, _, err := s.k.VerifyToken(ctx, token, audience)
+		if err != nil {
+			return fmt.Errorf("token verification failed: %w", err)
+		}
+		return nil
+	}
+	oidcConfig := &oidc.Config{
+		ClientID: audience,
+	}
+	verifier := s.configuration.OIDCProvider.Verifier(oidcConfig)
+	_, err := verifier.Verify(ctx, token)
+	if err != nil {
+		return fmt.Errorf("oidc verification error: %w", err)
+	}
+	return nil
+}
+
+// GetKubernetesAPIServerHost returns the Kubernetes API server host from the configuration.
+func (s *Server) GetKubernetesAPIServerHost() string {
+	if s.k == nil {
+		return ""
+	}
+	return s.k.GetAPIServerHost()
 }
 
 func (s *Server) Close() {

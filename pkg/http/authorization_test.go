@@ -183,7 +183,7 @@ func TestAuthorizationMiddleware(t *testing.T) {
 		handlerCalled = false
 
 		// Create middleware with OAuth disabled
-		middleware := AuthorizationMiddleware(false, "", nil)
+		middleware := AuthorizationMiddleware(false, "", "", nil)
 		wrappedHandler := middleware(handler)
 
 		// Create request without authorization header
@@ -204,7 +204,7 @@ func TestAuthorizationMiddleware(t *testing.T) {
 		handlerCalled = false
 
 		// Create middleware with OAuth enabled
-		middleware := AuthorizationMiddleware(true, "", nil)
+		middleware := AuthorizationMiddleware(true, "", "", nil)
 		wrappedHandler := middleware(handler)
 
 		// Create request to healthz endpoint
@@ -225,7 +225,7 @@ func TestAuthorizationMiddleware(t *testing.T) {
 		handlerCalled = false
 
 		// Create middleware with OAuth enabled
-		middleware := AuthorizationMiddleware(true, "", nil)
+		middleware := AuthorizationMiddleware(true, "", "", nil)
 		wrappedHandler := middleware(handler)
 
 		// Create request without authorization header
@@ -249,7 +249,7 @@ func TestAuthorizationMiddleware(t *testing.T) {
 		handlerCalled = false
 
 		// Create middleware with OAuth enabled
-		middleware := AuthorizationMiddleware(true, "", nil)
+		middleware := AuthorizationMiddleware(true, "", "", nil)
 		wrappedHandler := middleware(handler)
 
 		// Create request with invalid bearer token

@@ -40,8 +40,8 @@ func Serve(ctx context.Context, mcpServer *mcp.Server, staticConfig *config.Stat
 		w.Header().Set("Content-Type", "application/json")
 
 		var authServers []string
-		if staticConfig.AuthorizationServer != "" {
-			authServers = []string{staticConfig.AuthorizationServer}
+		if staticConfig.AuthorizationURL != "" {
+			authServers = []string{staticConfig.AuthorizationURL}
 		} else {
 			// Fallback to Kubernetes API server host if authorization_server is not configured
 			if apiServerHost := mcpServer.GetKubernetesAPIServerHost(); apiServerHost != "" {
@@ -50,7 +50,13 @@ func Serve(ctx context.Context, mcpServer *mcp.Server, staticConfig *config.Stat
 		}
 
 		response := map[string]interface{}{
-			"authorization_servers": authServers,
+			"authorization_servers":    authServers,
+			"scopes_supported":         []string{},
+			"bearer_methods_supported": []string{"header"},
+		}
+
+		if staticConfig.ServerURL != "" {
+			response["resource"] = staticConfig.ServerURL
 		}
 
 		w.WriteHeader(http.StatusOK)

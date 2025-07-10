@@ -57,6 +57,7 @@ type MCPServerOptions struct {
 	DisableDestructive bool
 	RequireOAuth       bool
 	AuthorizationURL   string
+	ServerURL          string
 
 	ConfigPath   string
 	StaticConfig *config.StaticConfig
@@ -113,6 +114,8 @@ func NewMCPServer(streams genericiooptions.IOStreams) *cobra.Command {
 	cmd.Flags().MarkHidden("require-oauth")
 	cmd.Flags().StringVar(&o.AuthorizationURL, "authorization-url", o.AuthorizationURL, "OAuth authorization server URL for protected resource endpoint. If not provided, the Kubernetes API server host will be used. Only valid if require-oauth is enabled.")
 	cmd.Flags().MarkHidden("authorization-url")
+	cmd.Flags().StringVar(&o.ServerURL, "server-url", o.ServerURL, "Server URL of this application. Optional. If set, this url will be served in protected resource metadata endpoint and tokens will be validated with this audience. If not set, expected audience is kubernetes-mcp-server. Only valid if require-oauth is enabled.")
+	cmd.Flags().MarkHidden("server-url")
 	return cmd
 }
 
@@ -167,7 +170,10 @@ func (m *MCPServerOptions) loadFlags(cmd *cobra.Command) {
 		m.StaticConfig.RequireOAuth = m.RequireOAuth
 	}
 	if cmd.Flag("authorization-url").Changed {
-		m.StaticConfig.AuthorizationServer = m.AuthorizationURL
+		m.StaticConfig.AuthorizationURL = m.AuthorizationURL
+	}
+	if cmd.Flag("server-url").Changed {
+		m.StaticConfig.ServerURL = m.ServerURL
 	}
 }
 
@@ -187,8 +193,24 @@ func (m *MCPServerOptions) Validate() error {
 	if m.Port != "" && (m.SSEPort > 0 || m.HttpPort > 0) {
 		return fmt.Errorf("--port is mutually exclusive with deprecated --http-port and --sse-port flags")
 	}
-	if !m.StaticConfig.RequireOAuth && m.StaticConfig.AuthorizationServer != "" {
-		return fmt.Errorf("authorization-url is only valid if require-oauth is enabled")
+	if !m.StaticConfig.RequireOAuth && (m.StaticConfig.AuthorizationURL != "" || m.StaticConfig.ServerURL != "") {
+		return fmt.Errorf("authorization-url and server-url are only valid if require-oauth is enabled")
+	}
+	if m.StaticConfig.AuthorizationURL != "" &&
+		!strings.HasPrefix(m.StaticConfig.AuthorizationURL, "https://") {
+		if strings.HasPrefix(m.StaticConfig.AuthorizationURL, "http://") {
+			klog.Warningf("authorization-url is using http://, this is not recommended production use")
+		} else {
+			return fmt.Errorf("authorization-url must start with https://")
+		}
+	}
+	if m.StaticConfig.ServerURL != "" &&
+		!strings.HasPrefix(m.StaticConfig.ServerURL, "https://") {
+		if strings.HasPrefix(m.StaticConfig.ServerURL, "http://") {
+			klog.Warningf("server-url is using http://, this is not recommended production use")
+		} else {
+			return fmt.Errorf("server-url must start with https://")
+		}
 	}
 	return nil
 }

@@ -19,11 +19,12 @@ type StaticConfig struct {
 	// When true, expose only tools annotated with readOnlyHint=true
 	ReadOnly bool `toml:"read_only,omitempty"`
 	// When true, disable tools annotated with destructiveHint=true
-	DisableDestructive  bool     `toml:"disable_destructive,omitempty"`
-	EnabledTools        []string `toml:"enabled_tools,omitempty"`
-	DisabledTools       []string `toml:"disabled_tools,omitempty"`
-	RequireOAuth        bool     `toml:"require_oauth,omitempty"`
-	AuthorizationServer string   `toml:"authorization_server,omitempty"`
+	DisableDestructive bool     `toml:"disable_destructive,omitempty"`
+	EnabledTools       []string `toml:"enabled_tools,omitempty"`
+	DisabledTools      []string `toml:"disabled_tools,omitempty"`
+	RequireOAuth       bool     `toml:"require_oauth,omitempty"`
+	AuthorizationURL   string   `toml:"authorization_url,omitempty"`
+	ServerURL          string   `toml:"server_url,omitempty"`
 }
 
 type GroupVersionKind struct {

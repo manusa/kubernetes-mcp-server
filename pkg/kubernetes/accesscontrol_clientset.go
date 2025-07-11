@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	authenticationv1api "k8s.io/api/authentication/v1"
 	authorizationv1api "k8s.io/api/authorization/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -11,6 +12,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/httpstream"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/kubernetes"
+	authenticationv1 "k8s.io/client-go/kubernetes/typed/authentication/v1"
 	authorizationv1 "k8s.io/client-go/kubernetes/typed/authorization/v1"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
@@ -109,6 +111,15 @@ func (a *AccessControlClientset) SelfSubjectAccessReviews() (authorizationv1.Sel
 		return nil, isNotAllowedError(gvk)
 	}
 	return a.delegate.AuthorizationV1().SelfSubjectAccessReviews(), nil
+}
+
+// TokenReview returns TokenReviewInterface
+func (a *AccessControlClientset) TokenReview() (authenticationv1.TokenReviewInterface, error) {
+	gvk := &schema.GroupVersionKind{Group: authenticationv1api.GroupName, Version: authorizationv1api.SchemeGroupVersion.Version, Kind: "TokenReview"}
+	if !isAllowed(a.staticConfig, gvk) {
+		return nil, isNotAllowedError(gvk)
+	}
+	return a.delegate.AuthenticationV1().TokenReviews(), nil
 }
 
 func NewAccessControlClientset(cfg *rest.Config, staticConfig *config.StaticConfig) (*AccessControlClientset, error) {

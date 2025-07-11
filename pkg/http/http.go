@@ -2,6 +2,7 @@ package http
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"os"
@@ -11,25 +12,57 @@ import (
 
 	"k8s.io/klog/v2"
 
+	"github.com/manusa/kubernetes-mcp-server/pkg/config"
 	"github.com/manusa/kubernetes-mcp-server/pkg/mcp"
 )
 
-func Serve(ctx context.Context, mcpServer *mcp.Server, port, sseBaseUrl string) error {
+func Serve(ctx context.Context, mcpServer *mcp.Server, staticConfig *config.StaticConfig) error {
 	mux := http.NewServeMux()
-	wrappedMux := RequestMiddleware(mux)
+
+	wrappedMux := RequestMiddleware(
+		AuthorizationMiddleware(staticConfig.RequireOAuth, staticConfig.ServerURL, mcpServer)(mux),
+	)
 
 	httpServer := &http.Server{
-		Addr:    ":" + port,
+		Addr:    ":" + staticConfig.Port,
 		Handler: wrappedMux,
 	}
 
-	sseServer := mcpServer.ServeSse(sseBaseUrl, httpServer)
+	sseServer := mcpServer.ServeSse(staticConfig.SSEBaseURL, httpServer)
 	streamableHttpServer := mcpServer.ServeHTTP(httpServer)
 	mux.Handle("/sse", sseServer)
 	mux.Handle("/message", sseServer)
 	mux.Handle("/mcp", streamableHttpServer)
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
+	})
+	mux.HandleFunc("/.well-known/oauth-protected-resource", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+
+		var authServers []string
+		if staticConfig.AuthorizationURL != "" {
+			authServers = []string{staticConfig.AuthorizationURL}
+		} else {
+			// Fallback to Kubernetes API server host if authorization_server is not configured
+			if apiServerHost := mcpServer.GetKubernetesAPIServerHost(); apiServerHost != "" {
+				authServers = []string{apiServerHost}
+			}
+		}
+
+		response := map[string]interface{}{
+			"authorization_servers":    authServers,
+			"scopes_supported":         []string{},
+			"bearer_methods_supported": []string{"header"},
+		}
+
+		if staticConfig.ServerURL != "" {
+			response["resource"] = staticConfig.ServerURL
+		}
+
+		w.WriteHeader(http.StatusOK)
+		if err := json.NewEncoder(w).Encode(response); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
 	})
 
 	ctx, cancel := context.WithCancel(ctx)
@@ -40,7 +73,7 @@ func Serve(ctx context.Context, mcpServer *mcp.Server, port, sseBaseUrl string) 
 
 	serverErr := make(chan error, 1)
 	go func() {
-		klog.V(0).Infof("Streaming and SSE HTTP servers starting on port %s and paths /mcp, /sse, /message", port)
+		klog.V(0).Infof("Streaming and SSE HTTP servers starting on port %s and paths /mcp, /sse, /message", staticConfig.Port)
 		if err := httpServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			serverErr <- err
 		}

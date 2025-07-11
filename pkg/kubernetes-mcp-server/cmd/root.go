@@ -55,6 +55,9 @@ type MCPServerOptions struct {
 	ListOutput         string
 	ReadOnly           bool
 	DisableDestructive bool
+	RequireOAuth       bool
+	AuthorizationURL   string
+	ServerURL          string
 
 	ConfigPath   string
 	StaticConfig *config.StaticConfig
@@ -107,7 +110,12 @@ func NewMCPServer(streams genericiooptions.IOStreams) *cobra.Command {
 	cmd.Flags().StringVar(&o.ListOutput, "list-output", o.ListOutput, "Output format for resource list operations (one of: "+strings.Join(output.Names, ", ")+"). Defaults to table.")
 	cmd.Flags().BoolVar(&o.ReadOnly, "read-only", o.ReadOnly, "If true, only tools annotated with readOnlyHint=true are exposed")
 	cmd.Flags().BoolVar(&o.DisableDestructive, "disable-destructive", o.DisableDestructive, "If true, tools annotated with destructiveHint=true are disabled")
-
+	cmd.Flags().BoolVar(&o.RequireOAuth, "require-oauth", o.RequireOAuth, "If true, requires OAuth authorization as defined in the Model Context Protocol (MCP) specification. This flag is ignored if transport type is stdio")
+	cmd.Flags().MarkHidden("require-oauth")
+	cmd.Flags().StringVar(&o.AuthorizationURL, "authorization-url", o.AuthorizationURL, "OAuth authorization server URL for protected resource endpoint. If not provided, the Kubernetes API server host will be used. Only valid if require-oauth is enabled.")
+	cmd.Flags().MarkHidden("authorization-url")
+	cmd.Flags().StringVar(&o.ServerURL, "server-url", o.ServerURL, "Server URL of this application. Optional. If set, this url will be served in protected resource metadata endpoint and tokens will be validated with this audience. If not set, expected audience is kubernetes-mcp-server. Only valid if require-oauth is enabled.")
+	cmd.Flags().MarkHidden("server-url")
 	return cmd
 }
 
@@ -123,6 +131,11 @@ func (m *MCPServerOptions) Complete(cmd *cobra.Command) error {
 	m.loadFlags(cmd)
 
 	m.initializeLogging()
+
+	if m.StaticConfig.RequireOAuth && m.StaticConfig.Port == "" {
+		// RequireOAuth is not relevant flow for STDIO transport
+		m.StaticConfig.RequireOAuth = false
+	}
 
 	return nil
 }
@@ -153,6 +166,15 @@ func (m *MCPServerOptions) loadFlags(cmd *cobra.Command) {
 	if cmd.Flag("disable-destructive").Changed {
 		m.StaticConfig.DisableDestructive = m.DisableDestructive
 	}
+	if cmd.Flag("require-oauth").Changed {
+		m.StaticConfig.RequireOAuth = m.RequireOAuth
+	}
+	if cmd.Flag("authorization-url").Changed {
+		m.StaticConfig.AuthorizationURL = m.AuthorizationURL
+	}
+	if cmd.Flag("server-url").Changed {
+		m.StaticConfig.ServerURL = m.ServerURL
+	}
 }
 
 func (m *MCPServerOptions) initializeLogging() {
@@ -170,6 +192,25 @@ func (m *MCPServerOptions) initializeLogging() {
 func (m *MCPServerOptions) Validate() error {
 	if m.Port != "" && (m.SSEPort > 0 || m.HttpPort > 0) {
 		return fmt.Errorf("--port is mutually exclusive with deprecated --http-port and --sse-port flags")
+	}
+	if !m.StaticConfig.RequireOAuth && (m.StaticConfig.AuthorizationURL != "" || m.StaticConfig.ServerURL != "") {
+		return fmt.Errorf("authorization-url and server-url are only valid if require-oauth is enabled")
+	}
+	if m.StaticConfig.AuthorizationURL != "" &&
+		!strings.HasPrefix(m.StaticConfig.AuthorizationURL, "https://") {
+		if strings.HasPrefix(m.StaticConfig.AuthorizationURL, "http://") {
+			klog.Warningf("authorization-url is using http://, this is not recommended production use")
+		} else {
+			return fmt.Errorf("authorization-url must start with https://")
+		}
+	}
+	if m.StaticConfig.ServerURL != "" &&
+		!strings.HasPrefix(m.StaticConfig.ServerURL, "https://") {
+		if strings.HasPrefix(m.StaticConfig.ServerURL, "http://") {
+			klog.Warningf("server-url is using http://, this is not recommended production use")
+		} else {
+			return fmt.Errorf("server-url must start with https://")
+		}
 	}
 	return nil
 }
@@ -206,7 +247,7 @@ func (m *MCPServerOptions) Run() error {
 
 	if m.StaticConfig.Port != "" {
 		ctx := context.Background()
-		return internalhttp.Serve(ctx, mcpServer, m.StaticConfig.Port, m.SSEBaseUrl)
+		return internalhttp.Serve(ctx, mcpServer, m.StaticConfig)
 	}
 
 	if err := mcpServer.ServeStdio(); err != nil && !errors.Is(err, context.Canceled) {

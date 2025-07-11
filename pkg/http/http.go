@@ -16,7 +16,7 @@ import (
 	"github.com/manusa/kubernetes-mcp-server/pkg/mcp"
 )
 
-func Serve(ctx context.Context, mcpServer *mcp.Server, staticConfig *config.StaticConfig, sseBaseUrl string) error {
+func Serve(ctx context.Context, mcpServer *mcp.Server, staticConfig *config.StaticConfig) error {
 	mux := http.NewServeMux()
 
 	wrappedMux := RequestMiddleware(
@@ -28,7 +28,7 @@ func Serve(ctx context.Context, mcpServer *mcp.Server, staticConfig *config.Stat
 		Handler: wrappedMux,
 	}
 
-	sseServer := mcpServer.ServeSse(sseBaseUrl, httpServer)
+	sseServer := mcpServer.ServeSse(staticConfig.SSEBaseURL, httpServer)
 	streamableHttpServer := mcpServer.ServeHTTP(httpServer)
 	mux.Handle("/sse", sseServer)
 	mux.Handle("/message", sseServer)

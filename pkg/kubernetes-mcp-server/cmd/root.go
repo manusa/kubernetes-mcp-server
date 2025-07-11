@@ -247,7 +247,7 @@ func (m *MCPServerOptions) Run() error {
 
 	if m.StaticConfig.Port != "" {
 		ctx := context.Background()
-		return internalhttp.Serve(ctx, mcpServer, m.StaticConfig, m.SSEBaseUrl)
+		return internalhttp.Serve(ctx, mcpServer, m.StaticConfig)
 	}
 
 	if err := mcpServer.ServeStdio(); err != nil && !errors.Is(err, context.Canceled) {

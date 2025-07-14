@@ -31,37 +31,41 @@ func AuthorizationMiddleware(requireOAuth bool, serverURL string, mcpServer *mcp
 				return
 			}
 
+			audience := Audience
+			if serverURL != "" {
+				audience = serverURL
+			}
+
 			authHeader := r.Header.Get("Authorization")
 			if authHeader == "" || !strings.HasPrefix(authHeader, "Bearer ") {
 				klog.V(1).Infof("Authentication failed - missing or invalid bearer token: %s %s from %s", r.Method, r.URL.Path, r.RemoteAddr)
 
-				w.Header().Set("WWW-Authenticate", fmt.Sprintf(`Bearer realm="Kubernetes MCP Server", audience=%s, error="invalid_token"`, Audience))
+				if serverURL == "" {
+					w.Header().Set("WWW-Authenticate", fmt.Sprintf(`Bearer realm="Kubernetes MCP Server", audience="%s", error="invalid_token"`, audience))
+				} else {
+					w.Header().Set("WWW-Authenticate", fmt.Sprintf(`Bearer realm="Kubernetes MCP Server", audience="%s"", resource_metadata="%s/.well-known/oauth-protected-resource", error="invalid_token"`, audience, serverURL))
+				}
 				http.Error(w, "Unauthorized: Bearer token required", http.StatusUnauthorized)
 				return
 			}
 
 			token := strings.TrimPrefix(authHeader, "Bearer ")
 
-			audience := Audience
-			if serverURL != "" {
-				audience = serverURL
-			}
-
 			err := validateJWTToken(token, audience)
 			if err != nil {
 				klog.V(1).Infof("Authentication failed - JWT validation error: %s %s from %s, error: %v", r.Method, r.URL.Path, r.RemoteAddr, err)
 
-				w.Header().Set("WWW-Authenticate", fmt.Sprintf(`Bearer realm="Kubernetes MCP Server", audience=%s, error="invalid_token"`, Audience))
+				w.Header().Set("WWW-Authenticate", fmt.Sprintf(`Bearer realm="Kubernetes MCP Server", audience=%s, error="invalid_token"`, audience))
 				http.Error(w, "Unauthorized: Invalid token", http.StatusUnauthorized)
 				return
 			}
 
 			// Validate token using Kubernetes TokenReview API
-			_, _, err = mcpServer.VerifyToken(r.Context(), token, Audience)
+			_, _, err = mcpServer.VerifyToken(r.Context(), token, audience)
 			if err != nil {
 				klog.V(1).Infof("Authentication failed - token validation error: %s %s from %s, error: %v", r.Method, r.URL.Path, r.RemoteAddr, err)
 
-				w.Header().Set("WWW-Authenticate", fmt.Sprintf(`Bearer realm="Kubernetes MCP Server", audience=%s, error="invalid_token"`, Audience))
+				w.Header().Set("WWW-Authenticate", fmt.Sprintf(`Bearer realm="Kubernetes MCP Server", audience=%s, error="invalid_token"`, audience))
 				http.Error(w, "Unauthorized: Invalid token", http.StatusUnauthorized)
 				return
 			}

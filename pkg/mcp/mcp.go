@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"slices"
 
+	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 	authenticationapiv1 "k8s.io/api/authentication/v1"
@@ -18,8 +19,9 @@ import (
 )
 
 type Configuration struct {
-	Profile    Profile
-	ListOutput output.Output
+	Profile      Profile
+	ListOutput   output.Output
+	OIDCProvider *oidc.Provider
 
 	StaticConfig *config.StaticConfig
 }

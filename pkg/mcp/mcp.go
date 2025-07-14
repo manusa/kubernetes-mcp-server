@@ -28,7 +28,7 @@ func (c *Configuration) isToolApplicable(tool server.ServerTool) bool {
 	if c.StaticConfig.ReadOnly && !ptr.Deref(tool.Tool.Annotations.ReadOnlyHint, false) {
 		return false
 	}
-	if c.StaticConfig.DisableDestructive && !ptr.Deref(tool.Tool.Annotations.ReadOnlyHint, false) && ptr.Deref(tool.Tool.Annotations.DestructiveHint, false) {
+	if c.StaticConfig.DisableDestructive && ptr.Deref(tool.Tool.Annotations.DestructiveHint, false) {
 		return false
 	}
 	if c.StaticConfig.EnabledTools != nil && !slices.Contains(c.StaticConfig.EnabledTools, tool.Tool.Name) {

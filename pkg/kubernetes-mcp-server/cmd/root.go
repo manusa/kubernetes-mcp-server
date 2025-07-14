@@ -5,6 +5,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"net/url"
 	"strconv"
 	"strings"
 
@@ -196,20 +197,28 @@ func (m *MCPServerOptions) Validate() error {
 	if !m.StaticConfig.RequireOAuth && (m.StaticConfig.AuthorizationURL != "" || m.StaticConfig.ServerURL != "") {
 		return fmt.Errorf("authorization-url and server-url are only valid if require-oauth is enabled")
 	}
-	if m.StaticConfig.AuthorizationURL != "" &&
-		!strings.HasPrefix(m.StaticConfig.AuthorizationURL, "https://") {
-		if strings.HasPrefix(m.StaticConfig.AuthorizationURL, "http://") {
+	if m.StaticConfig.AuthorizationURL != "" {
+		u, err := url.Parse(m.StaticConfig.AuthorizationURL)
+		if err != nil {
+			return err
+		}
+		if u.Scheme != "https" && u.Scheme != "http" {
+			return fmt.Errorf("--authorization-url must be a valid URL")
+		}
+		if u.Scheme == "http" {
 			klog.Warningf("authorization-url is using http://, this is not recommended production use")
-		} else {
-			return fmt.Errorf("authorization-url must start with https://")
 		}
 	}
-	if m.StaticConfig.ServerURL != "" &&
-		!strings.HasPrefix(m.StaticConfig.ServerURL, "https://") {
-		if strings.HasPrefix(m.StaticConfig.ServerURL, "http://") {
+	if m.StaticConfig.ServerURL != "" {
+		u, err := url.Parse(m.StaticConfig.ServerURL)
+		if err != nil {
+			return err
+		}
+		if u.Scheme != "https" && u.Scheme != "http" {
+			return fmt.Errorf("--server-url must be a valid URL")
+		}
+		if u.Scheme == "http" {
 			klog.Warningf("server-url is using http://, this is not recommended production use")
-		} else {
-			return fmt.Errorf("server-url must start with https://")
 		}
 	}
 	return nil

@@ -22,6 +22,8 @@ import (
 	"github.com/manusa/kubernetes-mcp-server/pkg/mcp"
 	"github.com/manusa/kubernetes-mcp-server/pkg/output"
 	"github.com/manusa/kubernetes-mcp-server/pkg/version"
+
+	_ "github.com/coreos/go-oidc/v3/oidc"
 )
 
 var (

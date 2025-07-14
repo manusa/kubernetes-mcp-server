@@ -16,6 +16,8 @@ import (
 	"github.com/manusa/kubernetes-mcp-server/pkg/mcp"
 )
 
+const oauthProtectedResourceEndpoint = "/.well-known/oauth-protected-resource"
+
 func Serve(ctx context.Context, mcpServer *mcp.Server, staticConfig *config.StaticConfig) error {
 	mux := http.NewServeMux()
 
@@ -36,7 +38,7 @@ func Serve(ctx context.Context, mcpServer *mcp.Server, staticConfig *config.Stat
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})
-	mux.HandleFunc("/.well-known/oauth-protected-resource", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc(oauthProtectedResourceEndpoint, func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 
 		var authServers []string

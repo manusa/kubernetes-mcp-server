@@ -1,14 +1,15 @@
 package http
 
 import (
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"slices"
 	"strings"
 	"time"
 
+	"github.com/coreos/go-oidc/v3/oidc"
 	"k8s.io/klog/v2"
 
 	"github.com/manusa/kubernetes-mcp-server/pkg/mcp"
@@ -43,7 +44,7 @@ func AuthorizationMiddleware(requireOAuth bool, serverURL string, mcpServer *mcp
 				if serverURL == "" {
 					w.Header().Set("WWW-Authenticate", fmt.Sprintf(`Bearer realm="Kubernetes MCP Server", audience="%s", error="invalid_token"`, audience))
 				} else {
-					w.Header().Set("WWW-Authenticate", fmt.Sprintf(`Bearer realm="Kubernetes MCP Server", audience="%s"", resource_metadata="%s/.well-known/oauth-protected-resource", error="invalid_token"`, audience, serverURL))
+					w.Header().Set("WWW-Authenticate", fmt.Sprintf(`Bearer realm="Kubernetes MCP Server", audience="%s"", resource_metadata="%s%s", error="invalid_token"`, audience, serverURL, oauthProtectedResourceEndpoint))
 				}
 				http.Error(w, "Unauthorized: Bearer token required", http.StatusUnauthorized)
 				return
@@ -51,21 +52,63 @@ func AuthorizationMiddleware(requireOAuth bool, serverURL string, mcpServer *mcp
 
 			token := strings.TrimPrefix(authHeader, "Bearer ")
 
-			err := validateJWTToken(token, audience)
+			// Validate the token offline for simple sanity check
+			// Because missing expected audience and expired tokens must be
+			// rejected already.
+			claims, err := validateJWTToken(token, audience)
 			if err != nil {
 				klog.V(1).Infof("Authentication failed - JWT validation error: %s %s from %s, error: %v", r.Method, r.URL.Path, r.RemoteAddr, err)
 
-				w.Header().Set("WWW-Authenticate", fmt.Sprintf(`Bearer realm="Kubernetes MCP Server", audience=%s, error="invalid_token"`, audience))
+				if serverURL == "" {
+					w.Header().Set("WWW-Authenticate", fmt.Sprintf(`Bearer realm="Kubernetes MCP Server", audience="%s", error="invalid_token"`, audience))
+				} else {
+					w.Header().Set("WWW-Authenticate", fmt.Sprintf(`Bearer realm="Kubernetes MCP Server", audience="%s"", resource_metadata="%s%s", error="invalid_token"`, audience, serverURL, oauthProtectedResourceEndpoint))
+				}
 				http.Error(w, "Unauthorized: Invalid token", http.StatusUnauthorized)
 				return
 			}
 
-			// Validate token using Kubernetes TokenReview API
-			_, _, err = mcpServer.VerifyToken(r.Context(), token, audience)
+			oidcProvider := mcpServer.GetOIDCProvider()
+			if oidcProvider != nil {
+				// If OIDC Provider is configured, this token must be validated against it.
+				if err := validateTokenWithOIDC(r.Context(), oidcProvider, token, audience); err != nil {
+					klog.V(1).Infof("Authentication failed - OIDC token validation error: %s %s from %s, error: %v", r.Method, r.URL.Path, r.RemoteAddr, err)
+
+					if serverURL == "" {
+						w.Header().Set("WWW-Authenticate", fmt.Sprintf(`Bearer realm="Kubernetes MCP Server", audience="%s", error="invalid_token"`, audience))
+					} else {
+						w.Header().Set("WWW-Authenticate", fmt.Sprintf(`Bearer realm="Kubernetes MCP Server", audience="%s"", resource_metadata="%s%s", error="invalid_token"`, audience, serverURL, oauthProtectedResourceEndpoint))
+					}
+					http.Error(w, "Unauthorized: Invalid token", http.StatusUnauthorized)
+					return
+				}
+			}
+
+			// Scopes are likely to be used for authorization.
+			scopes := claims.GetScopes()
+			klog.V(2).Infof("JWT token validated - Scopes: %v", scopes)
+
+			// Now, there are a couple of options:
+			// 1. If there is no authorization url configured for this MCP Server,
+			// that means this token will be used against the Kubernetes API Server.
+			// So that we need to validate the token using Kubernetes TokenReview API beforehand.
+			// 2. If there is an authorization url configured for this MCP Server,
+			// that means up to this point, the token is validated against the OIDC Provider already.
+			// 2. a. If this is the only token in the headers, this validated token
+			// is supposed to be used against the Kubernetes API Server as well. Therefore,
+			// TokenReview request must succeed.
+			// 2. b. If this is not the only token in the headers, the token in here is used
+			// only for authentication and authorization. Therefore, we need to send TokenReview request
+			// with the other token in the headers (TODO: still need to validate aud and exp of this token separately).
+			_, _, err = mcpServer.VerifyTokenAPIServer(r.Context(), token, audience)
 			if err != nil {
 				klog.V(1).Infof("Authentication failed - token validation error: %s %s from %s, error: %v", r.Method, r.URL.Path, r.RemoteAddr, err)
 
-				w.Header().Set("WWW-Authenticate", fmt.Sprintf(`Bearer realm="Kubernetes MCP Server", audience=%s, error="invalid_token"`, audience))
+				if serverURL == "" {
+					w.Header().Set("WWW-Authenticate", fmt.Sprintf(`Bearer realm="Kubernetes MCP Server", audience="%s", error="invalid_token"`, audience))
+				} else {
+					w.Header().Set("WWW-Authenticate", fmt.Sprintf(`Bearer realm="Kubernetes MCP Server", audience="%s"", resource_metadata="%s%s", error="invalid_token"`, audience, serverURL, oauthProtectedResourceEndpoint))
+				}
 				http.Error(w, "Unauthorized: Invalid token", http.StatusUnauthorized)
 				return
 			}
@@ -76,32 +119,60 @@ func AuthorizationMiddleware(requireOAuth bool, serverURL string, mcpServer *mcp
 }
 
 type JWTClaims struct {
-	Issuer    string   `json:"iss"`
-	Audience  []string `json:"aud"`
-	ExpiresAt int64    `json:"exp"`
+	Issuer    string `json:"iss"`
+	Audience  any    `json:"aud"`
+	ExpiresAt int64  `json:"exp"`
+	Scope     string `json:"scope,omitempty"`
 }
 
-// validateJWTToken validates basic JWT claims without signature verification
-func validateJWTToken(token, audience string) error {
+func (c *JWTClaims) GetScopes() []string {
+	if c.Scope == "" {
+		return nil
+	}
+	return strings.Fields(c.Scope)
+}
+
+func (c *JWTClaims) ContainsAudience(audience string) bool {
+	switch aud := c.Audience.(type) {
+	case string:
+		return aud == audience
+	case []interface{}:
+		for _, a := range aud {
+			if str, ok := a.(string); ok && str == audience {
+				return true
+			}
+		}
+	case []string:
+		for _, a := range aud {
+			if a == audience {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// validateJWTToken validates basic JWT claims without signature verification and returns the claims
+func validateJWTToken(token, audience string) (*JWTClaims, error) {
 	parts := strings.Split(token, ".")
 	if len(parts) != 3 {
-		return fmt.Errorf("invalid JWT token format")
+		return nil, fmt.Errorf("invalid JWT token format")
 	}
 
 	claims, err := parseJWTClaims(parts[1])
 	if err != nil {
-		return fmt.Errorf("failed to parse JWT claims: %v", err)
+		return nil, fmt.Errorf("failed to parse JWT claims: %v", err)
 	}
 
 	if claims.ExpiresAt > 0 && time.Now().Unix() > claims.ExpiresAt {
-		return fmt.Errorf("token expired")
+		return nil, fmt.Errorf("token expired")
 	}
 
-	if !slices.Contains(claims.Audience, audience) {
-		return fmt.Errorf("token audience mismatch: %v", claims.Audience)
+	if !claims.ContainsAudience(audience) {
+		return nil, fmt.Errorf("token audience mismatch: %v", claims.Audience)
 	}
 
-	return nil
+	return claims, nil
 }
 
 func parseJWTClaims(payload string) (*JWTClaims, error) {
@@ -121,4 +192,17 @@ func parseJWTClaims(payload string) (*JWTClaims, error) {
 	}
 
 	return &claims, nil
+}
+
+func validateTokenWithOIDC(ctx context.Context, provider *oidc.Provider, token, audience string) error {
+	verifier := provider.Verifier(&oidc.Config{
+		ClientID: audience,
+	})
+
+	_, err := verifier.Verify(ctx, token)
+	if err != nil {
+		return fmt.Errorf("JWT token verification failed: %v", err)
+	}
+
+	return nil
 }

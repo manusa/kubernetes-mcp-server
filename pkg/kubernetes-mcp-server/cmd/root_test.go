@@ -240,7 +240,7 @@ func TestAuthorizationURL(t *testing.T) {
 		if err == nil {
 			t.Fatal("Expected error for invalid authorization-url without protocol, got nil")
 		}
-		expected := "authorization-url must start with https://"
+		expected := "--authorization-url must be a valid URL"
 		if !strings.Contains(err.Error(), expected) {
 			t.Fatalf("Expected error to contain %s, got %s", expected, err.Error())
 		}
@@ -265,7 +265,7 @@ func TestServerURL(t *testing.T) {
 		if err == nil {
 			t.Fatal("Expected error for invalid server-url without protocol, got nil")
 		}
-		expected := "server-url must start with https://"
+		expected := "--server-url must be a valid URL"
 		if !strings.Contains(err.Error(), expected) {
 			t.Fatalf("Expected error to contain %s, got %s", expected, err.Error())
 		}

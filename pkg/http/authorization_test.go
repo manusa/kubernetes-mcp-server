@@ -29,13 +29,9 @@ func TestParseJWTClaims(t *testing.T) {
 		}
 
 		expectedAudiences := []string{"https://kubernetes.default.svc.cluster.local", "kubernetes-mcp-server"}
-		if len(claims.Audience) != 2 {
-			t.Errorf("expected 2 audiences, got %d", len(claims.Audience))
-		}
-
-		for i, expected := range expectedAudiences {
-			if i >= len(claims.Audience) || claims.Audience[i] != expected {
-				t.Errorf("expected audience[%d] to be %s, got %s", i, expected, claims.Audience[i])
+		for _, expected := range expectedAudiences {
+			if !claims.ContainsAudience(expected) {
+				t.Errorf("expected audience to contain %s", expected)
 			}
 		}
 
@@ -48,7 +44,7 @@ func TestParseJWTClaims(t *testing.T) {
 		// Create a payload that needs padding
 		testClaims := JWTClaims{
 			Issuer:    "test-issuer",
-			Audience:  []string{"test-audience"},
+			Audience:  "test-audience",
 			ExpiresAt: time.Now().Add(time.Hour).Unix(),
 		}
 
@@ -98,7 +94,7 @@ func TestValidateJWTToken(t *testing.T) {
 	t.Run("invalid token format - not enough parts", func(t *testing.T) {
 		invalidToken := "header.payload"
 
-		err := validateJWTToken(invalidToken, "test")
+		_, err := validateJWTToken(invalidToken, "test")
 		if err == nil {
 			t.Error("expected error for invalid token format, got nil")
 		}
@@ -112,15 +108,15 @@ func TestValidateJWTToken(t *testing.T) {
 		// Create an expired token
 		expiredClaims := JWTClaims{
 			Issuer:    "test-issuer",
-			Audience:  []string{"kubernetes-mcp-server"},
-			ExpiresAt: time.Now().Add(-time.Hour).Unix(), // 1 hour ago
+			Audience:  "kubernetes-mcp-server",
+			ExpiresAt: time.Now().Add(-time.Hour).Unix(),
 		}
 
 		jsonBytes, _ := json.Marshal(expiredClaims)
 		payload := base64.URLEncoding.EncodeToString(jsonBytes)
 		expiredToken := "header." + payload + ".signature"
 
-		err := validateJWTToken(expiredToken, "kubernetes-mcp-server")
+		_, err := validateJWTToken(expiredToken, "kubernetes-mcp-server")
 		if err == nil {
 			t.Error("expected error for expired token, got nil")
 		}
@@ -136,15 +132,34 @@ func TestValidateJWTToken(t *testing.T) {
 			Issuer:    "test-issuer",
 			Audience:  []string{"other-audience", "kubernetes-mcp-server", "another-audience"},
 			ExpiresAt: time.Now().Add(time.Hour).Unix(),
+			Scope:     "read write admin",
 		}
 
 		jsonBytes, _ := json.Marshal(multiAudClaims)
 		payload := base64.URLEncoding.EncodeToString(jsonBytes)
 		multiAudToken := "header." + payload + ".signature"
 
-		err := validateJWTToken(multiAudToken, "kubernetes-mcp-server")
+		claims, err := validateJWTToken(multiAudToken, "kubernetes-mcp-server")
 		if err != nil {
 			t.Errorf("expected no error for token with multiple audiences, got %v", err)
+		}
+		if claims == nil {
+			t.Error("expected claims to be returned, got nil")
+		}
+		if claims.Issuer != "test-issuer" {
+			t.Errorf("expected issuer 'test-issuer', got %s", claims.Issuer)
+		}
+
+		// Test scope parsing
+		scopes := claims.GetScopes()
+		expectedScopes := []string{"read", "write", "admin"}
+		if len(scopes) != 3 {
+			t.Errorf("expected 3 scopes, got %d", len(scopes))
+		}
+		for i, expectedScope := range expectedScopes {
+			if i >= len(scopes) || scopes[i] != expectedScope {
+				t.Errorf("expected scope[%d] to be '%s', got '%s'", i, expectedScope, scopes[i])
+			}
 		}
 	})
 
@@ -152,7 +167,7 @@ func TestValidateJWTToken(t *testing.T) {
 		// Create a token with wrong audience
 		wrongAudClaims := JWTClaims{
 			Issuer:    "test-issuer",
-			Audience:  []string{"wrong-audience"},
+			Audience:  "wrong-audience",
 			ExpiresAt: time.Now().Add(time.Hour).Unix(),
 		}
 
@@ -160,7 +175,7 @@ func TestValidateJWTToken(t *testing.T) {
 		payload := base64.URLEncoding.EncodeToString(jsonBytes)
 		wrongAudToken := "header." + payload + ".signature"
 
-		err := validateJWTToken(wrongAudToken, "audience")
+		_, err := validateJWTToken(wrongAudToken, "audience")
 		if err == nil {
 			t.Error("expected error for token with wrong audience, got nil")
 		}
@@ -267,6 +282,88 @@ func TestAuthorizationMiddleware(t *testing.T) {
 		}
 		if !strings.Contains(w.Body.String(), "Invalid token") {
 			t.Errorf("expected invalid token error message, got %s", w.Body.String())
+		}
+	})
+}
+
+func TestJWTClaimsGetScopes(t *testing.T) {
+	t.Run("single scope", func(t *testing.T) {
+		claims := &JWTClaims{Scope: "read"}
+		scopes := claims.GetScopes()
+		expected := []string{"read"}
+
+		if len(scopes) != 1 {
+			t.Errorf("expected 1 scope, got %d", len(scopes))
+		}
+		if scopes[0] != expected[0] {
+			t.Errorf("expected scope 'read', got '%s'", scopes[0])
+		}
+	})
+
+	t.Run("multiple scopes", func(t *testing.T) {
+		claims := &JWTClaims{Scope: "read write admin"}
+		scopes := claims.GetScopes()
+		expected := []string{"read", "write", "admin"}
+
+		if len(scopes) != 3 {
+			t.Errorf("expected 3 scopes, got %d", len(scopes))
+		}
+
+		for i, expectedScope := range expected {
+			if i >= len(scopes) || scopes[i] != expectedScope {
+				t.Errorf("expected scope[%d] to be '%s', got '%s'", i, expectedScope, scopes[i])
+			}
+		}
+	})
+
+	t.Run("scopes with extra whitespace", func(t *testing.T) {
+		claims := &JWTClaims{Scope: "  read   write   admin  "}
+		scopes := claims.GetScopes()
+		expected := []string{"read", "write", "admin"}
+
+		if len(scopes) != 3 {
+			t.Errorf("expected 3 scopes, got %d", len(scopes))
+		}
+
+		for i, expectedScope := range expected {
+			if i >= len(scopes) || scopes[i] != expectedScope {
+				t.Errorf("expected scope[%d] to be '%s', got '%s'", i, expectedScope, scopes[i])
+			}
+		}
+	})
+}
+
+func TestJWTClaimsContainsAudience(t *testing.T) {
+	t.Run("single string audience", func(t *testing.T) {
+		claims := &JWTClaims{Audience: "test-audience"}
+
+		if !claims.ContainsAudience("test-audience") {
+			t.Error("expected ContainsAudience to return true for matching audience")
+		}
+
+		if claims.ContainsAudience("other-audience") {
+			t.Error("expected ContainsAudience to return false for non-matching audience")
+		}
+	})
+
+	t.Run("array audience", func(t *testing.T) {
+		claims := &JWTClaims{Audience: []string{"aud1", "aud2", "aud3"}}
+
+		testCases := []struct {
+			audience string
+			expected bool
+		}{
+			{"aud1", true},
+			{"aud2", true},
+			{"aud3", true},
+			{"aud4", false},
+			{"", false},
+		}
+
+		for _, tc := range testCases {
+			if claims.ContainsAudience(tc.audience) != tc.expected {
+				t.Errorf("expected ContainsAudience(%s) to return %v", tc.audience, tc.expected)
+			}
 		}
 	})
 }

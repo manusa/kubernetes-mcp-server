@@ -5,16 +5,22 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"github.com/manusa/kubernetes-mcp-server/pkg/config"
-	"github.com/manusa/kubernetes-mcp-server/pkg/mcp"
-	"golang.org/x/sync/errgroup"
-	"k8s.io/klog/v2"
-	"k8s.io/klog/v2/textlogger"
 	"net"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
+
+	"golang.org/x/sync/errgroup"
+	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/client-go/tools/clientcmd/api"
+	"k8s.io/klog/v2"
+	"k8s.io/klog/v2/textlogger"
+
+	"github.com/manusa/kubernetes-mcp-server/pkg/config"
+	"github.com/manusa/kubernetes-mcp-server/pkg/mcp"
 )
 
 type httpContext struct {
@@ -29,6 +35,16 @@ type httpContext struct {
 
 func (c *httpContext) beforeEach() {
 	http.DefaultClient.Timeout = 10 * time.Second
+	// Fake Kubernetes configuration
+	fakeConfig := api.NewConfig()
+	fakeConfig.Clusters["fake"] = api.NewCluster()
+	fakeConfig.Clusters["fake"].Server = "https://example.com"
+	fakeConfig.Contexts["fake-context"] = api.NewContext()
+	fakeConfig.Contexts["fake-context"].Cluster = "fake"
+	fakeConfig.CurrentContext = "fake-context"
+	kubeConfig := filepath.Join(c.t.TempDir(), "config")
+	_ = clientcmd.WriteToFile(*fakeConfig, kubeConfig)
+	_ = os.Setenv("KUBECONFIG", kubeConfig)
 	// Capture logging
 	c.klogState = klog.CaptureState()
 	klog.SetLogger(textlogger.NewLogger(textlogger.NewConfig(textlogger.Verbosity(1), textlogger.Output(&c.logBuffer))))
@@ -74,6 +90,7 @@ func (c *httpContext) afterEach() {
 	}
 	c.timeoutCancel()
 	c.klogState.Restore()
+	_ = os.Setenv("KUBECONFIG", "")
 }
 
 func testCase(t *testing.T, test func(c *httpContext)) {

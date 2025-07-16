@@ -6,7 +6,7 @@ require (
 	github.com/BurntSushi/toml v1.5.0
 	github.com/coreos/go-oidc/v3 v3.14.1
 	github.com/fsnotify/fsnotify v1.9.0
-	github.com/mark3labs/mcp-go v0.33.0
+	github.com/mark3labs/mcp-go v0.34.0
 	github.com/pkg/errors v0.9.1
 	github.com/spf13/afero v1.14.0
 	github.com/spf13/cobra v1.9.1

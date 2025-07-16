@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"github.com/coreos/go-oidc/v3/oidc"
 	"net/http"
 	"os"
 	"os/signal"
@@ -18,11 +19,11 @@ import (
 
 const oauthProtectedResourceEndpoint = "/.well-known/oauth-protected-resource"
 
-func Serve(ctx context.Context, mcpServer *mcp.Server, staticConfig *config.StaticConfig) error {
+func Serve(ctx context.Context, mcpServer *mcp.Server, staticConfig *config.StaticConfig, oidcProvider *oidc.Provider) error {
 	mux := http.NewServeMux()
 
 	wrappedMux := RequestMiddleware(
-		AuthorizationMiddleware(staticConfig.RequireOAuth, staticConfig.ServerURL, mcpServer)(mux),
+		AuthorizationMiddleware(staticConfig.RequireOAuth, staticConfig.ServerURL, oidcProvider, mcpServer)(mux),
 	)
 
 	httpServer := &http.Server{

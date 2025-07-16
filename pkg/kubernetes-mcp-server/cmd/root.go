@@ -259,7 +259,6 @@ func (m *MCPServerOptions) Run() error {
 		Profile:      profile,
 		ListOutput:   listOutput,
 		StaticConfig: m.StaticConfig,
-		OIDCProvider: oidcProvider,
 	})
 	if err != nil {
 		return fmt.Errorf("Failed to initialize MCP server: %w\n", err)
@@ -268,7 +267,7 @@ func (m *MCPServerOptions) Run() error {
 
 	if m.StaticConfig.Port != "" {
 		ctx := context.Background()
-		return internalhttp.Serve(ctx, mcpServer, m.StaticConfig)
+		return internalhttp.Serve(ctx, mcpServer, m.StaticConfig, oidcProvider)
 	}
 
 	if err := mcpServer.ServeStdio(); err != nil && !errors.Is(err, context.Canceled) {

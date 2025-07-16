@@ -20,7 +20,7 @@ const (
 )
 
 // AuthorizationMiddleware validates the OAuth flow using Kubernetes TokenReview API
-func AuthorizationMiddleware(requireOAuth bool, serverURL string, mcpServer *mcp.Server) func(http.Handler) http.Handler {
+func AuthorizationMiddleware(requireOAuth bool, serverURL string, oidcProvider *oidc.Provider, mcpServer *mcp.Server) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if r.URL.Path == "/healthz" || r.URL.Path == "/.well-known/oauth-protected-resource" {
@@ -67,8 +67,7 @@ func AuthorizationMiddleware(requireOAuth bool, serverURL string, mcpServer *mcp
 				http.Error(w, "Unauthorized: Invalid token", http.StatusUnauthorized)
 				return
 			}
-
-			oidcProvider := mcpServer.GetOIDCProvider()
+			
 			if oidcProvider != nil {
 				// If OIDC Provider is configured, this token must be validated against it.
 				if err := validateTokenWithOIDC(r.Context(), oidcProvider, token, audience); err != nil {

@@ -16,7 +16,13 @@ import (
 	"github.com/manusa/kubernetes-mcp-server/pkg/mcp"
 )
 
-const oauthProtectedResourceEndpoint = "/.well-known/oauth-protected-resource"
+const (
+	oauthProtectedResourceEndpoint = "/.well-known/oauth-protected-resource"
+	healthEndpoint                 = "/healthz"
+	mcpEndpoint                    = "/mcp"
+	sseEndpoint                    = "/sse"
+	sseMessageEndpoint             = "/message"
+)
 
 func Serve(ctx context.Context, mcpServer *mcp.Server, staticConfig *config.StaticConfig) error {
 	mux := http.NewServeMux()
@@ -32,10 +38,10 @@ func Serve(ctx context.Context, mcpServer *mcp.Server, staticConfig *config.Stat
 
 	sseServer := mcpServer.ServeSse(staticConfig.SSEBaseURL, httpServer)
 	streamableHttpServer := mcpServer.ServeHTTP(httpServer)
-	mux.Handle("/sse", sseServer)
-	mux.Handle("/message", sseServer)
-	mux.Handle("/mcp", streamableHttpServer)
-	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
+	mux.Handle(sseEndpoint, sseServer)
+	mux.Handle(sseMessageEndpoint, sseServer)
+	mux.Handle(mcpEndpoint, streamableHttpServer)
+	mux.HandleFunc(healthEndpoint, func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})
 	mux.HandleFunc(oauthProtectedResourceEndpoint, func(w http.ResponseWriter, r *http.Request) {

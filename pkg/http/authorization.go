@@ -2,14 +2,12 @@ package http
 
 import (
 	"context"
-	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/coreos/go-oidc/v3/oidc"
+	"github.com/golang-jwt/jwt/v4"
 	"k8s.io/klog/v2"
 
 	"github.com/manusa/kubernetes-mcp-server/pkg/mcp"
@@ -55,7 +53,10 @@ func AuthorizationMiddleware(requireOAuth bool, serverURL string, mcpServer *mcp
 			// Validate the token offline for simple sanity check
 			// Because missing expected audience and expired tokens must be
 			// rejected already.
-			claims, err := validateJWTToken(token, audience)
+			claims, err := ParseJWTClaims(token)
+			if err == nil && claims != nil {
+				err = claims.Validate(audience)
+			}
 			if err != nil {
 				klog.V(1).Infof("Authentication failed - JWT validation error: %s %s from %s, error: %v", r.Method, r.URL.Path, r.RemoteAddr, err)
 
@@ -118,80 +119,49 @@ func AuthorizationMiddleware(requireOAuth bool, serverURL string, mcpServer *mcp
 	}
 }
 
-type JWTClaims struct {
-	Issuer    string `json:"iss"`
-	Audience  any    `json:"aud"`
-	ExpiresAt int64  `json:"exp"`
-	Scope     string `json:"scope,omitempty"`
-}
+type JWTClaims jwt.MapClaims
 
 func (c *JWTClaims) GetScopes() []string {
-	if c.Scope == "" {
-		return nil
-	}
-	return strings.Fields(c.Scope)
-}
-
-func (c *JWTClaims) ContainsAudience(audience string) bool {
-	switch aud := c.Audience.(type) {
+	scope := jwt.MapClaims(*c)["scope"]
+	switch scope.(type) {
 	case string:
-		return aud == audience
-	case []interface{}:
-		for _, a := range aud {
-			if str, ok := a.(string); ok && str == audience {
-				return true
-			}
-		}
-	case []string:
-		for _, a := range aud {
-			if a == audience {
-				return true
-			}
-		}
+		return strings.Fields(scope.(string))
 	}
-	return false
+	return nil
 }
 
-// validateJWTToken validates basic JWT claims without signature verification and returns the claims
-func validateJWTToken(token, audience string) (*JWTClaims, error) {
-	parts := strings.Split(token, ".")
-	if len(parts) != 3 {
-		return nil, fmt.Errorf("invalid JWT token format")
-	}
-
-	claims, err := parseJWTClaims(parts[1])
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse JWT claims: %v", err)
-	}
-
-	if claims.ExpiresAt > 0 && time.Now().Unix() > claims.ExpiresAt {
-		return nil, fmt.Errorf("token expired")
-	}
-
-	if !claims.ContainsAudience(audience) {
-		return nil, fmt.Errorf("token audience mismatch: %v", claims.Audience)
-	}
-
-	return claims, nil
+func (c *JWTClaims) VerifyAudience(audience string) bool {
+	return jwt.MapClaims(*c).VerifyAudience(audience, true)
 }
 
-func parseJWTClaims(payload string) (*JWTClaims, error) {
-	// Add padding if needed
-	if len(payload)%4 != 0 {
-		payload += strings.Repeat("=", 4-len(payload)%4)
-	}
+func (c *JWTClaims) VerifyExpiresAt(expriesAt int64) bool {
+	return jwt.MapClaims(*c).VerifyExpiresAt(expriesAt, true)
+}
 
-	decoded, err := base64.URLEncoding.DecodeString(payload)
-	if err != nil {
-		return nil, fmt.Errorf("failed to decode JWT payload: %v", err)
-	}
+func (c *JWTClaims) VerifyIssuer(issuer string) bool {
+	return jwt.MapClaims(*c).VerifyIssuer(issuer, true)
+}
 
-	var claims JWTClaims
-	if err := json.Unmarshal(decoded, &claims); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal JWT claims: %v", err)
-	}
+func (c *JWTClaims) Valid() error {
+	return jwt.MapClaims(*c).Valid()
+}
 
-	return &claims, nil
+// Validate Checks if the JWT claims are valid and if the audience matches the expected one.
+func (c *JWTClaims) Validate(audience string) error {
+	if err := c.Valid(); err != nil {
+		return err
+	}
+	if !c.VerifyAudience(audience) {
+		return fmt.Errorf("token audience mismatch: %v", jwt.MapClaims(*c)["aud"])
+	}
+	return nil
+}
+
+func ParseJWTClaims(token string) (*JWTClaims, error) {
+	parser := jwt.NewParser(jwt.WithoutClaimsValidation())
+	mapClaims := &JWTClaims{}
+	_, _, err := parser.ParseUnverified(token, mapClaims)
+	return mapClaims, err
 }
 
 func validateTokenWithOIDC(ctx context.Context, provider *oidc.Provider, token, audience string) error {

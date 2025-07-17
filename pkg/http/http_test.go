@@ -4,11 +4,13 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"flag"
 	"fmt"
 	"net"
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -47,7 +49,10 @@ func (c *httpContext) beforeEach() {
 	_ = os.Setenv("KUBECONFIG", kubeConfig)
 	// Capture logging
 	c.klogState = klog.CaptureState()
-	klog.SetLogger(textlogger.NewLogger(textlogger.NewConfig(textlogger.Verbosity(1), textlogger.Output(&c.logBuffer))))
+	flags := flag.NewFlagSet("test", flag.ContinueOnError)
+	klog.InitFlags(flags)
+	_ = flags.Set("v", "5")
+	klog.SetLogger(textlogger.NewLogger(textlogger.NewConfig(textlogger.Verbosity(5), textlogger.Output(&c.logBuffer))))
 	// Start server in random port
 	ln, err := net.Listen("tcp", "0.0.0.0:0")
 	if err != nil {
@@ -246,4 +251,30 @@ func TestWellKnownOAuthProtectedResource(t *testing.T) {
 			}
 		})
 	})
+}
+
+func TestMiddlewareLogging(t *testing.T) {
+	testCase(t, func(ctx *httpContext) {
+		_, _ = http.Get(fmt.Sprintf("http://%s/.well-known/oauth-protected-resource", ctx.httpAddress))
+		t.Run("Logs HTTP requests and responses", func(t *testing.T) {
+			if !strings.Contains(ctx.logBuffer.String(), "GET /.well-known/oauth-protected-resource 200") {
+				t.Errorf("Expected log entry for GET /.well-known/oauth-protected-resource, got: %s", ctx.logBuffer.String())
+			}
+		})
+		t.Run("Logs HTTP request duration", func(t *testing.T) {
+			expected := `"GET /.well-known/oauth-protected-resource 200 (.+)"`
+			m := regexp.MustCompile(expected).FindStringSubmatch(ctx.logBuffer.String())
+			if len(m) != 2 {
+				t.Fatalf("Expected log entry to contain duration, got %s", ctx.logBuffer.String())
+			}
+			duration, err := time.ParseDuration(m[1])
+			if err != nil {
+				t.Fatalf("Failed to parse duration from log entry: %v", err)
+			}
+			if duration < 0 {
+				t.Errorf("Expected duration to be non-negative, got %v", duration)
+			}
+		})
+	})
+
 }

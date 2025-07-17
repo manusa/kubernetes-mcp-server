@@ -5,6 +5,8 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/go-jose/go-jose/v4/jwt"
 )
 
 const (
@@ -27,21 +29,21 @@ func TestParseJWTClaimsPayloadValid(t *testing.T) {
 		}
 	})
 	t.Run("Parses issuer", func(t *testing.T) {
-		if !basicClaims.VerifyIssuer("https://kubernetes.default.svc.cluster.local") {
-			t.Errorf("expected issuer 'https://kubernetes.default.svc.cluster.local', got %s", (*basicClaims)["iss"])
+		if basicClaims.Issuer != "https://kubernetes.default.svc.cluster.local" {
+			t.Errorf("expected issuer 'https://kubernetes.default.svc.cluster.local', got %s", basicClaims.Issuer)
 		}
 	})
 	t.Run("Parses audience", func(t *testing.T) {
 		expectedAudiences := []string{"https://kubernetes.default.svc.cluster.local", "kubernetes-mcp-server"}
 		for _, expected := range expectedAudiences {
-			if !basicClaims.VerifyAudience(expected) {
+			if !basicClaims.Audience.Contains(expected) {
 				t.Errorf("expected audience to contain %s", expected)
 			}
 		}
 	})
 	t.Run("Parses expiration", func(t *testing.T) {
-		if basicClaims.VerifyExpiresAt(253402297199) {
-			t.Errorf("expected expiration 1751963948, got %d", (*basicClaims)["exp"])
+		if *basicClaims.Expiry != jwt.NumericDate(253402297199) {
+			t.Errorf("expected expiration 253402297199, got %d", basicClaims.Expiry)
 		}
 	})
 	t.Run("Parses scope", func(t *testing.T) {
@@ -71,8 +73,8 @@ func TestParseJWTClaimsPayloadValid(t *testing.T) {
 			t.Fatalf("expected no error, got %v", err)
 		}
 
-		if expiredClaims.VerifyExpiresAt(1) {
-			t.Errorf("expected expiration 1751963948, got %d", (*basicClaims)["exp"])
+		if *expiredClaims.Expiry != jwt.NumericDate(1) {
+			t.Errorf("expected expiration 1, got %d", basicClaims.Expiry)
 		}
 	})
 }
@@ -86,7 +88,7 @@ func TestParseJWTClaimsPayloadInvalid(t *testing.T) {
 			t.Fatal("expected error for invalid token segments, got nil")
 		}
 
-		if !strings.Contains(err.Error(), "token contains an invalid number of segments") {
+		if !strings.Contains(err.Error(), "compact JWS format must have three parts") {
 			t.Errorf("expected invalid token segments error message, got %v", err)
 		}
 	})
@@ -116,7 +118,7 @@ func TestJWTTokenValidate(t *testing.T) {
 			t.Fatalf("expected error for expired token, got nil")
 		}
 
-		if !strings.Contains(err.Error(), "Token is expired") {
+		if !strings.Contains(err.Error(), "token is expired (exp)") {
 			t.Errorf("expected expiration error message, got %v", err)
 		}
 	})
@@ -150,7 +152,7 @@ func TestJWTTokenValidate(t *testing.T) {
 			t.Fatalf("expected error for token with wrong audience, got nil")
 		}
 
-		if !strings.Contains(err.Error(), "token audience mismatch") {
+		if !strings.Contains(err.Error(), "invalid audience claim (aud)") {
 			t.Errorf("expected audience mismatch error, got %v", err)
 		}
 	})
@@ -168,8 +170,9 @@ func TestJWTClaimsGetScopes(t *testing.T) {
 		}
 	})
 	t.Run("single scope", func(t *testing.T) {
-		claims := &JWTClaims{}
-		(*claims)["scope"] = "read"
+		claims := &JWTClaims{
+			Scope: "read",
+		}
 		scopes := claims.GetScopes()
 		expected := []string{"read"}
 
@@ -182,8 +185,9 @@ func TestJWTClaimsGetScopes(t *testing.T) {
 	})
 
 	t.Run("multiple scopes", func(t *testing.T) {
-		claims := &JWTClaims{}
-		(*claims)["scope"] = "read write admin"
+		claims := &JWTClaims{
+			Scope: "read write admin",
+		}
 		scopes := claims.GetScopes()
 		expected := []string{"read", "write", "admin"}
 
@@ -199,8 +203,9 @@ func TestJWTClaimsGetScopes(t *testing.T) {
 	})
 
 	t.Run("scopes with extra whitespace", func(t *testing.T) {
-		claims := &JWTClaims{}
-		(*claims)["scope"] = "  read   write   admin  "
+		claims := &JWTClaims{
+			Scope: "  read   write   admin  ",
+		}
 		scopes := claims.GetScopes()
 		expected := []string{"read", "write", "admin"}
 

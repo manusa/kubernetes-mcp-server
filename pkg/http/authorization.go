@@ -7,7 +7,8 @@ import (
 	"strings"
 
 	"github.com/coreos/go-oidc/v3/oidc"
-	"github.com/golang-jwt/jwt/v4"
+	"github.com/go-jose/go-jose/v4"
+	"github.com/go-jose/go-jose/v4/jwt"
 	"k8s.io/klog/v2"
 
 	"github.com/manusa/kubernetes-mcp-server/pkg/mcp"
@@ -119,49 +120,48 @@ func AuthorizationMiddleware(requireOAuth bool, serverURL string, mcpServer *mcp
 	}
 }
 
-type JWTClaims jwt.MapClaims
+var allSignatureAlgorithms = []jose.SignatureAlgorithm{
+	jose.EdDSA,
+	jose.HS256,
+	jose.HS384,
+	jose.HS512,
+	jose.RS256,
+	jose.RS384,
+	jose.RS512,
+	jose.ES256,
+	jose.ES384,
+	jose.ES512,
+	jose.PS256,
+	jose.PS384,
+	jose.PS512,
+}
+
+type JWTClaims struct {
+	jwt.Claims
+	Scope string `json:"scope,omitempty"`
+}
 
 func (c *JWTClaims) GetScopes() []string {
-	scope := jwt.MapClaims(*c)["scope"]
-	switch scope.(type) {
-	case string:
-		return strings.Fields(scope.(string))
+	if c.Scope == "" {
+		return nil
 	}
-	return nil
-}
-
-func (c *JWTClaims) VerifyAudience(audience string) bool {
-	return jwt.MapClaims(*c).VerifyAudience(audience, true)
-}
-
-func (c *JWTClaims) VerifyExpiresAt(expriesAt int64) bool {
-	return jwt.MapClaims(*c).VerifyExpiresAt(expriesAt, true)
-}
-
-func (c *JWTClaims) VerifyIssuer(issuer string) bool {
-	return jwt.MapClaims(*c).VerifyIssuer(issuer, true)
-}
-
-func (c *JWTClaims) Valid() error {
-	return jwt.MapClaims(*c).Valid()
+	return strings.Fields(c.Scope)
 }
 
 // Validate Checks if the JWT claims are valid and if the audience matches the expected one.
 func (c *JWTClaims) Validate(audience string) error {
-	if err := c.Valid(); err != nil {
-		return err
-	}
-	if !c.VerifyAudience(audience) {
-		return fmt.Errorf("token audience mismatch: %v", jwt.MapClaims(*c)["aud"])
-	}
-	return nil
+	return c.Claims.Validate(jwt.Expected{
+		AnyAudience: jwt.Audience{audience},
+	})
 }
 
 func ParseJWTClaims(token string) (*JWTClaims, error) {
-	parser := jwt.NewParser(jwt.WithoutClaimsValidation())
-	mapClaims := &JWTClaims{}
-	_, _, err := parser.ParseUnverified(token, mapClaims)
-	return mapClaims, err
+	tkn, err := jwt.ParseSigned(token, allSignatureAlgorithms)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse JWT token: %w", err)
+	}
+	claims := &JWTClaims{}
+	return claims, tkn.UnsafeClaimsWithoutVerification(claims)
 }
 
 func validateTokenWithOIDC(ctx context.Context, provider *oidc.Provider, token, audience string) error {

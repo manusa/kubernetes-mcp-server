@@ -12,7 +12,7 @@ import (
 
 func (s *Server) initConfiguration() []server.ServerTool {
 	tools := []server.ServerTool{
-		{mcp.NewTool("configuration_view",
+		{Tool: mcp.NewTool("configuration_view",
 			mcp.WithDescription("Get the current Kubernetes configuration content as a kubeconfig YAML"),
 			mcp.WithBoolean("minified", mcp.Description("Return a minified version of the configuration. "+
 				"If set to true, keeps only the current-context and the relevant pieces of the configuration for that context. "+
@@ -23,7 +23,7 @@ func (s *Server) initConfiguration() []server.ServerTool {
 			mcp.WithReadOnlyHintAnnotation(true),
 			mcp.WithDestructiveHintAnnotation(false),
 			mcp.WithOpenWorldHintAnnotation(true),
-		), s.configurationView},
+		), Handler: s.configurationView},
 	}
 	return tools
 }

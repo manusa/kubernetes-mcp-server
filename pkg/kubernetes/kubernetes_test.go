@@ -137,17 +137,17 @@ users:
 			t.Errorf("expected Timeout %v, got %v", originalCfg.Timeout, derivedCfg.Timeout)
 		}
 
-		if derivedCfg.TLSClientConfig.Insecure != originalCfg.TLSClientConfig.Insecure {
-			t.Errorf("expected TLS Insecure %v, got %v", originalCfg.TLSClientConfig.Insecure, derivedCfg.TLSClientConfig.Insecure)
+		if derivedCfg.Insecure != originalCfg.Insecure {
+			t.Errorf("expected TLS Insecure %v, got %v", originalCfg.Insecure, derivedCfg.Insecure)
 		}
-		if derivedCfg.TLSClientConfig.ServerName != originalCfg.TLSClientConfig.ServerName {
-			t.Errorf("expected TLS ServerName %s, got %s", originalCfg.TLSClientConfig.ServerName, derivedCfg.TLSClientConfig.ServerName)
+		if derivedCfg.ServerName != originalCfg.ServerName {
+			t.Errorf("expected TLS ServerName %s, got %s", originalCfg.ServerName, derivedCfg.ServerName)
 		}
-		if derivedCfg.TLSClientConfig.CAFile != originalCfg.TLSClientConfig.CAFile {
-			t.Errorf("expected TLS CAFile %s, got %s", originalCfg.TLSClientConfig.CAFile, derivedCfg.TLSClientConfig.CAFile)
+		if derivedCfg.CAFile != originalCfg.CAFile {
+			t.Errorf("expected TLS CAFile %s, got %s", originalCfg.CAFile, derivedCfg.CAFile)
 		}
-		if string(derivedCfg.TLSClientConfig.CAData) != string(originalCfg.TLSClientConfig.CAData) {
-			t.Errorf("expected TLS CAData %s, got %s", string(originalCfg.TLSClientConfig.CAData), string(derivedCfg.TLSClientConfig.CAData))
+		if string(derivedCfg.CAData) != string(originalCfg.CAData) {
+			t.Errorf("expected TLS CAData %s, got %s", string(originalCfg.CAData), string(derivedCfg.CAData))
 		}
 
 		if derivedCfg.BearerToken != testBearerToken {
@@ -160,17 +160,17 @@ users:
 		// Verify that sensitive fields are NOT copied to prevent credential leakage
 		// The derived config should only use the bearer token from the Authorization header
 		// and not inherit any authentication credentials from the original kubeconfig
-		if derivedCfg.TLSClientConfig.CertFile != "" {
-			t.Errorf("expected TLS CertFile to be empty, got %s", derivedCfg.TLSClientConfig.CertFile)
+		if derivedCfg.CertFile != "" {
+			t.Errorf("expected TLS CertFile to be empty, got %s", derivedCfg.CertFile)
 		}
-		if derivedCfg.TLSClientConfig.KeyFile != "" {
-			t.Errorf("expected TLS KeyFile to be empty, got %s", derivedCfg.TLSClientConfig.KeyFile)
+		if derivedCfg.KeyFile != "" {
+			t.Errorf("expected TLS KeyFile to be empty, got %s", derivedCfg.KeyFile)
 		}
-		if len(derivedCfg.TLSClientConfig.CertData) != 0 {
-			t.Errorf("expected TLS CertData to be empty, got %v", derivedCfg.TLSClientConfig.CertData)
+		if len(derivedCfg.CertData) != 0 {
+			t.Errorf("expected TLS CertData to be empty, got %v", derivedCfg.CertData)
 		}
-		if len(derivedCfg.TLSClientConfig.KeyData) != 0 {
-			t.Errorf("expected TLS KeyData to be empty, got %v", derivedCfg.TLSClientConfig.KeyData)
+		if len(derivedCfg.KeyData) != 0 {
+			t.Errorf("expected TLS KeyData to be empty, got %v", derivedCfg.KeyData)
 		}
 
 		if derivedCfg.Username != "" {

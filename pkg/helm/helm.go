@@ -45,11 +45,14 @@ func (h *Helm) Install(ctx context.Context, chart string, values map[string]inte
 	install.Timeout = 5 * time.Minute
 	install.DryRun = false
 
-	chartRequested, err := install.ChartPathOptions.LocateChart(chart, cli.New())
+	chartRequested, err := install.LocateChart(chart, cli.New())
 	if err != nil {
 		return "", err
 	}
 	chartLoaded, err := loader.Load(chartRequested)
+	if err != nil {
+		return "", err
+	}
 
 	installedRelease, err := install.RunWithContext(ctx, chartLoaded, values)
 	if err != nil {

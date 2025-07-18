@@ -25,12 +25,9 @@ import (
 	apiextensionsv1spec "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
-	"k8s.io/client-go/scale"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/clientcmd/api"
 	toolswatch "k8s.io/client-go/tools/watch"
@@ -71,7 +68,7 @@ func TestMain(m *testing.M) {
 	}
 	envTestEnv.CheckCoherence()
 	workflows.Use{}.Do(envTestEnv)
-	versionDir := envTestEnv.Platform.Platform.BaseName(*envTestEnv.Version.AsConcrete())
+	versionDir := envTestEnv.Platform.BaseName(*envTestEnv.Version.AsConcrete())
 	envTest = &envtest.Environment{
 		BinaryAssetsDirectory: filepath.Join(envTestDir, "k8s", versionDir),
 	}
@@ -190,9 +187,9 @@ func (c *mcpContext) withKubeConfig(rc *rest.Config) *api.Config {
 	fakeConfig.AuthInfos["additional-auth"] = api.NewAuthInfo()
 	if rc != nil {
 		fakeConfig.Clusters["fake"].Server = rc.Host
-		fakeConfig.Clusters["fake"].CertificateAuthorityData = rc.TLSClientConfig.CAData
-		fakeConfig.AuthInfos["fake"].ClientKeyData = rc.TLSClientConfig.KeyData
-		fakeConfig.AuthInfos["fake"].ClientCertificateData = rc.TLSClientConfig.CertData
+		fakeConfig.Clusters["fake"].CertificateAuthorityData = rc.CAData
+		fakeConfig.AuthInfos["fake"].ClientKeyData = rc.KeyData
+		fakeConfig.AuthInfos["fake"].ClientCertificateData = rc.CertData
 	}
 	fakeConfig.Contexts["fake-context"] = api.NewContext()
 	fakeConfig.Contexts["fake-context"].Cluster = "fake"
@@ -264,18 +261,6 @@ func (c *mcpContext) newKubernetesClient() *kubernetes.Clientset {
 	return kubernetes.NewForConfigOrDie(envTestRestConfig)
 }
 
-func (c *mcpContext) newRestClient(groupVersion *schema.GroupVersion) *rest.RESTClient {
-	config := *envTestRestConfig
-	config.GroupVersion = groupVersion
-	config.APIPath = "/api"
-	config.NegotiatedSerializer = serializer.NewCodecFactory(scale.NewScaleConverter().Scheme()).WithoutConversion()
-	rc, err := rest.RESTClientFor(&config)
-	if err != nil {
-		panic(err)
-	}
-	return rc
-}
-
 // newApiExtensionsClient creates a new ApiExtensions client with the envTest kubeconfig
 func (c *mcpContext) newApiExtensionsClient() *apiextensionsv1.ApiextensionsV1Client {
 	return apiextensionsv1.NewForConfigOrDie(envTestRestConfig)
@@ -286,6 +271,9 @@ func (c *mcpContext) crdApply(resource string) error {
 	apiExtensionsV1Client := c.newApiExtensionsClient()
 	var crd = &apiextensionsv1spec.CustomResourceDefinition{}
 	err := json.Unmarshal([]byte(resource), crd)
+	if err != nil {
+		return fmt.Errorf("failed to create CRD %v", err)
+	}
 	_, err = apiExtensionsV1Client.CustomResourceDefinitions().Create(c.ctx, crd, metav1.CreateOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to create CRD %v", err)

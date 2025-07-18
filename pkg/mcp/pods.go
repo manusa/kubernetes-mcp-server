@@ -127,7 +127,7 @@ func (s *Server) podsListInAllNamespaces(ctx context.Context, ctr mcp.CallToolRe
 		AsTable: s.configuration.ListOutput.AsTable(),
 	}
 	if labelSelector != nil {
-		resourceListOptions.ListOptions.LabelSelector = labelSelector.(string)
+		resourceListOptions.LabelSelector = labelSelector.(string)
 	}
 	derived, err := s.k.Derived(ctx)
 	if err != nil {
@@ -150,7 +150,7 @@ func (s *Server) podsListInNamespace(ctx context.Context, ctr mcp.CallToolReques
 	}
 	labelSelector := ctr.GetArguments()["labelSelector"]
 	if labelSelector != nil {
-		resourceListOptions.ListOptions.LabelSelector = labelSelector.(string)
+		resourceListOptions.LabelSelector = labelSelector.(string)
 	}
 	derived, err := s.k.Derived(ctx)
 	if err != nil {

@@ -161,7 +161,8 @@ func ParseJWTClaims(token string) (*JWTClaims, error) {
 		return nil, fmt.Errorf("failed to parse JWT token: %w", err)
 	}
 	claims := &JWTClaims{}
-	return claims, tkn.UnsafeClaimsWithoutVerification(claims)
+	err = tkn.UnsafeClaimsWithoutVerification(claims)
+	return claims, err
 }
 
 func validateTokenWithOIDC(ctx context.Context, provider *oidc.Provider, token, audience string) error {

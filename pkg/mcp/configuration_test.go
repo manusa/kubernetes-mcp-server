@@ -50,7 +50,7 @@ func TestConfigurationView(t *testing.T) {
 			if decoded.Clusters[0].Name != "fake" {
 				t.Errorf("fake-cluster not found: %v", decoded.Clusters)
 			}
-			if decoded.Clusters[0].Cluster.Server != "https://example.com" {
+			if decoded.Clusters[0].Cluster.Server != "https://127.0.0.1:6443" {
 				t.Errorf("fake-server not found: %v", decoded.Clusters)
 			}
 		})

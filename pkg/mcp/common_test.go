@@ -184,7 +184,7 @@ func testCaseWithContext(t *testing.T, mcpCtx *mcpContext, test func(c *mcpConte
 func (c *mcpContext) withKubeConfig(rc *rest.Config) *api.Config {
 	fakeConfig := api.NewConfig()
 	fakeConfig.Clusters["fake"] = api.NewCluster()
-	fakeConfig.Clusters["fake"].Server = "https://example.com"
+	fakeConfig.Clusters["fake"].Server = "https://127.0.0.1:6443"
 	fakeConfig.Clusters["additional-cluster"] = api.NewCluster()
 	fakeConfig.AuthInfos["fake"] = api.NewAuthInfo()
 	fakeConfig.AuthInfos["additional-auth"] = api.NewAuthInfo()

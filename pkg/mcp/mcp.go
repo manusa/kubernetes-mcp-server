@@ -3,6 +3,7 @@ package mcp
 import (
 	"context"
 	"fmt"
+	"k8s.io/klog/v2"
 	"net/http"
 	"slices"
 
@@ -56,6 +57,7 @@ func NewServer(configuration Configuration) (*Server, error) {
 			server.WithPromptCapabilities(true),
 			server.WithToolCapabilities(true),
 			server.WithLogging(),
+			server.WithToolHandlerMiddleware(toolCallLoggingMiddleware),
 		),
 	}
 	if err := s.reloadKubernetesClient(); err != nil {
@@ -164,4 +166,11 @@ func contextFunc(ctx context.Context, r *http.Request) context.Context {
 	}
 
 	return ctx
+}
+
+func toolCallLoggingMiddleware(next server.ToolHandlerFunc) server.ToolHandlerFunc {
+	return func(ctx context.Context, ctr mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		klog.V(5).Infof("mcp tool call: %s(%v)", ctr.Params.Name, ctr.Params.Arguments)
+		return next(ctx, ctr)
+	}
 }

@@ -1,13 +1,18 @@
 package mcp
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"flag"
 	"fmt"
+	"k8s.io/klog/v2"
+	"k8s.io/klog/v2/textlogger"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"testing"
 	"time"
 
@@ -100,6 +105,7 @@ func TestMain(m *testing.M) {
 type mcpContext struct {
 	profile    Profile
 	listOutput output.Output
+	logLevel   int
 
 	staticConfig  *config.StaticConfig
 	clientOptions []transport.ClientOption
@@ -111,6 +117,8 @@ type mcpContext struct {
 	mcpServer     *Server
 	mcpHttpServer *httptest.Server
 	mcpClient     *client.Client
+	klogState     klog.State
+	logBuffer     bytes.Buffer
 }
 
 func (c *mcpContext) beforeEach(t *testing.T) {
@@ -133,6 +141,13 @@ func (c *mcpContext) beforeEach(t *testing.T) {
 	if c.before != nil {
 		c.before(c)
 	}
+	// Set up logging
+	c.klogState = klog.CaptureState()
+	flags := flag.NewFlagSet("test", flag.ContinueOnError)
+	klog.InitFlags(flags)
+	_ = flags.Set("v", strconv.Itoa(c.logLevel))
+	klog.SetLogger(textlogger.NewLogger(textlogger.NewConfig(textlogger.Verbosity(c.logLevel), textlogger.Output(&c.logBuffer))))
+	// MCP Server
 	if c.mcpServer, err = NewServer(Configuration{
 		Profile:      c.profile,
 		ListOutput:   c.listOutput,
@@ -146,6 +161,7 @@ func (c *mcpContext) beforeEach(t *testing.T) {
 		t.Fatal(err)
 		return
 	}
+	// MCP Client
 	if err = c.mcpClient.Start(c.ctx); err != nil {
 		t.Fatal(err)
 		return
@@ -168,6 +184,7 @@ func (c *mcpContext) afterEach() {
 	c.mcpServer.Close()
 	_ = c.mcpClient.Close()
 	c.mcpHttpServer.Close()
+	c.klogState.Restore()
 }
 
 func testCase(t *testing.T, test func(c *mcpContext)) {

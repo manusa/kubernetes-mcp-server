@@ -1,10 +1,11 @@
 package mcp
 
 import (
-	"k8s.io/utils/ptr"
-	"testing"
-
 	"github.com/mark3labs/mcp-go/mcp"
+	"k8s.io/utils/ptr"
+	"regexp"
+	"strings"
+	"testing"
 
 	"github.com/manusa/kubernetes-mcp-server/pkg/config"
 )
@@ -112,6 +113,30 @@ func TestDisabledTools(t *testing.T) {
 				if tool.Name == "namespaces_list" || tool.Name == "events_list" {
 					t.Errorf("Tool %s is not disabled but should be", tool.Name)
 				}
+			}
+		})
+	})
+}
+
+func TestToolCallLogging(t *testing.T) {
+	testCaseWithContext(t, &mcpContext{logLevel: 5}, func(c *mcpContext) {
+		_, _ = c.callTool("configuration_view", map[string]interface{}{
+			"minified": false,
+		})
+		t.Run("Logs tool name", func(t *testing.T) {
+			expectedLog := "mcp tool call: configuration_view("
+			if !strings.Contains(c.logBuffer.String(), expectedLog) {
+				t.Errorf("Expected log to contain '%s', got: %s", expectedLog, c.logBuffer.String())
+			}
+		})
+		t.Run("Logs tool call arguments", func(t *testing.T) {
+			expected := `"mcp tool call: configuration_view\((.+)\)"`
+			m := regexp.MustCompile(expected).FindStringSubmatch(c.logBuffer.String())
+			if len(m) != 2 {
+				t.Fatalf("Expected log entry to contain arguments, got %s", c.logBuffer.String())
+			}
+			if m[1] != "map[minified:false]" {
+				t.Errorf("Expected log arguments to be 'map[minified:false]', got %s", m[1])
 			}
 		})
 	})

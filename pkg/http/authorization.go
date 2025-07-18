@@ -69,7 +69,7 @@ func AuthorizationMiddleware(requireOAuth bool, serverURL string, oidcProvider *
 				http.Error(w, "Unauthorized: Invalid token", http.StatusUnauthorized)
 				return
 			}
-			
+
 			if oidcProvider != nil {
 				// If OIDC Provider is configured, this token must be validated against it.
 				if err := validateTokenWithOIDC(r.Context(), oidcProvider, token, audience); err != nil {

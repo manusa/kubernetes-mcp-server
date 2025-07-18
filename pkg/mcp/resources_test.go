@@ -736,7 +736,7 @@ func TestResourcesDelete(t *testing.T) {
 		})
 		t.Run("resources_delete with valid namespaced resource deletes Namespace", func(t *testing.T) {
 			ns, err := client.CoreV1().Namespaces().Get(c.ctx, "ns-to-delete", metav1.GetOptions{})
-			if err == nil && ns != nil && ns.ObjectMeta.DeletionTimestamp == nil {
+			if err == nil && ns != nil && ns.DeletionTimestamp == nil {
 				t.Fatalf("Namespace not deleted")
 				return
 			}

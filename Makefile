@@ -15,6 +15,9 @@ LD_FLAGS = -s -w \
 	-X '$(PACKAGE)/pkg/version.BinaryName=$(BINARY_NAME)'
 COMMON_BUILD_ARGS = -ldflags "$(LD_FLAGS)"
 
+GOLANGCI_LINT = $(shell pwd)/_output/tools/bin/golangci-lint
+GOLANGCI_LINT_VERSION ?= v2.2.2
+
 # NPM version should not append the -dirty flag
 NPM_VERSION ?= $(shell echo $(shell git describe --tags --always) | sed 's/^v//')
 OSES = darwin linux windows
@@ -97,3 +100,14 @@ format: ## Format the code
 .PHONY: tidy
 tidy: ## Tidy up the go modules
 	go mod tidy
+
+.PHONY: golangci-lint
+golangci-lint: ## Download and install golangci-lint if not already installed
+		@[ -f $(GOLANGCI_LINT) ] || { \
+    	set -e ;\
+    	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(shell dirname $(GOLANGCI_LINT)) $(GOLANGCI_LINT_VERSION) ;\
+    	}
+
+.PHONY: lint
+lint: golangci-lint ## Lint the code
+	$(GOLANGCI_LINT) run --verbose --print-resources-usage

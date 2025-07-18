@@ -28,13 +28,9 @@ func TestWatchKubeConfig(t *testing.T) {
 		// When
 		f, _ := os.OpenFile(filepath.Join(c.tempDir, "config"), os.O_APPEND|os.O_WRONLY, 0644)
 		_, _ = f.WriteString("\n")
-		for {
-			if notification != nil {
-				break
-			}
+		for notification == nil {
 			select {
 			case <-withTimeout.Done():
-				break
 			default:
 				time.Sleep(100 * time.Millisecond)
 			}
@@ -94,7 +90,7 @@ func TestSseHeaders(t *testing.T) {
 		w.WriteHeader(404)
 	}))
 	testCaseWithContext(t, &mcpContext{before: before}, func(c *mcpContext) {
-		c.callTool("pods_list", map[string]interface{}{})
+		_, _ = c.callTool("pods_list", map[string]interface{}{})
 		t.Run("DiscoveryClient propagates headers to Kube API", func(t *testing.T) {
 			if len(pathHeaders) == 0 {
 				t.Fatalf("No requests were made to Kube API")
@@ -117,7 +113,7 @@ func TestSseHeaders(t *testing.T) {
 				t.Fatalf("Overridden header Authorization not found in request to /api/v1/namespaces/default/pods")
 			}
 		})
-		c.callTool("pods_delete", map[string]interface{}{"name": "a-pod-to-delete"})
+		_, _ = c.callTool("pods_delete", map[string]interface{}{"name": "a-pod-to-delete"})
 		t.Run("kubernetes.Interface propagates headers to Kube API", func(t *testing.T) {
 			if len(pathHeaders) == 0 {
 				t.Fatalf("No requests were made to Kube API")

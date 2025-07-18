@@ -482,7 +482,7 @@ func TestPodsDelete(t *testing.T) {
 		})
 		t.Run("pods_delete with name and nil namespace deletes Pod", func(t *testing.T) {
 			p, pErr := kc.CoreV1().Pods("default").Get(c.ctx, "a-pod-to-delete", metav1.GetOptions{})
-			if pErr == nil && p != nil && p.ObjectMeta.DeletionTimestamp == nil {
+			if pErr == nil && p != nil && p.DeletionTimestamp == nil {
 				t.Errorf("Pod not deleted")
 				return
 			}
@@ -512,7 +512,7 @@ func TestPodsDelete(t *testing.T) {
 		})
 		t.Run("pods_delete with name and namespace deletes Pod", func(t *testing.T) {
 			p, pErr := kc.CoreV1().Pods("ns-1").Get(c.ctx, "a-pod-to-delete-in-ns-1", metav1.GetOptions{})
-			if pErr == nil && p != nil && p.ObjectMeta.DeletionTimestamp == nil {
+			if pErr == nil && p != nil && p.DeletionTimestamp == nil {
 				t.Errorf("Pod not deleted")
 				return
 			}
@@ -549,12 +549,12 @@ func TestPodsDelete(t *testing.T) {
 		})
 		t.Run("pods_delete with managed pod deletes Pod and Service", func(t *testing.T) {
 			p, pErr := kc.CoreV1().Pods("default").Get(c.ctx, "a-managed-pod-to-delete", metav1.GetOptions{})
-			if pErr == nil && p != nil && p.ObjectMeta.DeletionTimestamp == nil {
+			if pErr == nil && p != nil && p.DeletionTimestamp == nil {
 				t.Errorf("Pod not deleted")
 				return
 			}
 			s, sErr := kc.CoreV1().Services("default").Get(c.ctx, "a-managed-service-to-delete", metav1.GetOptions{})
-			if sErr == nil && s != nil && s.ObjectMeta.DeletionTimestamp == nil {
+			if sErr == nil && s != nil && s.DeletionTimestamp == nil {
 				t.Errorf("Service not deleted")
 				return
 			}
@@ -621,7 +621,7 @@ func TestPodsDeleteInOpenShift(t *testing.T) {
 		})
 		t.Run("pods_delete with managed pod in OpenShift deletes Pod and Route", func(t *testing.T) {
 			p, pErr := kc.CoreV1().Pods("default").Get(c.ctx, "a-managed-pod-to-delete-in-openshift", metav1.GetOptions{})
-			if pErr == nil && p != nil && p.ObjectMeta.DeletionTimestamp == nil {
+			if pErr == nil && p != nil && p.DeletionTimestamp == nil {
 				t.Errorf("Pod not deleted")
 				return
 			}

@@ -116,7 +116,7 @@ func (s *Server) resourcesList(ctx context.Context, ctr mcp.CallToolRequest) (*m
 		if !ok {
 			return NewTextResult("", fmt.Errorf("labelSelector is not a string")), nil
 		}
-		resourceListOptions.ListOptions.LabelSelector = l
+		resourceListOptions.LabelSelector = l
 	}
 	gvk, err := parseGroupVersionKind(ctr.GetArguments())
 	if err != nil {

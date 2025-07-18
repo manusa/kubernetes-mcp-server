@@ -106,6 +106,7 @@ func (m *Manager) ConfigurationView(minify bool) (runtime.Object, error) {
 			return nil, err
 		}
 	}
+	//nolint:staticcheck
 	if err = clientcmdapi.FlattenConfig(&cfg); err != nil {
 		// ignore error
 		//return "", err

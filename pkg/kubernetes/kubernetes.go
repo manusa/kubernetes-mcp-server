@@ -26,9 +26,11 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc"
 )
 
+type HeaderKey string
+
 const (
-	CustomAuthorizationHeader = "kubernetes-authorization"
-	OAuthAuthorizationHeader  = "Authorization"
+	CustomAuthorizationHeader = HeaderKey("kubernetes-authorization")
+	OAuthAuthorizationHeader  = HeaderKey("Authorization")
 
 	CustomUserAgent = "kubernetes-mcp-server/bearer-token-auth"
 )
@@ -155,10 +157,10 @@ func (m *Manager) Derived(ctx context.Context) (*Kubernetes, error) {
 		APIPath: m.cfg.APIPath,
 		// Copy only server verification TLS settings (CA bundle and server name)
 		TLSClientConfig: rest.TLSClientConfig{
-			Insecure:   m.cfg.TLSClientConfig.Insecure,
-			ServerName: m.cfg.TLSClientConfig.ServerName,
-			CAFile:     m.cfg.TLSClientConfig.CAFile,
-			CAData:     m.cfg.TLSClientConfig.CAData,
+			Insecure:   m.cfg.Insecure,
+			ServerName: m.cfg.ServerName,
+			CAFile:     m.cfg.CAFile,
+			CAData:     m.cfg.CAData,
 		},
 		BearerToken: strings.TrimPrefix(authorization, "Bearer "),
 		// pass custom UserAgent to identify the client

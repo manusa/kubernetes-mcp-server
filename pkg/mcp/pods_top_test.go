@@ -112,7 +112,7 @@ func TestPodsTopMetricsAvailable(t *testing.T) {
 			if podsTopDefaults.IsError {
 				t.Fatalf("call tool failed %s", textContent)
 			}
-			expectedHeaders := regexp.MustCompile("(?m)^\\s*NAMESPACE\\s+POD\\s+NAME\\s+CPU\\(cores\\)\\s+MEMORY\\(bytes\\)\\s*$")
+			expectedHeaders := regexp.MustCompile(`(?m)^\s*NAMESPACE\s+POD\s+NAME\s+CPU\(cores\)\s+MEMORY\(bytes\)\s*$`)
 			if !expectedHeaders.MatchString(textContent) {
 				t.Errorf("Expected headers '%s' not found in output:\n%s", expectedHeaders.String(), textContent)
 			}
@@ -126,7 +126,7 @@ func TestPodsTopMetricsAvailable(t *testing.T) {
 					t.Errorf("Expected row '%s' not found in output:\n%s", row, textContent)
 				}
 			}
-			expectedTotal := regexp.MustCompile("(?m)^\\s+600m\\s+900Mi\\s*$")
+			expectedTotal := regexp.MustCompile(`(?m)^\s+600m\s+900Mi\s*$`)
 			if !expectedTotal.MatchString(textContent) {
 				t.Errorf("Expected total row '%s' not found in output:\n%s", expectedTotal.String(), textContent)
 			}
@@ -148,7 +148,7 @@ func TestPodsTopMetricsAvailable(t *testing.T) {
 					t.Errorf("Expected row '%s' not found in output:\n%s", row, textContent)
 				}
 			}
-			expectedTotal := regexp.MustCompile("(?m)^\\s+40m\\s+60Mi\\s*$")
+			expectedTotal := regexp.MustCompile(`(?m)^\s+40m\s+60Mi\s*$`)
 			if !expectedTotal.MatchString(textContent) {
 				t.Errorf("Expected total row '%s' not found in output:\n%s", expectedTotal.String(), textContent)
 			}
@@ -161,11 +161,11 @@ func TestPodsTopMetricsAvailable(t *testing.T) {
 				t.Fatalf("call tool failed %v", err)
 			}
 			textContent := podsTopNamespace.Content[0].(mcp.TextContent).Text
-			expectedRow := regexp.MustCompile("ns-5\\s+pod-ns-5-1\\s+container-1\\s+10m\\s+20Mi")
+			expectedRow := regexp.MustCompile(`ns-5\s+pod-ns-5-1\s+container-1\s+10m\s+20Mi`)
 			if !expectedRow.MatchString(textContent) {
 				t.Errorf("Expected row '%s' not found in output:\n%s", expectedRow.String(), textContent)
 			}
-			expectedTotal := regexp.MustCompile("(?m)^\\s+10m\\s+20Mi\\s*$")
+			expectedTotal := regexp.MustCompile(`(?m)^\s+10m\s+20Mi\s*$`)
 			if !expectedTotal.MatchString(textContent) {
 				t.Errorf("Expected total row '%s' not found in output:\n%s", expectedTotal.String(), textContent)
 			}
@@ -179,11 +179,11 @@ func TestPodsTopMetricsAvailable(t *testing.T) {
 				t.Fatalf("call tool failed %v", err)
 			}
 			textContent := podsTopNamespaceName.Content[0].(mcp.TextContent).Text
-			expectedRow := regexp.MustCompile("ns-5\\s+pod-ns-5-5\\s+container-1\\s+13m\\s+37Mi")
+			expectedRow := regexp.MustCompile(`ns-5\s+pod-ns-5-5\s+container-1\s+13m\s+37Mi`)
 			if !expectedRow.MatchString(textContent) {
 				t.Errorf("Expected row '%s' not found in output:\n%s", expectedRow.String(), textContent)
 			}
-			expectedTotal := regexp.MustCompile("(?m)^\\s+13m\\s+37Mi\\s*$")
+			expectedTotal := regexp.MustCompile(`(?m)^\s+13m\s+37Mi\s*$`)
 			if !expectedTotal.MatchString(textContent) {
 				t.Errorf("Expected total row '%s' not found in output:\n%s", expectedTotal.String(), textContent)
 			}
@@ -196,11 +196,11 @@ func TestPodsTopMetricsAvailable(t *testing.T) {
 				t.Fatalf("call tool failed %v", err)
 			}
 			textContent := podsTopNamespaceLabelSelector.Content[0].(mcp.TextContent).Text
-			expectedRow := regexp.MustCompile("ns-5\\s+pod-ns-5-42\\s+container-1\\s+42m\\s+42Mi")
+			expectedRow := regexp.MustCompile(`ns-5\s+pod-ns-5-42\s+container-1\s+42m\s+42Mi`)
 			if !expectedRow.MatchString(textContent) {
 				t.Errorf("Expected row '%s' not found in output:\n%s", expectedRow.String(), textContent)
 			}
-			expectedTotal := regexp.MustCompile("(?m)^\\s+42m\\s+42Mi\\s*$")
+			expectedTotal := regexp.MustCompile(`(?m)^\s+42m\s+42Mi\s*$`)
 			if !expectedTotal.MatchString(textContent) {
 				t.Errorf("Expected total row '%s' not found in output:\n%s", expectedTotal.String(), textContent)
 			}

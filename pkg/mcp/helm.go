@@ -10,7 +10,7 @@ import (
 
 func (s *Server) initHelm() []server.ServerTool {
 	return []server.ServerTool{
-		{mcp.NewTool("helm_install",
+		{Tool: mcp.NewTool("helm_install",
 			mcp.WithDescription("Install a Helm chart in the current or provided namespace"),
 			mcp.WithString("chart", mcp.Description("Chart reference to install (for example: stable/grafana, oci://ghcr.io/nginxinc/charts/nginx-ingress)"), mcp.Required()),
 			mcp.WithObject("values", mcp.Description("Values to pass to the Helm chart (Optional)")),
@@ -22,8 +22,8 @@ func (s *Server) initHelm() []server.ServerTool {
 			mcp.WithDestructiveHintAnnotation(false),
 			mcp.WithIdempotentHintAnnotation(false), // TODO: consider replacing implementation with equivalent to: helm upgrade --install
 			mcp.WithOpenWorldHintAnnotation(true),
-		), s.helmInstall},
-		{mcp.NewTool("helm_list",
+		), Handler: s.helmInstall},
+		{Tool: mcp.NewTool("helm_list",
 			mcp.WithDescription("List all the Helm releases in the current or provided namespace (or in all namespaces if specified)"),
 			mcp.WithString("namespace", mcp.Description("Namespace to list Helm releases from (Optional, all namespaces if not provided)")),
 			mcp.WithBoolean("all_namespaces", mcp.Description("If true, lists all Helm releases in all namespaces ignoring the namespace argument (Optional)")),
@@ -32,8 +32,8 @@ func (s *Server) initHelm() []server.ServerTool {
 			mcp.WithReadOnlyHintAnnotation(true),
 			mcp.WithDestructiveHintAnnotation(false),
 			mcp.WithOpenWorldHintAnnotation(true),
-		), s.helmList},
-		{mcp.NewTool("helm_uninstall",
+		), Handler: s.helmList},
+		{Tool: mcp.NewTool("helm_uninstall",
 			mcp.WithDescription("Uninstall a Helm release in the current or provided namespace"),
 			mcp.WithString("name", mcp.Description("Name of the Helm release to uninstall"), mcp.Required()),
 			mcp.WithString("namespace", mcp.Description("Namespace to uninstall the Helm release from (Optional, current namespace if not provided)")),
@@ -43,7 +43,7 @@ func (s *Server) initHelm() []server.ServerTool {
 			mcp.WithDestructiveHintAnnotation(true),
 			mcp.WithIdempotentHintAnnotation(true),
 			mcp.WithOpenWorldHintAnnotation(true),
-		), s.helmUninstall},
+		), Handler: s.helmUninstall},
 	}
 }
 

@@ -60,12 +60,17 @@ func Serve(ctx context.Context, mcpServer *mcp.Server, staticConfig *config.Stat
 
 		response := map[string]interface{}{
 			"authorization_servers":    authServers,
+			"authorization_server":     authServers[0],
 			"scopes_supported":         []string{},
 			"bearer_methods_supported": []string{"header"},
 		}
 
 		if staticConfig.ServerURL != "" {
 			response["resource"] = staticConfig.ServerURL
+		}
+
+		if staticConfig.JwksURL != "" {
+			response["jwks_uri"] = staticConfig.JwksURL
 		}
 
 		w.WriteHeader(http.StatusOK)

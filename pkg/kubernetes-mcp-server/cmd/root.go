@@ -2,10 +2,14 @@ package cmd
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"errors"
 	"flag"
 	"fmt"
+	"net/http"
 	"net/url"
+	"os"
 	"strconv"
 	"strings"
 
@@ -46,20 +50,22 @@ kubernetes-mcp-server --port 8443 --sse-base-url https://example.com:8443
 )
 
 type MCPServerOptions struct {
-	Version            bool
-	LogLevel           int
-	Port               string
-	SSEPort            int
-	HttpPort           int
-	SSEBaseUrl         string
-	Kubeconfig         string
-	Profile            string
-	ListOutput         string
-	ReadOnly           bool
-	DisableDestructive bool
-	RequireOAuth       bool
-	AuthorizationURL   string
-	ServerURL          string
+	Version              bool
+	LogLevel             int
+	Port                 string
+	SSEPort              int
+	HttpPort             int
+	SSEBaseUrl           string
+	Kubeconfig           string
+	Profile              string
+	ListOutput           string
+	ReadOnly             bool
+	DisableDestructive   bool
+	RequireOAuth         bool
+	AuthorizationURL     string
+	JwksURL              string
+	CertificateAuthority string
+	ServerURL            string
 
 	ConfigPath   string
 	StaticConfig *config.StaticConfig
@@ -116,8 +122,13 @@ func NewMCPServer(streams genericiooptions.IOStreams) *cobra.Command {
 	_ = cmd.Flags().MarkHidden("require-oauth")
 	cmd.Flags().StringVar(&o.AuthorizationURL, "authorization-url", o.AuthorizationURL, "OAuth authorization server URL for protected resource endpoint. If not provided, the Kubernetes API server host will be used. Only valid if require-oauth is enabled.")
 	_ = cmd.Flags().MarkHidden("authorization-url")
+	cmd.Flags().StringVar(&o.JwksURL, "jwks-url", o.JwksURL, "OAuth JWKS server URL for protected resource endpoint. Only valid if require-oauth is enabled.")
+	_ = cmd.Flags().MarkHidden("jwks-url")
 	cmd.Flags().StringVar(&o.ServerURL, "server-url", o.ServerURL, "Server URL of this application. Optional. If set, this url will be served in protected resource metadata endpoint and tokens will be validated with this audience. If not set, expected audience is kubernetes-mcp-server. Only valid if require-oauth is enabled.")
 	_ = cmd.Flags().MarkHidden("server-url")
+	cmd.Flags().StringVar(&o.CertificateAuthority, "certificate-authority", o.CertificateAuthority, "Certificate authority path to verify certificates. Optional. Only valid if require-oauth is enabled.")
+	_ = cmd.Flags().MarkHidden("certificate-authority")
+
 	return cmd
 }
 
@@ -174,8 +185,14 @@ func (m *MCPServerOptions) loadFlags(cmd *cobra.Command) {
 	if cmd.Flag("authorization-url").Changed {
 		m.StaticConfig.AuthorizationURL = m.AuthorizationURL
 	}
+	if cmd.Flag("jwks-url").Changed {
+		m.StaticConfig.JwksURL = m.JwksURL
+	}
 	if cmd.Flag("server-url").Changed {
 		m.StaticConfig.ServerURL = m.ServerURL
+	}
+	if cmd.Flag("certificate-authority").Changed {
+		m.StaticConfig.CertificateAuthority = m.CertificateAuthority
 	}
 }
 
@@ -195,8 +212,8 @@ func (m *MCPServerOptions) Validate() error {
 	if m.Port != "" && (m.SSEPort > 0 || m.HttpPort > 0) {
 		return fmt.Errorf("--port is mutually exclusive with deprecated --http-port and --sse-port flags")
 	}
-	if !m.StaticConfig.RequireOAuth && (m.StaticConfig.AuthorizationURL != "" || m.StaticConfig.ServerURL != "") {
-		return fmt.Errorf("authorization-url and server-url are only valid if require-oauth is enabled")
+	if !m.StaticConfig.RequireOAuth && (m.StaticConfig.AuthorizationURL != "" || m.StaticConfig.ServerURL != "" || m.StaticConfig.JwksURL != "" || m.StaticConfig.CertificateAuthority != "") {
+		return fmt.Errorf("authorization-url, server-url, certificate-authority and jwks-url are only valid if require-oauth is enabled. Missing --port may implicitly set require-oauth to false")
 	}
 	if m.StaticConfig.AuthorizationURL != "" {
 		u, err := url.Parse(m.StaticConfig.AuthorizationURL)
@@ -220,6 +237,18 @@ func (m *MCPServerOptions) Validate() error {
 		}
 		if u.Scheme == "http" {
 			klog.Warningf("server-url is using http://, this is not recommended production use")
+		}
+	}
+	if m.StaticConfig.JwksURL != "" {
+		u, err := url.Parse(m.StaticConfig.JwksURL)
+		if err != nil {
+			return err
+		}
+		if u.Scheme != "https" && u.Scheme != "http" {
+			return fmt.Errorf("--jwks-url must be a valid URL")
+		}
+		if u.Scheme == "http" {
+			klog.Warningf("jwks-url is using http://, this is not recommended production use")
 		}
 	}
 	return nil
@@ -248,7 +277,31 @@ func (m *MCPServerOptions) Run() error {
 
 	var oidcProvider *oidc.Provider
 	if m.StaticConfig.AuthorizationURL != "" {
-		provider, err := oidc.NewProvider(context.TODO(), m.StaticConfig.AuthorizationURL)
+		ctx := context.Background()
+		if m.StaticConfig.CertificateAuthority != "" {
+			httpClient := &http.Client{}
+			caCert, err := os.ReadFile(m.StaticConfig.CertificateAuthority)
+			if err != nil {
+				return fmt.Errorf("failed to read CA certificate from %s: %w", m.StaticConfig.CertificateAuthority, err)
+			}
+			caCertPool := x509.NewCertPool()
+			if !caCertPool.AppendCertsFromPEM(caCert) {
+				return fmt.Errorf("failed to append CA certificate from %s to pool", m.StaticConfig.CertificateAuthority)
+			}
+
+			if caCertPool.Equal(x509.NewCertPool()) {
+				caCertPool = nil
+			}
+
+			transport := &http.Transport{
+				TLSClientConfig: &tls.Config{
+					RootCAs: caCertPool,
+				},
+			}
+			httpClient.Transport = transport
+			ctx = oidc.ClientContext(ctx, httpClient)
+		}
+		provider, err := oidc.NewProvider(ctx, m.StaticConfig.AuthorizationURL)
 		if err != nil {
 			return fmt.Errorf("unable to setup OIDC provider: %w", err)
 		}

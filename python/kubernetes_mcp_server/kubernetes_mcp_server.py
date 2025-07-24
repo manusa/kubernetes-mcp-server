@@ -49,7 +49,7 @@ def download_binary(binary_version="latest", destination=None):
     if binary_path.exists():
         return binary_path
 
-    base_url = "https://github.com/manusa/kubernetes-mcp-server/releases"
+    base_url = "https://github.com/containers/kubernetes-mcp-server/releases"
     if binary_version == "latest":
         release_url = f"{base_url}/latest/download/{binary_name}"
     else:

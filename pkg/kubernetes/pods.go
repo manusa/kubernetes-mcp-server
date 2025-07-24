@@ -18,7 +18,7 @@ import (
 	"k8s.io/metrics/pkg/apis/metrics"
 	metricsv1beta1api "k8s.io/metrics/pkg/apis/metrics/v1beta1"
 
-	"github.com/manusa/kubernetes-mcp-server/pkg/version"
+	"github.com/containers/kubernetes-mcp-server/pkg/version"
 )
 
 type PodsTopOptions struct {

@@ -12,10 +12,10 @@ import (
 	authenticationapiv1 "k8s.io/api/authentication/v1"
 	"k8s.io/utils/ptr"
 
-	"github.com/manusa/kubernetes-mcp-server/pkg/config"
-	internalk8s "github.com/manusa/kubernetes-mcp-server/pkg/kubernetes"
-	"github.com/manusa/kubernetes-mcp-server/pkg/output"
-	"github.com/manusa/kubernetes-mcp-server/pkg/version"
+	"github.com/containers/kubernetes-mcp-server/pkg/config"
+	internalk8s "github.com/containers/kubernetes-mcp-server/pkg/kubernetes"
+	"github.com/containers/kubernetes-mcp-server/pkg/output"
+	"github.com/containers/kubernetes-mcp-server/pkg/version"
 )
 
 type Configuration struct {

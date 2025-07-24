@@ -14,8 +14,8 @@ import (
 	"k8s.io/client-go/dynamic"
 	"sigs.k8s.io/yaml"
 
-	"github.com/manusa/kubernetes-mcp-server/pkg/config"
-	"github.com/manusa/kubernetes-mcp-server/pkg/output"
+	"github.com/containers/kubernetes-mcp-server/pkg/config"
+	"github.com/containers/kubernetes-mcp-server/pkg/output"
 )
 
 func TestResourcesList(t *testing.T) {

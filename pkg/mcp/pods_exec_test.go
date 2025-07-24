@@ -2,7 +2,7 @@ package mcp
 
 import (
 	"bytes"
-	"github.com/manusa/kubernetes-mcp-server/pkg/config"
+	"github.com/containers/kubernetes-mcp-server/pkg/config"
 	"github.com/mark3labs/mcp-go/mcp"
 	"io"
 	v1 "k8s.io/api/core/v1"

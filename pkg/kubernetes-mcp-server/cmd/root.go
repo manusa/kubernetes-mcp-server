@@ -22,11 +22,11 @@ import (
 	"k8s.io/kubectl/pkg/util/i18n"
 	"k8s.io/kubectl/pkg/util/templates"
 
-	"github.com/manusa/kubernetes-mcp-server/pkg/config"
-	internalhttp "github.com/manusa/kubernetes-mcp-server/pkg/http"
-	"github.com/manusa/kubernetes-mcp-server/pkg/mcp"
-	"github.com/manusa/kubernetes-mcp-server/pkg/output"
-	"github.com/manusa/kubernetes-mcp-server/pkg/version"
+	"github.com/containers/kubernetes-mcp-server/pkg/config"
+	internalhttp "github.com/containers/kubernetes-mcp-server/pkg/http"
+	"github.com/containers/kubernetes-mcp-server/pkg/mcp"
+	"github.com/containers/kubernetes-mcp-server/pkg/output"
+	"github.com/containers/kubernetes-mcp-server/pkg/version"
 )
 
 var (

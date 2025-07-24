@@ -16,7 +16,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/manusa/kubernetes-mcp-server.git"
+    "url": "git+https://github.com/containers/kubernetes-mcp-server.git"
   },
   "keywords": [
     "mcp",
@@ -33,7 +33,7 @@
   },
   "license": "Apache-2.0",
   "bugs": {
-    "url": "https://github.com/manusa/kubernetes-mcp-server/issues"
+    "url": "https://github.com/containers/kubernetes-mcp-server/issues"
   },
-  "homepage": "https://github.com/manusa/kubernetes-mcp-server#readme"
+  "homepage": "https://github.com/containers/kubernetes-mcp-server#readme"
 }

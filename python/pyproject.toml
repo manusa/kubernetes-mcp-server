@@ -18,8 +18,8 @@ classifiers = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/manusa/kubernetes-mcp-server"
-Repository = "https://github.com/manusa/kubernetes-mcp-server"
+Homepage = "https://github.com/containers/kubernetes-mcp-server"
+Repository = "https://github.com/containers/kubernetes-mcp-server"
 
 [project.scripts]
 kubernetes-mcp-server = "kubernetes_mcp_server:main"

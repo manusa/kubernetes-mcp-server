@@ -16,8 +16,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/manusa/kubernetes-mcp-server/pkg/config"
-	"github.com/manusa/kubernetes-mcp-server/pkg/output"
+	"github.com/containers/kubernetes-mcp-server/pkg/config"
+	"github.com/containers/kubernetes-mcp-server/pkg/output"
 	"github.com/mark3labs/mcp-go/client"
 	"github.com/mark3labs/mcp-go/client/transport"
 	"github.com/mark3labs/mcp-go/mcp"

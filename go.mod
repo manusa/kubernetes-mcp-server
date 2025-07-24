@@ -1,4 +1,4 @@
-module github.com/manusa/kubernetes-mcp-server
+module github.com/containers/kubernetes-mcp-server
 
 go 1.24.1
 

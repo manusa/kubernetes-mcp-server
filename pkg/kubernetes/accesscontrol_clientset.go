@@ -21,7 +21,7 @@ import (
 	metricsv1beta1api "k8s.io/metrics/pkg/apis/metrics/v1beta1"
 	metricsv1beta1 "k8s.io/metrics/pkg/client/clientset/versioned/typed/metrics/v1beta1"
 
-	"github.com/manusa/kubernetes-mcp-server/pkg/config"
+	"github.com/containers/kubernetes-mcp-server/pkg/config"
 )
 
 // AccessControlClientset is a limited clientset delegating interface to the standard kubernetes.Clientset

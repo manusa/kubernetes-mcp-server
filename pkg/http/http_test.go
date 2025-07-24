@@ -21,8 +21,8 @@ import (
 	"k8s.io/klog/v2"
 	"k8s.io/klog/v2/textlogger"
 
-	"github.com/manusa/kubernetes-mcp-server/pkg/config"
-	"github.com/manusa/kubernetes-mcp-server/pkg/mcp"
+	"github.com/containers/kubernetes-mcp-server/pkg/config"
+	"github.com/containers/kubernetes-mcp-server/pkg/mcp"
 )
 
 type httpContext struct {

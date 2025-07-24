@@ -90,6 +90,25 @@ code --add-mcp '{"name":"kubernetes","command":"npx","args":["kubernetes-mcp-ser
 code-insiders --add-mcp '{"name":"kubernetes","command":"npx","args":["kubernetes-mcp-server@latest"]}'
 ```
 
+### Cursor
+
+Install the Kubernetes MCP server extension in Cursor by pressing the following link:
+
+[![Install MCP Server](https://cursor.com/deeplink/mcp-install-dark.svg)](https://cursor.com/install-mcp?name=kubernetes-mcp-server&config=JTdCJTIyY29tbWFuZCUyMiUzQSUyMm5weCUyMC15JTIwa3ViZXJuZXRlcy1tY3Atc2VydmVyJTQwbGF0ZXN0JTIyJTdE)
+
+Alternatively, you can install the extension manually by editing the `mcp.json` file:
+
+```json
+{
+  "mcpServers": {
+    "kubernetes-mcp-server": {
+      "command": "npx",
+      "args": ["-y", "kubernetes-mcp-server@latest"]
+    }
+  }
+}
+```
+
 ### Goose CLI
 
 [Goose CLI](https://blog.marcnuri.com/goose-on-machine-ai-agent-cli-introduction) is the easiest (and cheapest) way to get rolling with artificial intelligence (AI) agents.

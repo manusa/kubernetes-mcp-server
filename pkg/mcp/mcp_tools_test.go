@@ -140,4 +140,16 @@ func TestToolCallLogging(t *testing.T) {
 			}
 		})
 	})
+	testCaseWithContext(t, &mcpContext{logLevel: 7}, func(c *mcpContext) {
+		_, _ = c.callTool("configuration_view", map[string]interface{}{
+			"minified": false,
+		})
+		t.Run("Logs tool call headers", func(t *testing.T) {
+			expectedLog := "mcp tool call headers: Accept-Encoding: gzip"
+			if !strings.Contains(c.logBuffer.String(), expectedLog) {
+				t.Errorf("Expected log to contain '%s', got: %s", expectedLog, c.logBuffer.String())
+			}
+		})
+
+	})
 }

@@ -1,6 +1,7 @@
 package mcp
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"k8s.io/klog/v2"
@@ -171,6 +172,12 @@ func contextFunc(ctx context.Context, r *http.Request) context.Context {
 func toolCallLoggingMiddleware(next server.ToolHandlerFunc) server.ToolHandlerFunc {
 	return func(ctx context.Context, ctr mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		klog.V(5).Infof("mcp tool call: %s(%v)", ctr.Params.Name, ctr.Params.Arguments)
+		if ctr.Header != nil {
+			buffer := bytes.NewBuffer(make([]byte, 0))
+			if err := ctr.Header.Write(buffer); err == nil {
+				klog.V(7).Infof("mcp tool call headers: %s", buffer)
+			}
+		}
 		return next(ctx, ctr)
 	}
 }

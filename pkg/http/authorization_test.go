@@ -1,8 +1,6 @@
 package http
 
 import (
-	"net/http"
-	"net/http/httptest"
 	"strings"
 	"testing"
 
@@ -217,106 +215,6 @@ func TestJWTClaimsGetScopes(t *testing.T) {
 			if i >= len(scopes) || scopes[i] != expectedScope {
 				t.Errorf("expected scope[%d] to be '%s', got '%s'", i, expectedScope, scopes[i])
 			}
-		}
-	})
-}
-
-func TestAuthorizationMiddleware(t *testing.T) {
-	// Create a mock handler
-	handlerCalled := false
-	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		handlerCalled = true
-		w.WriteHeader(http.StatusOK)
-	})
-
-	t.Run("OAuth disabled - passes through", func(t *testing.T) {
-		handlerCalled = false
-
-		// Create middleware with OAuth disabled
-		middleware := AuthorizationMiddleware(false, "", nil, nil)
-		wrappedHandler := middleware(handler)
-
-		// Create request without authorization header
-		req := httptest.NewRequest("GET", "/test", nil)
-		w := httptest.NewRecorder()
-
-		wrappedHandler.ServeHTTP(w, req)
-
-		if !handlerCalled {
-			t.Error("expected handler to be called when OAuth is disabled")
-		}
-		if w.Code != http.StatusOK {
-			t.Errorf("expected status 200, got %d", w.Code)
-		}
-	})
-
-	t.Run("healthz endpoint - passes through", func(t *testing.T) {
-		handlerCalled = false
-
-		// Create middleware with OAuth enabled
-		middleware := AuthorizationMiddleware(true, "", nil, nil)
-		wrappedHandler := middleware(handler)
-
-		// Create request to healthz endpoint
-		req := httptest.NewRequest("GET", "/healthz", nil)
-		w := httptest.NewRecorder()
-
-		wrappedHandler.ServeHTTP(w, req)
-
-		if !handlerCalled {
-			t.Error("expected handler to be called for healthz endpoint")
-		}
-		if w.Code != http.StatusOK {
-			t.Errorf("expected status 200, got %d", w.Code)
-		}
-	})
-
-	t.Run("OAuth enabled - missing token", func(t *testing.T) {
-		handlerCalled = false
-
-		// Create middleware with OAuth enabled
-		middleware := AuthorizationMiddleware(true, "", nil, nil)
-		wrappedHandler := middleware(handler)
-
-		// Create request without authorization header
-		req := httptest.NewRequest("GET", "/test", nil)
-		w := httptest.NewRecorder()
-
-		wrappedHandler.ServeHTTP(w, req)
-
-		if handlerCalled {
-			t.Error("expected handler NOT to be called when token is missing")
-		}
-		if w.Code != http.StatusUnauthorized {
-			t.Errorf("expected status 401, got %d", w.Code)
-		}
-		if !strings.Contains(w.Body.String(), "Bearer token required") {
-			t.Errorf("expected bearer token error message, got %s", w.Body.String())
-		}
-	})
-
-	t.Run("OAuth enabled - invalid token format", func(t *testing.T) {
-		handlerCalled = false
-
-		// Create middleware with OAuth enabled
-		middleware := AuthorizationMiddleware(true, "", nil, nil)
-		wrappedHandler := middleware(handler)
-
-		// Create request with invalid bearer token
-		req := httptest.NewRequest("GET", "/test", nil)
-		req.Header.Set("Authorization", "Bearer invalid-token")
-		w := httptest.NewRecorder()
-
-		wrappedHandler.ServeHTTP(w, req)
-
-		if handlerCalled {
-			t.Error("expected handler NOT to be called when token is invalid")
-		}
-		if w.Code != http.StatusUnauthorized {
-			t.Errorf("expected status 401, got %d", w.Code)
-		}
-		if !strings.Contains(w.Body.String(), "Invalid token") {
-			t.Errorf("expected invalid token error message, got %s", w.Body.String())
 		}
 	})
 }

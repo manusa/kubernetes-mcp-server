@@ -190,7 +190,7 @@ func toolCallLoggingMiddleware(next server.ToolHandlerFunc) server.ToolHandlerFu
 		klog.V(5).Infof("mcp tool call: %s(%v)", ctr.Params.Name, ctr.Params.Arguments)
 		if ctr.Header != nil {
 			buffer := bytes.NewBuffer(make([]byte, 0))
-			if err := ctr.Header.Write(buffer); err == nil {
+			if err := ctr.Header.WriteSubset(buffer, map[string]bool{"Authorization": true, "authorization": true}); err == nil {
 				klog.V(7).Infof("mcp tool call headers: %s", buffer)
 			}
 		}

@@ -1,6 +1,7 @@
 package mcp
 
 import (
+	"github.com/mark3labs/mcp-go/client/transport"
 	"github.com/mark3labs/mcp-go/mcp"
 	"k8s.io/utils/ptr"
 	"regexp"
@@ -140,16 +141,39 @@ func TestToolCallLogging(t *testing.T) {
 			}
 		})
 	})
-	testCaseWithContext(t, &mcpContext{logLevel: 7}, func(c *mcpContext) {
+	before := func(c *mcpContext) {
+		c.clientOptions = append(c.clientOptions, transport.WithHeaders(map[string]string{
+			"Accept-Encoding":   "gzip",
+			"Authorization":     "Bearer should-not-be-logged",
+			"authorization":     "Bearer should-not-be-logged",
+			"a-loggable-header": "should-be-logged",
+		}))
+	}
+	testCaseWithContext(t, &mcpContext{logLevel: 7, before: before}, func(c *mcpContext) {
 		_, _ = c.callTool("configuration_view", map[string]interface{}{
 			"minified": false,
 		})
 		t.Run("Logs tool call headers", func(t *testing.T) {
-			expectedLog := "mcp tool call headers: Accept-Encoding: gzip"
+			expectedLog := "mcp tool call headers: A-Loggable-Header: should-be-logged"
 			if !strings.Contains(c.logBuffer.String(), expectedLog) {
 				t.Errorf("Expected log to contain '%s', got: %s", expectedLog, c.logBuffer.String())
 			}
 		})
-
+		sensitiveHeaders := []string{
+			"Authorization",
+			// TODO: Add more sensitive headers as needed
+		}
+		t.Run("Does not log sensitive headers", func(t *testing.T) {
+			for _, header := range sensitiveHeaders {
+				if strings.Contains(c.logBuffer.String(), header) {
+					t.Errorf("Log should not contain sensitive header '%s', got: %s", header, c.logBuffer.String())
+				}
+			}
+		})
+		t.Run("Does not log sensitive header values", func(t *testing.T) {
+			if strings.Contains(c.logBuffer.String(), "should-not-be-logged") {
+				t.Errorf("Log should not contain sensitive header value 'should-not-be-logged', got: %s", c.logBuffer.String())
+			}
+		})
 	})
 }

@@ -88,6 +88,7 @@ func AuthorizationMiddleware(requireOAuth bool, serverURL string, oidcProvider *
 			// Scopes are likely to be used for authorization.
 			scopes := claims.GetScopes()
 			klog.V(2).Infof("JWT token validated - Scopes: %v", scopes)
+			r = r.WithContext(context.WithValue(r.Context(), mcp.TokenScopesContextKey, scopes))
 
 			// Now, there are a couple of options:
 			// 1. If there is no authorization url configured for this MCP Server,

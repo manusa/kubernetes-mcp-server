@@ -19,6 +19,8 @@ import (
 	"github.com/containers/kubernetes-mcp-server/pkg/version"
 )
 
+const TokenScopesContextKey = "TokenScopesContextKey"
+
 type Configuration struct {
 	Profile    Profile
 	ListOutput output.Output
@@ -45,20 +47,29 @@ func (c *Configuration) isToolApplicable(tool server.ServerTool) bool {
 type Server struct {
 	configuration *Configuration
 	server        *server.MCPServer
+	enabledTools  []string
 	k             *internalk8s.Manager
 }
 
 func NewServer(configuration Configuration) (*Server, error) {
+	var serverOptions []server.ServerOption
+	serverOptions = append(serverOptions,
+		server.WithResourceCapabilities(true, true),
+		server.WithPromptCapabilities(true),
+		server.WithToolCapabilities(true),
+		server.WithLogging(),
+		server.WithToolHandlerMiddleware(toolCallLoggingMiddleware),
+	)
+	if configuration.StaticConfig.RequireOAuth {
+		serverOptions = append(serverOptions, server.WithToolHandlerMiddleware(toolScopedAuthorizationMiddleware))
+	}
+
 	s := &Server{
 		configuration: &configuration,
 		server: server.NewMCPServer(
 			version.BinaryName,
 			version.Version,
-			server.WithResourceCapabilities(true, true),
-			server.WithPromptCapabilities(true),
-			server.WithToolCapabilities(true),
-			server.WithLogging(),
-			server.WithToolHandlerMiddleware(toolCallLoggingMiddleware),
+			serverOptions...,
 		),
 	}
 	if err := s.reloadKubernetesClient(); err != nil {
@@ -81,6 +92,7 @@ func (s *Server) reloadKubernetesClient() error {
 			continue
 		}
 		applicableTools = append(applicableTools, tool)
+		s.enabledTools = append(s.enabledTools, tool.Tool.Name)
 	}
 	s.server.SetTools(applicableTools...)
 	return nil
@@ -123,6 +135,10 @@ func (s *Server) GetKubernetesAPIServerHost() string {
 		return ""
 	}
 	return s.k.GetAPIServerHost()
+}
+
+func (s *Server) GetEnabledTools() []string {
+	return s.enabledTools
 }
 
 func (s *Server) Close() {
@@ -177,6 +193,19 @@ func toolCallLoggingMiddleware(next server.ToolHandlerFunc) server.ToolHandlerFu
 			if err := ctr.Header.Write(buffer); err == nil {
 				klog.V(7).Infof("mcp tool call headers: %s", buffer)
 			}
+		}
+		return next(ctx, ctr)
+	}
+}
+
+func toolScopedAuthorizationMiddleware(next server.ToolHandlerFunc) server.ToolHandlerFunc {
+	return func(ctx context.Context, ctr mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		scopes, ok := ctx.Value(TokenScopesContextKey).([]string)
+		if !ok {
+			return NewTextResult("", fmt.Errorf("Authorization failed: Access denied: Tool '%s' requires scope 'mcp:%s' but no scope is available", ctr.Params.Name, ctr.Params.Name)), nil
+		}
+		if !slices.Contains(scopes, "mcp:"+ctr.Params.Name) && !slices.Contains(scopes, ctr.Params.Name) {
+			return NewTextResult("", fmt.Errorf("Authorization failed: Access denied: Tool '%s' requires scope 'mcp:%s' but only scopes %s are available", ctr.Params.Name, ctr.Params.Name, scopes)), nil
 		}
 		return next(ctx, ctr)
 	}

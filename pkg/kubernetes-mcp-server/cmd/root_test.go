@@ -255,28 +255,3 @@ func TestAuthorizationURL(t *testing.T) {
 		}
 	})
 }
-
-func TestServerURL(t *testing.T) {
-	t.Run("invalid server-url without protocol", func(t *testing.T) {
-		ioStreams, _ := testStream()
-		rootCmd := NewMCPServer(ioStreams)
-		rootCmd.SetArgs([]string{"--version", "--require-oauth", "--port=8080", "--server-url", "example.com:8080", "--authorization-url", "https://example.com/auth"})
-		err := rootCmd.Execute()
-		if err == nil {
-			t.Fatal("Expected error for invalid server-url without protocol, got nil")
-		}
-		expected := "--server-url must be a valid URL"
-		if !strings.Contains(err.Error(), expected) {
-			t.Fatalf("Expected error to contain %s, got %s", expected, err.Error())
-		}
-	})
-	t.Run("valid server-url with https", func(t *testing.T) {
-		ioStreams, _ := testStream()
-		rootCmd := NewMCPServer(ioStreams)
-		rootCmd.SetArgs([]string{"--version", "--require-oauth", "--port=8080", "--server-url", "https://example.com:8080", "--authorization-url", "https://example.com/auth"})
-		err := rootCmd.Execute()
-		if err != nil {
-			t.Fatalf("Expected no error for valid https server-url, got %s", err.Error())
-		}
-	})
-}

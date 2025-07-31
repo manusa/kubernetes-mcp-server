@@ -227,18 +227,6 @@ func (m *MCPServerOptions) Validate() error {
 			klog.Warningf("authorization-url is using http://, this is not recommended production use")
 		}
 	}
-	if m.StaticConfig.ServerURL != "" {
-		u, err := url.Parse(m.StaticConfig.ServerURL)
-		if err != nil {
-			return err
-		}
-		if u.Scheme != "https" && u.Scheme != "http" {
-			return fmt.Errorf("--server-url must be a valid URL")
-		}
-		if u.Scheme == "http" {
-			klog.Warningf("server-url is using http://, this is not recommended production use")
-		}
-	}
 	if m.StaticConfig.JwksURL != "" {
 		u, err := url.Parse(m.StaticConfig.JwksURL)
 		if err != nil {

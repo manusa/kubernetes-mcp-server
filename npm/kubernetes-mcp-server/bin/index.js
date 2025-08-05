@@ -21,7 +21,26 @@ const resolveBinaryPath = () => {
   }
 };
 
-childProcess.execFileSync(resolveBinaryPath(), process.argv.slice(2), {
+const child = childProcess.spawn(resolveBinaryPath(), process.argv.slice(2), {
   stdio: 'inherit',
 });
 
+const handleSignal = () => (signal) => {
+  console.log(`Received ${signal}, terminating child process...`);
+  if (child && !child.killed) {
+    child.kill(signal);
+  }
+};
+
+['SIGTERM', 'SIGINT', 'SIGHUP'].forEach((signal) => {
+  process.on(signal, handleSignal(signal));
+});
+
+child.on('close', (code, signal) => {
+  if (signal) {
+    console.log(`Child process terminated by signal: ${signal}`);
+    process.exit(128 + (signal === 'SIGTERM' ? 15 : signal === 'SIGINT' ? 2 : 1));
+  } else {
+    process.exit(code || 0);
+  }
+});

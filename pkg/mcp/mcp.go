@@ -4,13 +4,13 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"k8s.io/klog/v2"
 	"net/http"
 	"slices"
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 	authenticationapiv1 "k8s.io/api/authentication/v1"
+	"k8s.io/klog/v2"
 	"k8s.io/utils/ptr"
 
 	"github.com/containers/kubernetes-mcp-server/pkg/config"
@@ -19,7 +19,9 @@ import (
 	"github.com/containers/kubernetes-mcp-server/pkg/version"
 )
 
-const TokenScopesContextKey = "TokenScopesContextKey"
+type ContextKey string
+
+const TokenScopesContextKey = ContextKey("TokenScopesContextKey")
 
 type Configuration struct {
 	Profile    Profile
@@ -202,10 +204,10 @@ func toolScopedAuthorizationMiddleware(next server.ToolHandlerFunc) server.ToolH
 	return func(ctx context.Context, ctr mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		scopes, ok := ctx.Value(TokenScopesContextKey).([]string)
 		if !ok {
-			return NewTextResult("", fmt.Errorf("Authorization failed: Access denied: Tool '%s' requires scope 'mcp:%s' but no scope is available", ctr.Params.Name, ctr.Params.Name)), nil
+			return NewTextResult("", fmt.Errorf("authorization failed: Access denied: Tool '%s' requires scope 'mcp:%s' but no scope is available", ctr.Params.Name, ctr.Params.Name)), nil
 		}
 		if !slices.Contains(scopes, "mcp:"+ctr.Params.Name) && !slices.Contains(scopes, ctr.Params.Name) {
-			return NewTextResult("", fmt.Errorf("Authorization failed: Access denied: Tool '%s' requires scope 'mcp:%s' but only scopes %s are available", ctr.Params.Name, ctr.Params.Name, scopes)), nil
+			return NewTextResult("", fmt.Errorf("authorization failed: Access denied: Tool '%s' requires scope 'mcp:%s' but only scopes %s are available", ctr.Params.Name, ctr.Params.Name, scopes)), nil
 		}
 		return next(ctx, ctr)
 	}

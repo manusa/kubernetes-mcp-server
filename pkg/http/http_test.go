@@ -127,6 +127,7 @@ func NewOidcTestServer(t *testing.T) (privateKey *rsa.PrivateKey, oidcProvider *
 		t.Fatalf("failed to generate private key for oidc: %v", err)
 	}
 	oidcServer := &oidctest.Server{
+		Algorithms: []string{oidc.RS256, oidc.ES256},
 		PublicKeys: []oidctest.PublicKey{
 			{
 				PublicKey: privateKey.Public(),
@@ -470,8 +471,8 @@ func TestAuthorizationUnauthorized(t *testing.T) {
 			}
 		})
 		t.Run("Protected resource with INVALID OIDC Authorization header logs error", func(t *testing.T) {
-			if !strings.Contains(ctx.LogBuffer.String(), "Authentication failed - OIDC token validation error") &&
-				!strings.Contains(ctx.LogBuffer.String(), "JWT token verification failed: oidc: id token issued by a different provider") {
+			if !strings.Contains(ctx.LogBuffer.String(), "Authentication failed - JWT validation error") ||
+				!strings.Contains(ctx.LogBuffer.String(), "OIDC token validation error: failed to verify signature") {
 				t.Errorf("Expected log entry for OIDC validation error, got: %s", ctx.LogBuffer.String())
 			}
 		})

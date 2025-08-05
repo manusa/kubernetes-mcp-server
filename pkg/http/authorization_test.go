@@ -111,7 +111,7 @@ func TestJWTTokenValidate(t *testing.T) {
 			t.Fatalf("expected no error for expired token parsing, got %v", err)
 		}
 
-		err = claims.Validate("kubernetes-mcp-server")
+		err = claims.Validate(t.Context(), "kubernetes-mcp-server", nil)
 		if err == nil {
 			t.Fatalf("expected error for expired token, got nil")
 		}
@@ -130,7 +130,7 @@ func TestJWTTokenValidate(t *testing.T) {
 			t.Fatalf("expected claims to be returned, got nil")
 		}
 
-		err = claims.Validate("kubernetes-mcp-server")
+		err = claims.Validate(t.Context(), "kubernetes-mcp-server", nil)
 		if err != nil {
 			t.Fatalf("expected no error for valid audience, got %v", err)
 		}
@@ -145,7 +145,7 @@ func TestJWTTokenValidate(t *testing.T) {
 			t.Fatalf("expected claims to be returned, got nil")
 		}
 
-		err = claims.Validate("missing-audience")
+		err = claims.Validate(t.Context(), "missing-audience", nil)
 		if err == nil {
 			t.Fatalf("expected error for token with wrong audience, got nil")
 		}

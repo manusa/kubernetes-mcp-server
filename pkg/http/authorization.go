@@ -56,7 +56,7 @@ func AuthorizationMiddleware(requireOAuth bool, serverURL string, oidcProvider *
 			// rejected already.
 			claims, err := ParseJWTClaims(token)
 			if err == nil && claims != nil {
-				err = claims.Validate(audience)
+				err = claims.Validate(r.Context(), audience, oidcProvider)
 			}
 			if err != nil {
 				klog.V(1).Infof("Authentication failed - JWT validation error: %s %s from %s, error: %v", r.Method, r.URL.Path, r.RemoteAddr, err)
@@ -68,21 +68,6 @@ func AuthorizationMiddleware(requireOAuth bool, serverURL string, oidcProvider *
 				}
 				http.Error(w, "Unauthorized: Invalid token", http.StatusUnauthorized)
 				return
-			}
-
-			if oidcProvider != nil {
-				// If OIDC Provider is configured, this token must be validated against it.
-				if err := validateTokenWithOIDC(r.Context(), oidcProvider, token, audience); err != nil {
-					klog.V(1).Infof("Authentication failed - OIDC token validation error: %s %s from %s, error: %v", r.Method, r.URL.Path, r.RemoteAddr, err)
-
-					if serverURL == "" {
-						w.Header().Set("WWW-Authenticate", fmt.Sprintf(`Bearer realm="Kubernetes MCP Server", audience="%s", error="invalid_token"`, audience))
-					} else {
-						w.Header().Set("WWW-Authenticate", fmt.Sprintf(`Bearer realm="Kubernetes MCP Server", audience="%s"", resource_metadata="%s%s", error="invalid_token"`, audience, serverURL, oauthProtectedResourceEndpoint))
-					}
-					http.Error(w, "Unauthorized: Invalid token", http.StatusUnauthorized)
-					return
-				}
 			}
 
 			// Scopes are likely to be used for authorization.
@@ -138,6 +123,7 @@ var allSignatureAlgorithms = []jose.SignatureAlgorithm{
 
 type JWTClaims struct {
 	jwt.Claims
+	Token string `json:"-"`
 	Scope string `json:"scope,omitempty"`
 }
 
@@ -149,10 +135,21 @@ func (c *JWTClaims) GetScopes() []string {
 }
 
 // Validate Checks if the JWT claims are valid and if the audience matches the expected one.
-func (c *JWTClaims) Validate(audience string) error {
-	return c.Claims.Validate(jwt.Expected{
-		AnyAudience: jwt.Audience{audience},
-	})
+func (c *JWTClaims) Validate(ctx context.Context, audience string, provider *oidc.Provider) error {
+	if err := c.Claims.Validate(jwt.Expected{AnyAudience: jwt.Audience{audience}}); err != nil {
+		return fmt.Errorf("JWT token validation error: %v", err)
+	}
+	if provider != nil {
+		verifier := provider.Verifier(&oidc.Config{
+			ClientID: audience,
+		})
+
+		_, err := verifier.Verify(ctx, c.Token)
+		if err != nil {
+			return fmt.Errorf("OIDC token validation error: %v", err)
+		}
+	}
+	return nil
 }
 
 func ParseJWTClaims(token string) (*JWTClaims, error) {
@@ -162,18 +159,6 @@ func ParseJWTClaims(token string) (*JWTClaims, error) {
 	}
 	claims := &JWTClaims{}
 	err = tkn.UnsafeClaimsWithoutVerification(claims)
+	claims.Token = token
 	return claims, err
-}
-
-func validateTokenWithOIDC(ctx context.Context, provider *oidc.Provider, token, audience string) error {
-	verifier := provider.Verifier(&oidc.Config{
-		ClientID: audience,
-	})
-
-	_, err := verifier.Verify(ctx, token)
-	if err != nil {
-		return fmt.Errorf("JWT token verification failed: %v", err)
-	}
-
-	return nil
 }

@@ -286,6 +286,36 @@ func TestHealthCheck(t *testing.T) {
 	})
 }
 
+func TestWellKnownOAuthAuthorizationServer(t *testing.T) {
+	// Simple http server to mock the authorization server
+	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/.well-known/oauth-authorization-server" {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"issuer": "https://example.com"}`))
+	}))
+	t.Cleanup(testServer.Close)
+	testCaseWithContext(t, &httpContext{StaticConfig: &config.StaticConfig{AuthorizationURL: testServer.URL, RequireOAuth: true}}, func(ctx *httpContext) {
+		resp, err := http.Get(fmt.Sprintf("http://%s/.well-known/oauth-authorization-server", ctx.HttpAddress))
+		t.Cleanup(func() { _ = resp.Body.Close() })
+		t.Run("Exposes .well-known/oauth-authorization-server endpoint", func(t *testing.T) {
+			if err != nil {
+				t.Fatalf("Failed to get .well-known/oauth-authorization-server endpoint: %v", err)
+			}
+			if resp.StatusCode != http.StatusOK {
+				t.Errorf("Expected HTTP 200 OK, got %d", resp.StatusCode)
+			}
+		})
+		t.Run(".well-known/oauth-authorization-server returns application/json content type", func(t *testing.T) {
+			if resp.Header.Get("Content-Type") != "application/json" {
+				t.Errorf("Expected Content-Type application/json, got %s", resp.Header.Get("Content-Type"))
+			}
+		})
+	})
+}
+
 func TestWellKnownOAuthProtectedResource(t *testing.T) {
 	testCase(t, func(ctx *httpContext) {
 		resp, err := http.Get(fmt.Sprintf("http://%s/.well-known/oauth-protected-resource", ctx.HttpAddress))

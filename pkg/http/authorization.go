@@ -22,7 +22,7 @@ const (
 func AuthorizationMiddleware(requireOAuth bool, serverURL string, oidcProvider *oidc.Provider, mcpServer *mcp.Server) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if r.URL.Path == healthEndpoint || r.URL.Path == oauthProtectedResourceEndpoint {
+			if r.URL.Path == healthEndpoint || r.URL.Path == oauthProtectedResourceEndpoint || r.URL.Path == oauthAuthorizationServerEndpoint {
 				next.ServeHTTP(w, r)
 				return
 			}

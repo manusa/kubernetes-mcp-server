@@ -44,6 +44,7 @@ func Serve(ctx context.Context, mcpServer *mcp.Server, staticConfig *config.Stat
 	mux.HandleFunc(healthEndpoint, func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})
+	mux.HandleFunc(oauthAuthorizationServerEndpoint, OAuthAuthorizationServerHandler(staticConfig))
 	mux.HandleFunc(oauthProtectedResourceEndpoint, OAuthProtectedResourceHandler(mcpServer, staticConfig))
 
 	ctx, cancel := context.WithCancel(ctx)

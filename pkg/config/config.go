@@ -24,7 +24,6 @@ type StaticConfig struct {
 	DisabledTools        []string `toml:"disabled_tools,omitempty"`
 	RequireOAuth         bool     `toml:"require_oauth,omitempty"`
 	AuthorizationURL     string   `toml:"authorization_url,omitempty"`
-	JwksURL              string   `toml:"jwks_url,omitempty"`
 	CertificateAuthority string   `toml:"certificate_authority,omitempty"`
 	ServerURL            string   `toml:"server_url,omitempty"`
 }

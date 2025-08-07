@@ -286,53 +286,55 @@ func TestHealthCheck(t *testing.T) {
 	})
 }
 
-func TestWellKnownOAuthAuthorizationServer(t *testing.T) {
-	// Simple http server to mock the authorization server
+func TestWellKnownReverseProxy(t *testing.T) {
+	cases := []string{
+		".well-known/oauth-authorization-server",
+		".well-known/oauth-protected-resource",
+		".well-known/openid-configuration",
+	}
+	// With No Authorization URL configured
+	testCaseWithContext(t, &httpContext{StaticConfig: &config.StaticConfig{RequireOAuth: true}}, func(ctx *httpContext) {
+		for _, path := range cases {
+			resp, err := http.Get(fmt.Sprintf("http://%s/%s", ctx.HttpAddress, path))
+			t.Cleanup(func() { _ = resp.Body.Close() })
+			t.Run("Protected resource '"+path+"' without Authorization URL returns 404 - Not Found", func(t *testing.T) {
+				if err != nil {
+					t.Fatalf("Failed to get %s endpoint: %v", path, err)
+				}
+				if resp.StatusCode != http.StatusNotFound {
+					t.Errorf("Expected HTTP 404 Not Found, got %d", resp.StatusCode)
+				}
+			})
+		}
+	})
+	// With Authorization URL configured
 	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/.well-known/oauth-authorization-server" {
+		if !strings.HasPrefix(r.URL.EscapedPath(), "/.well-known/") {
 			http.NotFound(w, r)
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"issuer": "https://example.com"}`))
+		_, _ = w.Write([]byte(`{"issuer": "https://example.com","scopes_supported":["mcp-server"]}`))
 	}))
 	t.Cleanup(testServer.Close)
 	testCaseWithContext(t, &httpContext{StaticConfig: &config.StaticConfig{AuthorizationURL: testServer.URL, RequireOAuth: true}}, func(ctx *httpContext) {
-		resp, err := http.Get(fmt.Sprintf("http://%s/.well-known/oauth-authorization-server", ctx.HttpAddress))
-		t.Cleanup(func() { _ = resp.Body.Close() })
-		t.Run("Exposes .well-known/oauth-authorization-server endpoint", func(t *testing.T) {
-			if err != nil {
-				t.Fatalf("Failed to get .well-known/oauth-authorization-server endpoint: %v", err)
-			}
-			if resp.StatusCode != http.StatusOK {
-				t.Errorf("Expected HTTP 200 OK, got %d", resp.StatusCode)
-			}
-		})
-		t.Run(".well-known/oauth-authorization-server returns application/json content type", func(t *testing.T) {
-			if resp.Header.Get("Content-Type") != "application/json" {
-				t.Errorf("Expected Content-Type application/json, got %s", resp.Header.Get("Content-Type"))
-			}
-		})
-	})
-}
-
-func TestWellKnownOAuthProtectedResource(t *testing.T) {
-	testCase(t, func(ctx *httpContext) {
-		resp, err := http.Get(fmt.Sprintf("http://%s/.well-known/oauth-protected-resource", ctx.HttpAddress))
-		t.Cleanup(func() { _ = resp.Body.Close() })
-		t.Run("Exposes .well-known/oauth-protected-resource endpoint", func(t *testing.T) {
-			if err != nil {
-				t.Fatalf("Failed to get .well-known/oauth-protected-resource endpoint: %v", err)
-			}
-			if resp.StatusCode != http.StatusOK {
-				t.Errorf("Expected HTTP 200 OK, got %d", resp.StatusCode)
-			}
-		})
-		t.Run(".well-known/oauth-protected-resource returns application/json content type", func(t *testing.T) {
-			if resp.Header.Get("Content-Type") != "application/json" {
-				t.Errorf("Expected Content-Type application/json, got %s", resp.Header.Get("Content-Type"))
-			}
-		})
+		for _, path := range cases {
+			resp, err := http.Get(fmt.Sprintf("http://%s/%s", ctx.HttpAddress, path))
+			t.Cleanup(func() { _ = resp.Body.Close() })
+			t.Run("Exposes "+path+" endpoint", func(t *testing.T) {
+				if err != nil {
+					t.Fatalf("Failed to get %s endpoint: %v", path, err)
+				}
+				if resp.StatusCode != http.StatusOK {
+					t.Errorf("Expected HTTP 200 OK, got %d", resp.StatusCode)
+				}
+			})
+			t.Run(path+" returns application/json content type", func(t *testing.T) {
+				if resp.Header.Get("Content-Type") != "application/json" {
+					t.Errorf("Expected Content-Type application/json, got %s", resp.Header.Get("Content-Type"))
+				}
+			})
+		}
 	})
 }
 
@@ -340,12 +342,12 @@ func TestMiddlewareLogging(t *testing.T) {
 	testCase(t, func(ctx *httpContext) {
 		_, _ = http.Get(fmt.Sprintf("http://%s/.well-known/oauth-protected-resource", ctx.HttpAddress))
 		t.Run("Logs HTTP requests and responses", func(t *testing.T) {
-			if !strings.Contains(ctx.LogBuffer.String(), "GET /.well-known/oauth-protected-resource 200") {
+			if !strings.Contains(ctx.LogBuffer.String(), "GET /.well-known/oauth-protected-resource 404") {
 				t.Errorf("Expected log entry for GET /.well-known/oauth-protected-resource, got: %s", ctx.LogBuffer.String())
 			}
 		})
 		t.Run("Logs HTTP request duration", func(t *testing.T) {
-			expected := `"GET /.well-known/oauth-protected-resource 200 (.+)"`
+			expected := `"GET /.well-known/oauth-protected-resource 404 (.+)"`
 			m := regexp.MustCompile(expected).FindStringSubmatch(ctx.LogBuffer.String())
 			if len(m) != 2 {
 				t.Fatalf("Expected log entry to contain duration, got %s", ctx.LogBuffer.String())
@@ -376,7 +378,7 @@ func TestAuthorizationUnauthorized(t *testing.T) {
 		})
 		t.Run("Protected resource with MISSING Authorization header returns WWW-Authenticate header", func(t *testing.T) {
 			authHeader := resp.Header.Get("WWW-Authenticate")
-			expected := `Bearer realm="Kubernetes MCP Server", audience="kubernetes-mcp-server", error="missing_token"`
+			expected := `Bearer realm="Kubernetes MCP Server", audience="mcp-server", error="missing_token"`
 			if authHeader != expected {
 				t.Errorf("Expected WWW-Authenticate header to be %q, got %q", expected, authHeader)
 			}
@@ -401,7 +403,7 @@ func TestAuthorizationUnauthorized(t *testing.T) {
 		t.Cleanup(func() { _ = resp.Body.Close })
 		t.Run("Protected resource with INCOMPATIBLE Authorization header returns WWW-Authenticate header", func(t *testing.T) {
 			authHeader := resp.Header.Get("WWW-Authenticate")
-			expected := `Bearer realm="Kubernetes MCP Server", audience="kubernetes-mcp-server", error="missing_token"`
+			expected := `Bearer realm="Kubernetes MCP Server", audience="mcp-server", error="missing_token"`
 			if authHeader != expected {
 				t.Errorf("Expected WWW-Authenticate header to be %q, got %q", expected, authHeader)
 			}
@@ -431,7 +433,7 @@ func TestAuthorizationUnauthorized(t *testing.T) {
 		})
 		t.Run("Protected resource with INVALID Authorization header returns WWW-Authenticate header", func(t *testing.T) {
 			authHeader := resp.Header.Get("WWW-Authenticate")
-			expected := `Bearer realm="Kubernetes MCP Server", audience="kubernetes-mcp-server", error="invalid_token"`
+			expected := `Bearer realm="Kubernetes MCP Server", audience="mcp-server", error="invalid_token"`
 			if authHeader != expected {
 				t.Errorf("Expected WWW-Authenticate header to be %q, got %q", expected, authHeader)
 			}
@@ -462,7 +464,7 @@ func TestAuthorizationUnauthorized(t *testing.T) {
 		})
 		t.Run("Protected resource with EXPIRED Authorization header returns WWW-Authenticate header", func(t *testing.T) {
 			authHeader := resp.Header.Get("WWW-Authenticate")
-			expected := `Bearer realm="Kubernetes MCP Server", audience="kubernetes-mcp-server", error="invalid_token"`
+			expected := `Bearer realm="Kubernetes MCP Server", audience="mcp-server", error="invalid_token"`
 			if authHeader != expected {
 				t.Errorf("Expected WWW-Authenticate header to be %q, got %q", expected, authHeader)
 			}
@@ -495,7 +497,7 @@ func TestAuthorizationUnauthorized(t *testing.T) {
 		})
 		t.Run("Protected resource with INVALID OIDC Authorization header returns WWW-Authenticate header", func(t *testing.T) {
 			authHeader := resp.Header.Get("WWW-Authenticate")
-			expected := `Bearer realm="Kubernetes MCP Server", audience="kubernetes-mcp-server", error="invalid_token"`
+			expected := `Bearer realm="Kubernetes MCP Server", audience="mcp-server", error="invalid_token"`
 			if authHeader != expected {
 				t.Errorf("Expected WWW-Authenticate header to be %q, got %q", expected, authHeader)
 			}
@@ -511,7 +513,7 @@ func TestAuthorizationUnauthorized(t *testing.T) {
 	rawClaims := `{
 		"iss": "` + httpServer.URL + `",
 		"exp": ` + strconv.FormatInt(time.Now().Add(time.Hour).Unix(), 10) + `,
-		"aud": "kubernetes-mcp-server"
+		"aud": "mcp-server"
 	}`
 	validOidcToken := oidctest.SignIDToken(key, "test-oidc-key-id", oidc.RS256, rawClaims)
 	testCaseWithContext(t, &httpContext{StaticConfig: &config.StaticConfig{RequireOAuth: true}, OidcProvider: oidcProvider}, func(ctx *httpContext) {
@@ -532,7 +534,7 @@ func TestAuthorizationUnauthorized(t *testing.T) {
 		})
 		t.Run("Protected resource with INVALID KUBERNETES Authorization header returns WWW-Authenticate header", func(t *testing.T) {
 			authHeader := resp.Header.Get("WWW-Authenticate")
-			expected := `Bearer realm="Kubernetes MCP Server", audience="kubernetes-mcp-server", error="invalid_token"`
+			expected := `Bearer realm="Kubernetes MCP Server", audience="mcp-server", error="invalid_token"`
 			if authHeader != expected {
 				t.Errorf("Expected WWW-Authenticate header to be %q, got %q", expected, authHeader)
 			}

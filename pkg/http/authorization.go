@@ -10,19 +10,20 @@ import (
 	"github.com/go-jose/go-jose/v4"
 	"github.com/go-jose/go-jose/v4/jwt"
 	"k8s.io/klog/v2"
+	"k8s.io/utils/strings/slices"
 
 	"github.com/containers/kubernetes-mcp-server/pkg/mcp"
 )
 
 const (
-	Audience = "kubernetes-mcp-server"
+	Audience = "mcp-server"
 )
 
 // AuthorizationMiddleware validates the OAuth flow using Kubernetes TokenReview API
 func AuthorizationMiddleware(requireOAuth bool, serverURL string, oidcProvider *oidc.Provider, mcpServer *mcp.Server) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if r.URL.Path == healthEndpoint || r.URL.Path == oauthProtectedResourceEndpoint || r.URL.Path == oauthAuthorizationServerEndpoint {
+			if r.URL.Path == healthEndpoint || slices.Contains(WellKnownEndpoints, r.URL.EscapedPath()) {
 				next.ServeHTTP(w, r)
 				return
 			}
@@ -32,9 +33,6 @@ func AuthorizationMiddleware(requireOAuth bool, serverURL string, oidcProvider *
 			}
 
 			audience := Audience
-			if serverURL != "" {
-				audience = serverURL
-			}
 
 			authHeader := r.Header.Get("Authorization")
 			if authHeader == "" || !strings.HasPrefix(authHeader, "Bearer ") {

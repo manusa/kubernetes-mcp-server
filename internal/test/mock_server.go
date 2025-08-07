@@ -14,6 +14,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/httpstream"
 	"k8s.io/apimachinery/pkg/util/httpstream/spdy"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd/api"
 )
 
 type MockServer struct {
@@ -54,6 +55,21 @@ func (m *MockServer) Handle(handler http.Handler) {
 
 func (m *MockServer) Config() *rest.Config {
 	return m.config
+}
+
+func (m *MockServer) KubeConfig() *api.Config {
+	fakeConfig := api.NewConfig()
+	fakeConfig.Clusters["fake"] = api.NewCluster()
+	fakeConfig.Clusters["fake"].Server = m.config.Host
+	fakeConfig.Clusters["fake"].CertificateAuthorityData = m.config.CAData
+	fakeConfig.AuthInfos["fake"] = api.NewAuthInfo()
+	fakeConfig.AuthInfos["fake"].ClientKeyData = m.config.KeyData
+	fakeConfig.AuthInfos["fake"].ClientCertificateData = m.config.CertData
+	fakeConfig.Contexts["fake-context"] = api.NewContext()
+	fakeConfig.Contexts["fake-context"].Cluster = "fake"
+	fakeConfig.Contexts["fake-context"].AuthInfo = "fake"
+	fakeConfig.CurrentContext = "fake-context"
+	return fakeConfig
 }
 
 func WriteObject(w http.ResponseWriter, obj runtime.Object) {

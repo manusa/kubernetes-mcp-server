@@ -19,11 +19,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/containers/kubernetes-mcp-server/internal/test"
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/coreos/go-oidc/v3/oidc/oidctest"
 	"golang.org/x/sync/errgroup"
 	"k8s.io/client-go/tools/clientcmd"
-	"k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/klog/v2"
 	"k8s.io/klog/v2/textlogger"
 
@@ -33,6 +33,7 @@ import (
 
 type httpContext struct {
 	klogState       klog.State
+	mockServer      *test.MockServer
 	LogBuffer       bytes.Buffer
 	HttpAddress     string             // HTTP server address
 	timeoutCancel   context.CancelFunc // Release resources if test completes before the timeout
@@ -42,21 +43,31 @@ type httpContext struct {
 	OidcProvider    *oidc.Provider
 }
 
+const tokenReviewSuccessful = `
+	{
+		"kind": "TokenReview",
+		"apiVersion": "authentication.k8s.io/v1",
+		"spec": {"token": "valid-token"},
+		"status": {
+			"authenticated": true,
+			"user": {
+				"username": "test-user",
+				"groups": ["system:authenticated"]
+			}
+		}
+	}`
+
 func (c *httpContext) beforeEach(t *testing.T) {
 	t.Helper()
 	http.DefaultClient.Timeout = 10 * time.Second
 	if c.StaticConfig == nil {
 		c.StaticConfig = &config.StaticConfig{}
 	}
+	c.mockServer = test.NewMockServer()
 	// Fake Kubernetes configuration
-	fakeConfig := api.NewConfig()
-	fakeConfig.Clusters["fake"] = api.NewCluster()
-	fakeConfig.Clusters["fake"].Server = "https://example.com"
-	fakeConfig.Contexts["fake-context"] = api.NewContext()
-	fakeConfig.Contexts["fake-context"].Cluster = "fake"
-	fakeConfig.CurrentContext = "fake-context"
+	mockKubeConfig := c.mockServer.KubeConfig()
 	kubeConfig := filepath.Join(t.TempDir(), "config")
-	_ = clientcmd.WriteToFile(*fakeConfig, kubeConfig)
+	_ = clientcmd.WriteToFile(*mockKubeConfig, kubeConfig)
 	_ = os.Setenv("KUBECONFIG", kubeConfig)
 	// Capture logging
 	c.klogState = klog.CaptureState()
@@ -100,6 +111,7 @@ func (c *httpContext) beforeEach(t *testing.T) {
 
 func (c *httpContext) afterEach(t *testing.T) {
 	t.Helper()
+	c.mockServer.Close()
 	c.StopServer()
 	err := c.WaitForShutdown()
 	if err != nil {
@@ -542,6 +554,84 @@ func TestAuthorizationUnauthorized(t *testing.T) {
 		t.Run("Protected resource with INVALID KUBERNETES Authorization header logs error", func(t *testing.T) {
 			if !strings.Contains(ctx.LogBuffer.String(), "Authentication failed - API Server token validation error") {
 				t.Errorf("Expected log entry for Kubernetes TokenReview error, got: %s", ctx.LogBuffer.String())
+			}
+		})
+	})
+}
+
+// TestAuthorizationRequireOAuthFalse tests the scenario where OAuth is not required.
+func TestAuthorizationRequireOAuthFalse(t *testing.T) {
+	testCaseWithContext(t, &httpContext{StaticConfig: &config.StaticConfig{RequireOAuth: false}}, func(ctx *httpContext) {
+		resp, err := http.Get(fmt.Sprintf("http://%s/mcp", ctx.HttpAddress))
+		if err != nil {
+			t.Fatalf("Failed to get protected endpoint: %v", err)
+		}
+		t.Cleanup(func() { _ = resp.Body.Close() })
+		t.Run("Protected resource with MISSING Authorization header returns 200 - OK)", func(t *testing.T) {
+			if resp.StatusCode != http.StatusOK {
+				t.Errorf("Expected HTTP 200 OK, got %d", resp.StatusCode)
+			}
+		})
+	})
+}
+
+func TestAuthorizationRawToken(t *testing.T) {
+	testCaseWithContext(t, &httpContext{StaticConfig: &config.StaticConfig{RequireOAuth: true}}, func(ctx *httpContext) {
+		ctx.mockServer.Handle(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+			if req.URL.EscapedPath() == "/apis/authentication.k8s.io/v1/tokenreviews" {
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = w.Write([]byte(tokenReviewSuccessful))
+				return
+			}
+		}))
+		req, err := http.NewRequest("GET", fmt.Sprintf("http://%s/mcp", ctx.HttpAddress), nil)
+		if err != nil {
+			t.Fatalf("Failed to create request: %v", err)
+		}
+		req.Header.Set("Authorization", "Bearer "+tokenBasicNotExpired)
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatalf("Failed to get protected endpoint: %v", err)
+		}
+		t.Cleanup(func() { _ = resp.Body.Close() })
+		t.Run("Protected resource with VALID Authorization header returns 200 - OK", func(t *testing.T) {
+			if resp.StatusCode != http.StatusOK {
+				t.Errorf("Expected HTTP 200 OK, got %d", resp.StatusCode)
+			}
+		})
+	})
+}
+
+func TestAuthorizationOidcToken(t *testing.T) {
+	key, oidcProvider, httpServer := NewOidcTestServer(t)
+	t.Cleanup(httpServer.Close)
+	rawClaims := `{
+		"iss": "` + httpServer.URL + `",
+		"exp": ` + strconv.FormatInt(time.Now().Add(time.Hour).Unix(), 10) + `,
+		"aud": "mcp-server"
+	}`
+	validOidcToken := oidctest.SignIDToken(key, "test-oidc-key-id", oidc.RS256, rawClaims)
+	testCaseWithContext(t, &httpContext{StaticConfig: &config.StaticConfig{RequireOAuth: true}, OidcProvider: oidcProvider}, func(ctx *httpContext) {
+		ctx.mockServer.Handle(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+			if req.URL.EscapedPath() == "/apis/authentication.k8s.io/v1/tokenreviews" {
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = w.Write([]byte(tokenReviewSuccessful))
+				return
+			}
+		}))
+		req, err := http.NewRequest("GET", fmt.Sprintf("http://%s/mcp", ctx.HttpAddress), nil)
+		if err != nil {
+			t.Fatalf("Failed to create request: %v", err)
+		}
+		req.Header.Set("Authorization", "Bearer "+validOidcToken)
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatalf("Failed to get protected endpoint: %v", err)
+		}
+		t.Cleanup(func() { _ = resp.Body.Close() })
+		t.Run("Protected resource with VALID OIDC Authorization header returns 200 - OK", func(t *testing.T) {
+			if resp.StatusCode != http.StatusOK {
+				t.Errorf("Expected HTTP 200 OK, got %d", resp.StatusCode)
 			}
 		})
 	})

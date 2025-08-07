@@ -5,6 +5,7 @@ import (
 	"regexp"
 	"testing"
 
+	"github.com/containers/kubernetes-mcp-server/internal/test"
 	"github.com/mark3labs/mcp-go/mcp"
 
 	"github.com/containers/kubernetes-mcp-server/pkg/config"
@@ -12,9 +13,9 @@ import (
 
 func TestPodsTopMetricsUnavailable(t *testing.T) {
 	testCase(t, func(c *mcpContext) {
-		mockServer := NewMockServer()
+		mockServer := test.NewMockServer()
 		defer mockServer.Close()
-		c.withKubeConfig(mockServer.config)
+		c.withKubeConfig(mockServer.Config())
 		mockServer.Handle(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 			w.Header().Set("Content-Type", "application/json")
 			// Request Performed by DiscoveryClient to Kube API (Get API Groups legacy -core-)
@@ -45,9 +46,9 @@ func TestPodsTopMetricsUnavailable(t *testing.T) {
 
 func TestPodsTopMetricsAvailable(t *testing.T) {
 	testCase(t, func(c *mcpContext) {
-		mockServer := NewMockServer()
+		mockServer := test.NewMockServer()
 		defer mockServer.Close()
-		c.withKubeConfig(mockServer.config)
+		c.withKubeConfig(mockServer.Config())
 		mockServer.Handle(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 			println("Request received:", req.Method, req.URL.Path) // TODO: REMOVE LINE
 			w.Header().Set("Content-Type", "application/json")
@@ -211,9 +212,9 @@ func TestPodsTopMetricsAvailable(t *testing.T) {
 func TestPodsTopDenied(t *testing.T) {
 	deniedResourcesServer := &config.StaticConfig{DeniedResources: []config.GroupVersionKind{{Group: "metrics.k8s.io", Version: "v1beta1"}}}
 	testCaseWithContext(t, &mcpContext{staticConfig: deniedResourcesServer}, func(c *mcpContext) {
-		mockServer := NewMockServer()
+		mockServer := test.NewMockServer()
 		defer mockServer.Close()
-		c.withKubeConfig(mockServer.config)
+		c.withKubeConfig(mockServer.Config())
 		mockServer.Handle(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 			w.Header().Set("Content-Type", "application/json")
 			// Request Performed by DiscoveryClient to Kube API (Get API Groups legacy -core-)

@@ -1,11 +1,12 @@
 package mcp
 
 import (
-	"github.com/containers/kubernetes-mcp-server/pkg/config"
-	"github.com/containers/kubernetes-mcp-server/pkg/output"
 	"regexp"
 	"strings"
 	"testing"
+
+	"github.com/containers/kubernetes-mcp-server/pkg/config"
+	"github.com/containers/kubernetes-mcp-server/pkg/output"
 
 	"github.com/mark3labs/mcp-go/mcp"
 	corev1 "k8s.io/api/core/v1"

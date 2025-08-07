@@ -2,27 +2,29 @@ package mcp
 
 import (
 	"bytes"
-	"github.com/containers/kubernetes-mcp-server/pkg/config"
-	"github.com/mark3labs/mcp-go/mcp"
 	"io"
-	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"net/http"
 	"strings"
 	"testing"
+
+	"github.com/containers/kubernetes-mcp-server/internal/test"
+	"github.com/containers/kubernetes-mcp-server/pkg/config"
+	"github.com/mark3labs/mcp-go/mcp"
+	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestPodsExec(t *testing.T) {
 	testCase(t, func(c *mcpContext) {
-		mockServer := NewMockServer()
+		mockServer := test.NewMockServer()
 		defer mockServer.Close()
-		c.withKubeConfig(mockServer.config)
+		c.withKubeConfig(mockServer.Config())
 		mockServer.Handle(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 			if req.URL.Path != "/api/v1/namespaces/default/pods/pod-to-exec/exec" {
 				return
 			}
 			var stdin, stdout bytes.Buffer
-			ctx, err := createHTTPStreams(w, req, &StreamOptions{
+			ctx, err := test.CreateHTTPStreams(w, req, &test.StreamOptions{
 				Stdin:  &stdin,
 				Stdout: &stdout,
 			})
@@ -31,15 +33,15 @@ func TestPodsExec(t *testing.T) {
 				_, _ = w.Write([]byte(err.Error()))
 				return
 			}
-			defer func(conn io.Closer) { _ = conn.Close() }(ctx.conn)
-			_, _ = io.WriteString(ctx.stdoutStream, "command:"+strings.Join(req.URL.Query()["command"], " ")+"\n")
-			_, _ = io.WriteString(ctx.stdoutStream, "container:"+strings.Join(req.URL.Query()["container"], " ")+"\n")
+			defer func(conn io.Closer) { _ = conn.Close() }(ctx.Closer)
+			_, _ = io.WriteString(ctx.StdoutStream, "command:"+strings.Join(req.URL.Query()["command"], " ")+"\n")
+			_, _ = io.WriteString(ctx.StdoutStream, "container:"+strings.Join(req.URL.Query()["container"], " ")+"\n")
 		}))
 		mockServer.Handle(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 			if req.URL.Path != "/api/v1/namespaces/default/pods/pod-to-exec" {
 				return
 			}
-			writeObject(w, &v1.Pod{
+			test.WriteObject(w, &v1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: "default",
 					Name:      "pod-to-exec",

@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/containers/kubernetes-mcp-server/internal/test"
 	"github.com/mark3labs/mcp-go/client"
 	"github.com/mark3labs/mcp-go/mcp"
 )
@@ -48,10 +49,10 @@ func TestWatchKubeConfig(t *testing.T) {
 }
 
 func TestSseHeaders(t *testing.T) {
-	mockServer := NewMockServer()
+	mockServer := test.NewMockServer()
 	defer mockServer.Close()
 	before := func(c *mcpContext) {
-		c.withKubeConfig(mockServer.config)
+		c.withKubeConfig(mockServer.Config())
 		c.clientOptions = append(c.clientOptions, client.WithHeaders(map[string]string{"kubernetes-authorization": "Bearer a-token-from-mcp-client"}))
 	}
 	pathHeaders := make(map[string]http.Header, 0)

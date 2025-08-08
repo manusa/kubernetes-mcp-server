@@ -62,7 +62,7 @@ func NewServer(configuration Configuration) (*Server, error) {
 		server.WithLogging(),
 		server.WithToolHandlerMiddleware(toolCallLoggingMiddleware),
 	)
-	if configuration.StaticConfig.RequireOAuth {
+	if configuration.StaticConfig.RequireOAuth && false { // TODO: Disabled scope auth validation for now
 		serverOptions = append(serverOptions, server.WithToolHandlerMiddleware(toolScopedAuthorizationMiddleware))
 	}
 

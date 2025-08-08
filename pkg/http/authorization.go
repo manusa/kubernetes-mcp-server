@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/containers/kubernetes-mcp-server/pkg/mcp"
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/go-jose/go-jose/v4"
 	"github.com/go-jose/go-jose/v4/jwt"
@@ -13,11 +14,7 @@ import (
 	"k8s.io/klog/v2"
 	"k8s.io/utils/strings/slices"
 
-	"github.com/containers/kubernetes-mcp-server/pkg/mcp"
-)
-
-const (
-	Audience = "mcp-server"
+	"github.com/containers/kubernetes-mcp-server/pkg/config"
 )
 
 type KubernetesApiTokenVerifier interface {
@@ -42,30 +39,31 @@ type KubernetesApiTokenVerifier interface {
 //
 //	    2.1. Raw Token Validation (oidcProvider is nil):
 //	         - The token is validated offline for basic sanity checks (expiration).
-//	         - If audience is set, the token is validated against the audience.
-//	         - The token is then used against the Kubernetes API Server for TokenReview.
+//	         - If OAuthAudience is set, the token is validated against the audience.
+//	         - If ValidateToken is set, the token is then used against the Kubernetes API Server for TokenReview.
 //
 //	    2.2. OIDC Provider Validation (oidcProvider is not nil):
 //	         - The token is validated offline for basic sanity checks (audience and expiration).
+//	         - If OAuthAudience is set, the token is validated against the audience.
 //	         - The token is then validated against the OIDC Provider.
-//	         - The token is then used against the Kubernetes API Server for TokenReview.
+//	         - If ValidateToken is set, the token is then used against the Kubernetes API Server for TokenReview.
 //
 //	    2.3. OIDC Token Exchange (oidcProvider is not nil and xxx):
-func AuthorizationMiddleware(requireOAuth bool, audience string, oidcProvider *oidc.Provider, verifier KubernetesApiTokenVerifier) func(http.Handler) http.Handler {
+func AuthorizationMiddleware(staticConfig *config.StaticConfig, oidcProvider *oidc.Provider, verifier KubernetesApiTokenVerifier) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if r.URL.Path == healthEndpoint || slices.Contains(WellKnownEndpoints, r.URL.EscapedPath()) {
 				next.ServeHTTP(w, r)
 				return
 			}
-			if !requireOAuth {
+			if !staticConfig.RequireOAuth {
 				next.ServeHTTP(w, r)
 				return
 			}
 
 			wwwAuthenticateHeader := "Bearer realm=\"Kubernetes MCP Server\""
-			if audience != "" {
-				wwwAuthenticateHeader += fmt.Sprintf(`, audience="%s"`, audience)
+			if staticConfig.OAuthAudience != "" {
+				wwwAuthenticateHeader += fmt.Sprintf(`, audience="%s"`, staticConfig.OAuthAudience)
 			}
 
 			authHeader := r.Header.Get("Authorization")
@@ -80,42 +78,32 @@ func AuthorizationMiddleware(requireOAuth bool, audience string, oidcProvider *o
 			token := strings.TrimPrefix(authHeader, "Bearer ")
 
 			claims, err := ParseJWTClaims(token)
-			if err == nil && claims != nil {
-				err = claims.ValidateOffline(audience)
+			if err == nil && claims == nil {
+				// Impossible case, but just in case
+				err = fmt.Errorf("failed to parse JWT claims from token")
 			}
-			if err == nil && claims != nil {
-				err = claims.ValidateWithProvider(r.Context(), audience, oidcProvider)
+			// Offline validation
+			if err == nil {
+				err = claims.ValidateOffline(staticConfig.OAuthAudience)
+			}
+			// Online OIDC provider validation
+			if err == nil {
+				err = claims.ValidateWithProvider(r.Context(), staticConfig.OAuthAudience, oidcProvider)
+			}
+			// Scopes propagation, they are likely to be used for authorization.
+			if err == nil {
+				scopes := claims.GetScopes()
+				klog.V(2).Infof("JWT token validated - Scopes: %v", scopes)
+				r = r.WithContext(context.WithValue(r.Context(), mcp.TokenScopesContextKey, scopes))
+			}
+			// Kubernetes API Server TokenReview validation
+			if err == nil && staticConfig.ValidateToken {
+				err = claims.ValidateWithKubernetesApi(r.Context(), staticConfig.OAuthAudience, verifier)
 			}
 			if err != nil {
 				klog.V(1).Infof("Authentication failed - JWT validation error: %s %s from %s, error: %v", r.Method, r.URL.Path, r.RemoteAddr, err)
 
 				w.Header().Set("WWW-Authenticate", wwwAuthenticateHeader+", error=\"invalid_token\"")
-				http.Error(w, "Unauthorized: Invalid token", http.StatusUnauthorized)
-				return
-			}
-
-			// Scopes are likely to be used for authorization.
-			scopes := claims.GetScopes()
-			klog.V(2).Infof("JWT token validated - Scopes: %v", scopes)
-			r = r.WithContext(context.WithValue(r.Context(), mcp.TokenScopesContextKey, scopes))
-
-			// Now, there are a couple of options:
-			// 1. If there is no authorization url configured for this MCP Server,
-			// that means this token will be used against the Kubernetes API Server.
-			// So that we need to validate the token using Kubernetes TokenReview API beforehand.
-			// 2. If there is an authorization url configured for this MCP Server,
-			// that means up to this point, the token is validated against the OIDC Provider already.
-			// 2. a. If this is the only token in the headers, this validated token
-			// is supposed to be used against the Kubernetes API Server as well. Therefore,
-			// TokenReview request must succeed.
-			// 2. b. If this is not the only token in the headers, the token in here is used
-			// only for authentication and authorization. Therefore, we need to send TokenReview request
-			// with the other token in the headers (TODO: still need to validate aud and exp of this token separately).
-			_, _, err = verifier.KubernetesApiVerifyToken(r.Context(), token, audience)
-			if err != nil {
-				klog.V(1).Infof("Authentication failed - API Server token validation error: %s %s from %s, error: %v", r.Method, r.URL.Path, r.RemoteAddr, err)
-
-				w.Header().Set("WWW-Authenticate", fmt.Sprintf(`Bearer realm="Kubernetes MCP Server", audience="%s", error="invalid_token"`, audience))
 				http.Error(w, "Unauthorized: Invalid token", http.StatusUnauthorized)
 				return
 			}
@@ -175,6 +163,16 @@ func (c *JWTClaims) ValidateWithProvider(ctx context.Context, audience string, p
 		_, err := verifier.Verify(ctx, c.Token)
 		if err != nil {
 			return fmt.Errorf("OIDC token validation error: %v", err)
+		}
+	}
+	return nil
+}
+
+func (c *JWTClaims) ValidateWithKubernetesApi(ctx context.Context, audience string, verifier KubernetesApiTokenVerifier) error {
+	if verifier != nil {
+		_, _, err := verifier.KubernetesApiVerifyToken(ctx, c.Token, audience)
+		if err != nil {
+			return fmt.Errorf("kubernetes API token validation error: %v", err)
 		}
 	}
 	return nil

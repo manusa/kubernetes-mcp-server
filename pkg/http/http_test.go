@@ -132,9 +132,18 @@ func testCaseWithContext(t *testing.T, httpCtx *httpContext, test func(c *httpCo
 	test(httpCtx)
 }
 
-func NewOidcTestServer(t *testing.T) (privateKey *rsa.PrivateKey, oidcProvider *oidc.Provider, httpServer *httptest.Server) {
+type OidcTestServer struct {
+	*rsa.PrivateKey
+	*oidc.Provider
+	*httptest.Server
+	TokenEndpointHandler http.HandlerFunc
+}
+
+func NewOidcTestServer(t *testing.T) (oidcTestServer *OidcTestServer) {
 	t.Helper()
-	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	var err error
+	oidcTestServer = &OidcTestServer{}
+	oidcTestServer.PrivateKey, err = rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
 		t.Fatalf("failed to generate private key for oidc: %v", err)
 	}
@@ -142,15 +151,21 @@ func NewOidcTestServer(t *testing.T) (privateKey *rsa.PrivateKey, oidcProvider *
 		Algorithms: []string{oidc.RS256, oidc.ES256},
 		PublicKeys: []oidctest.PublicKey{
 			{
-				PublicKey: privateKey.Public(),
+				PublicKey: oidcTestServer.Public(),
 				KeyID:     "test-oidc-key-id",
 				Algorithm: oidc.RS256,
 			},
 		},
 	}
-	httpServer = httptest.NewServer(oidcServer)
-	oidcServer.SetIssuer(httpServer.URL)
-	oidcProvider, err = oidc.NewProvider(t.Context(), httpServer.URL)
+	oidcTestServer.Server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/token" && oidcTestServer.TokenEndpointHandler != nil {
+			oidcTestServer.TokenEndpointHandler.ServeHTTP(w, r)
+			return
+		}
+		oidcServer.ServeHTTP(w, r)
+	}))
+	oidcServer.SetIssuer(oidcTestServer.URL)
+	oidcTestServer.Provider, err = oidc.NewProvider(t.Context(), oidcTestServer.URL)
 	if err != nil {
 		t.Fatalf("failed to create OIDC provider: %v", err)
 	}
@@ -520,9 +535,9 @@ func TestAuthorizationUnauthorized(t *testing.T) {
 		})
 	})
 	// Failed OIDC validation
-	key, oidcProvider, httpServer := NewOidcTestServer(t)
-	t.Cleanup(httpServer.Close)
-	testCaseWithContext(t, &httpContext{StaticConfig: &config.StaticConfig{RequireOAuth: true, OAuthAudience: "mcp-server", ValidateToken: true}, OidcProvider: oidcProvider}, func(ctx *httpContext) {
+	oidcTestServer := NewOidcTestServer(t)
+	t.Cleanup(oidcTestServer.Close)
+	testCaseWithContext(t, &httpContext{StaticConfig: &config.StaticConfig{RequireOAuth: true, OAuthAudience: "mcp-server", ValidateToken: true}, OidcProvider: oidcTestServer.Provider}, func(ctx *httpContext) {
 		req, err := http.NewRequest("GET", fmt.Sprintf("http://%s/mcp", ctx.HttpAddress), nil)
 		if err != nil {
 			t.Fatalf("Failed to create request: %v", err)
@@ -554,12 +569,12 @@ func TestAuthorizationUnauthorized(t *testing.T) {
 	})
 	// Failed Kubernetes TokenReview
 	rawClaims := `{
-		"iss": "` + httpServer.URL + `",
+		"iss": "` + oidcTestServer.URL + `",
 		"exp": ` + strconv.FormatInt(time.Now().Add(time.Hour).Unix(), 10) + `,
 		"aud": "mcp-server"
 	}`
-	validOidcToken := oidctest.SignIDToken(key, "test-oidc-key-id", oidc.RS256, rawClaims)
-	testCaseWithContext(t, &httpContext{StaticConfig: &config.StaticConfig{RequireOAuth: true, OAuthAudience: "mcp-server", ValidateToken: true}, OidcProvider: oidcProvider}, func(ctx *httpContext) {
+	validOidcToken := oidctest.SignIDToken(oidcTestServer.PrivateKey, "test-oidc-key-id", oidc.RS256, rawClaims)
+	testCaseWithContext(t, &httpContext{StaticConfig: &config.StaticConfig{RequireOAuth: true, OAuthAudience: "mcp-server", ValidateToken: true}, OidcProvider: oidcTestServer.Provider}, func(ctx *httpContext) {
 		req, err := http.NewRequest("GET", fmt.Sprintf("http://%s/mcp", ctx.HttpAddress), nil)
 		if err != nil {
 			t.Fatalf("Failed to create request: %v", err)
@@ -591,7 +606,6 @@ func TestAuthorizationUnauthorized(t *testing.T) {
 	})
 }
 
-// TestAuthorizationRequireOAuthFalse tests the scenario where OAuth is not required.
 func TestAuthorizationRequireOAuthFalse(t *testing.T) {
 	testCaseWithContext(t, &httpContext{StaticConfig: &config.StaticConfig{RequireOAuth: false}}, func(ctx *httpContext) {
 		resp, err := http.Get(fmt.Sprintf("http://%s/mcp", ctx.HttpAddress))
@@ -657,17 +671,17 @@ func TestAuthorizationRawToken(t *testing.T) {
 }
 
 func TestAuthorizationOidcToken(t *testing.T) {
-	key, oidcProvider, httpServer := NewOidcTestServer(t)
-	t.Cleanup(httpServer.Close)
+	oidcTestServer := NewOidcTestServer(t)
+	t.Cleanup(oidcTestServer.Close)
 	rawClaims := `{
-		"iss": "` + httpServer.URL + `",
+		"iss": "` + oidcTestServer.URL + `",
 		"exp": ` + strconv.FormatInt(time.Now().Add(time.Hour).Unix(), 10) + `,
 		"aud": "mcp-server"
 	}`
-	validOidcToken := oidctest.SignIDToken(key, "test-oidc-key-id", oidc.RS256, rawClaims)
+	validOidcToken := oidctest.SignIDToken(oidcTestServer.PrivateKey, "test-oidc-key-id", oidc.RS256, rawClaims)
 	cases := []bool{false, true}
 	for _, validateToken := range cases {
-		testCaseWithContext(t, &httpContext{StaticConfig: &config.StaticConfig{RequireOAuth: true, OAuthAudience: "mcp-server", ValidateToken: validateToken}, OidcProvider: oidcProvider}, func(ctx *httpContext) {
+		testCaseWithContext(t, &httpContext{StaticConfig: &config.StaticConfig{RequireOAuth: true, OAuthAudience: "mcp-server", ValidateToken: validateToken}, OidcProvider: oidcTestServer.Provider}, func(ctx *httpContext) {
 			tokenReviewed := false
 			ctx.mockServer.Handle(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 				if req.URL.EscapedPath() == "/apis/authentication.k8s.io/v1/tokenreviews" {
@@ -701,6 +715,69 @@ func TestAuthorizationOidcToken(t *testing.T) {
 				}
 			})
 		})
+	}
+}
 
+func TestAuthorizationOidcTokenExchange(t *testing.T) {
+	oidcTestServer := NewOidcTestServer(t)
+	t.Cleanup(oidcTestServer.Close)
+	rawClaims := `{
+		"iss": "` + oidcTestServer.URL + `",
+		"exp": ` + strconv.FormatInt(time.Now().Add(time.Hour).Unix(), 10) + `,
+		"aud": "%s"
+	}`
+	validOidcClientToken := oidctest.SignIDToken(oidcTestServer.PrivateKey, "test-oidc-key-id", oidc.RS256,
+		fmt.Sprintf(rawClaims, "mcp-server"))
+	validOidcBackendToken := oidctest.SignIDToken(oidcTestServer.PrivateKey, "test-oidc-key-id", oidc.RS256,
+		fmt.Sprintf(rawClaims, "backend-audience"))
+	oidcTestServer.TokenEndpointHandler = func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = fmt.Fprintf(w, `{"access_token":"%s","token_type":"Bearer","expires_in":253402297199}`, validOidcBackendToken)
+	}
+	cases := []bool{false, true}
+	for _, validateToken := range cases {
+		staticConfig := &config.StaticConfig{
+			RequireOAuth:    true,
+			OAuthAudience:   "mcp-server",
+			ValidateToken:   validateToken,
+			StsClientId:     "test-sts-client-id",
+			StsClientSecret: "test-sts-client-secret",
+			StsAudience:     "backend-audience",
+			StsScopes:       []string{"backend-scope"},
+		}
+		testCaseWithContext(t, &httpContext{StaticConfig: staticConfig, OidcProvider: oidcTestServer.Provider}, func(ctx *httpContext) {
+			tokenReviewed := false
+			ctx.mockServer.Handle(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+				if req.URL.EscapedPath() == "/apis/authentication.k8s.io/v1/tokenreviews" {
+					w.Header().Set("Content-Type", "application/json")
+					_, _ = w.Write([]byte(tokenReviewSuccessful))
+					tokenReviewed = true
+					return
+				}
+			}))
+			req, err := http.NewRequest("GET", fmt.Sprintf("http://%s/mcp", ctx.HttpAddress), nil)
+			if err != nil {
+				t.Fatalf("Failed to create request: %v", err)
+			}
+			req.Header.Set("Authorization", "Bearer "+validOidcClientToken)
+			resp, err := http.DefaultClient.Do(req)
+			if err != nil {
+				t.Fatalf("Failed to get protected endpoint: %v", err)
+			}
+			t.Cleanup(func() { _ = resp.Body.Close() })
+			t.Run(fmt.Sprintf("Protected resource with validate-token='%t' with VALID OIDC EXCHANGE Authorization header returns 200 - OK", validateToken), func(t *testing.T) {
+				if resp.StatusCode != http.StatusOK {
+					t.Errorf("Expected HTTP 200 OK, got %d", resp.StatusCode)
+				}
+			})
+			t.Run(fmt.Sprintf("Protected resource with validate-token='%t' with VALID OIDC EXCHANGE Authorization header performs token validation accordingly", validateToken), func(t *testing.T) {
+				if tokenReviewed == true && !validateToken {
+					t.Errorf("Expected token review to be skipped when validate-token is false, but it was performed")
+				}
+				if tokenReviewed == false && validateToken {
+					t.Errorf("Expected token review to be performed when validate-token is true, but it was skipped")
+				}
+			})
+		})
 	}
 }

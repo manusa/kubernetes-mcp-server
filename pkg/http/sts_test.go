@@ -12,6 +12,36 @@ import (
 	"golang.org/x/oauth2"
 )
 
+func TestIsEnabled(t *testing.T) {
+	disabledCases := []SecurityTokenService{
+		{},
+		{Provider: nil},
+		{Provider: &oidc.Provider{}},
+		{Provider: &oidc.Provider{}, ClientId: "test-client-id", ClientSecret: "test-client-secret"},
+		{ClientId: "test-client-id", ClientSecret: "test-client-secret", ExternalAccountAudience: "test-audience"},
+		{Provider: &oidc.Provider{}, ClientSecret: "test-client-secret", ExternalAccountAudience: "test-audience"},
+	}
+	for _, sts := range disabledCases {
+		t.Run(fmt.Sprintf("SecurityTokenService{%+v}.IsEnabled() = false", sts), func(t *testing.T) {
+			if sts.IsEnabled() {
+				t.Errorf("SecurityTokenService{%+v}.IsEnabled() = true; want false", sts)
+			}
+		})
+	}
+	enabledCases := []SecurityTokenService{
+		{Provider: &oidc.Provider{}, ClientId: "test-client-id", ExternalAccountAudience: "test-audience"},
+		{Provider: &oidc.Provider{}, ClientId: "test-client-id", ExternalAccountAudience: "test-audience", ClientSecret: "test-client-secret"},
+		{Provider: &oidc.Provider{}, ClientId: "test-client-id", ExternalAccountAudience: "test-audience", ClientSecret: "test-client-secret", ExternalAccountScopes: []string{"test-scope"}},
+	}
+	for _, sts := range enabledCases {
+		t.Run(fmt.Sprintf("SecurityTokenService{%+v}.IsEnabled() = true", sts), func(t *testing.T) {
+			if !sts.IsEnabled() {
+				t.Errorf("SecurityTokenService{%+v}.IsEnabled() = false; want true", sts)
+			}
+		})
+	}
+}
+
 func TestExternalAccountTokenExchange(t *testing.T) {
 	mockServer := test.NewMockServer()
 	authServer := mockServer.Config().Host

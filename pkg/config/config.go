@@ -22,18 +22,27 @@ type StaticConfig struct {
 	DisableDestructive bool     `toml:"disable_destructive,omitempty"`
 	EnabledTools       []string `toml:"enabled_tools,omitempty"`
 	DisabledTools      []string `toml:"disabled_tools,omitempty"`
-	RequireOAuth       bool     `toml:"require_oauth,omitempty"`
 
-	//Authorization related fields
+	// Authorization-related fields
+	// RequireOAuth indicates whether the server requires OAuth for authentication.
+	RequireOAuth bool `toml:"require_oauth,omitempty"`
 	// OAuthAudience is the valid audience for the OAuth tokens, used for offline JWT claim validation.
 	OAuthAudience string `toml:"oauth_audience,omitempty"`
 	// ValidateToken indicates whether the server should validate the token against the Kubernetes API Server using TokenReview.
 	ValidateToken bool `toml:"validate_token,omitempty"`
 	// AuthorizationURL is the URL of the OIDC authorization server.
 	// It is used for token validation and for STS token exchange.
-	AuthorizationURL     string `toml:"authorization_url,omitempty"`
-	CertificateAuthority string `toml:"certificate_authority,omitempty"`
-	ServerURL            string `toml:"server_url,omitempty"`
+	AuthorizationURL string `toml:"authorization_url,omitempty"`
+	// StsClientId is the OAuth client ID used for backend token exchange
+	StsClientId string `toml:"sts_client_id,omitempty"`
+	// StsClientSecret is the OAuth client secret used for backend token exchange
+	StsClientSecret string `toml:"sts_client_secret,omitempty"`
+	// StsAudience is the audience for the STS token exchange.
+	StsAudience string `toml:"sts_audience,omitempty"`
+	// StsScopes is the scopes for the STS token exchange.
+	StsScopes            []string `toml:"sts_scopes,omitempty"`
+	CertificateAuthority string   `toml:"certificate_authority,omitempty"`
+	ServerURL            string   `toml:"server_url,omitempty"`
 }
 
 type GroupVersionKind struct {

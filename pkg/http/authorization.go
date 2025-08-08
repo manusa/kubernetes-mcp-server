@@ -6,15 +6,16 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/containers/kubernetes-mcp-server/pkg/mcp"
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/go-jose/go-jose/v4"
 	"github.com/go-jose/go-jose/v4/jwt"
+	"golang.org/x/oauth2"
 	authenticationapiv1 "k8s.io/api/authentication/v1"
 	"k8s.io/klog/v2"
 	"k8s.io/utils/strings/slices"
 
 	"github.com/containers/kubernetes-mcp-server/pkg/config"
+	"github.com/containers/kubernetes-mcp-server/pkg/mcp"
 )
 
 type KubernetesApiTokenVerifier interface {
@@ -26,7 +27,7 @@ type KubernetesApiTokenVerifier interface {
 //
 // The flow is skipped for unprotected resources, such as health checks and well-known endpoints.
 //
-//	There are several auth scenarios
+//	There are several auth scenarios supported by this middleware:
 //
 //	 1. requireOAuth is false:
 //
@@ -42,13 +43,25 @@ type KubernetesApiTokenVerifier interface {
 //	         - If OAuthAudience is set, the token is validated against the audience.
 //	         - If ValidateToken is set, the token is then used against the Kubernetes API Server for TokenReview.
 //
+//	         see TestAuthorizationRawToken
+//
 //	    2.2. OIDC Provider Validation (oidcProvider is not nil):
 //	         - The token is validated offline for basic sanity checks (audience and expiration).
 //	         - If OAuthAudience is set, the token is validated against the audience.
 //	         - The token is then validated against the OIDC Provider.
 //	         - If ValidateToken is set, the token is then used against the Kubernetes API Server for TokenReview.
 //
-//	    2.3. OIDC Token Exchange (oidcProvider is not nil and xxx):
+//	         see TestAuthorizationOidcToken
+//
+//	    2.3. OIDC Token Exchange (oidcProvider is not nil, StsClientId and StsAudience are set):
+//	         - The token is validated offline for basic sanity checks (audience and expiration).
+//	         - If OAuthAudience is set, the token is validated against the audience.
+//	         - The token is then validated against the OIDC Provider.
+//	         - If the token is valid, an external account token exchange is performed using
+//	           the OIDC Provider to obtain a new token with the specified audience and scopes.
+//	         - If ValidateToken is set, the exchanged token is then used against the Kubernetes API Server for TokenReview.
+//
+//	         see TestAuthorizationOidcTokenExchange
 func AuthorizationMiddleware(staticConfig *config.StaticConfig, oidcProvider *oidc.Provider, verifier KubernetesApiTokenVerifier) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -95,6 +108,22 @@ func AuthorizationMiddleware(staticConfig *config.StaticConfig, oidcProvider *oi
 				scopes := claims.GetScopes()
 				klog.V(2).Infof("JWT token validated - Scopes: %v", scopes)
 				r = r.WithContext(context.WithValue(r.Context(), mcp.TokenScopesContextKey, scopes))
+			}
+			// Token exchange with OIDC provider
+			sts := NewFromConfig(staticConfig, oidcProvider)
+			if err == nil && sts.IsEnabled() {
+				var exchangedToken *oauth2.Token
+				// If the token is valid, we can exchange it for a new token with the specified audience and scopes.
+				exchangedToken, err = sts.ExternalAccountTokenExchange(r.Context(), &oauth2.Token{
+					AccessToken: claims.Token,
+					TokenType:   "Bearer",
+				})
+				if err == nil {
+					// Replace the original token with the exchanged token
+					token = exchangedToken.AccessToken
+					claims, err = ParseJWTClaims(token)
+					r.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token)) // TODO: Implement test to verify, THIS IS A CRITICAL PART
+				}
 			}
 			// Kubernetes API Server TokenReview validation
 			if err == nil && staticConfig.ValidateToken {

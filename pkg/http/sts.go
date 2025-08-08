@@ -6,6 +6,8 @@ import (
 	"github.com/coreos/go-oidc/v3/oidc"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google/externalaccount"
+
+	"github.com/containers/kubernetes-mcp-server/pkg/config"
 )
 
 type staticSubjectTokenSupplier struct {
@@ -24,6 +26,20 @@ type SecurityTokenService struct {
 	ClientSecret            string
 	ExternalAccountAudience string
 	ExternalAccountScopes   []string
+}
+
+func NewFromConfig(config *config.StaticConfig, provider *oidc.Provider) *SecurityTokenService {
+	return &SecurityTokenService{
+		Provider:                provider,
+		ClientId:                config.StsClientId,
+		ClientSecret:            config.StsClientSecret,
+		ExternalAccountAudience: config.StsAudience,
+		ExternalAccountScopes:   config.StsScopes,
+	}
+}
+
+func (sts *SecurityTokenService) IsEnabled() bool {
+	return sts.Provider != nil && sts.ClientId != "" && sts.ExternalAccountAudience != ""
 }
 
 func (sts *SecurityTokenService) ExternalAccountTokenExchange(ctx context.Context, originalToken *oauth2.Token) (*oauth2.Token, error) {

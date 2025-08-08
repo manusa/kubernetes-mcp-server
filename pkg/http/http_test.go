@@ -619,10 +619,12 @@ func TestAuthorizationRawToken(t *testing.T) {
 	}
 	for _, c := range cases {
 		testCaseWithContext(t, &httpContext{StaticConfig: &config.StaticConfig{RequireOAuth: true, OAuthAudience: c.audience, ValidateToken: c.validateToken}}, func(ctx *httpContext) {
+			tokenReviewed := false
 			ctx.mockServer.Handle(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 				if req.URL.EscapedPath() == "/apis/authentication.k8s.io/v1/tokenreviews" {
 					w.Header().Set("Content-Type", "application/json")
 					_, _ = w.Write([]byte(tokenReviewSuccessful))
+					tokenReviewed = true
 					return
 				}
 			}))
@@ -639,6 +641,14 @@ func TestAuthorizationRawToken(t *testing.T) {
 			t.Run(fmt.Sprintf("Protected resource with audience = '%s' and validate-token = '%t', with VALID Authorization header returns 200 - OK", c.audience, c.validateToken), func(t *testing.T) {
 				if resp.StatusCode != http.StatusOK {
 					t.Errorf("Expected HTTP 200 OK, got %d", resp.StatusCode)
+				}
+			})
+			t.Run(fmt.Sprintf("Protected resource with audience = '%s' and validate-token = '%t', with VALID Authorization header performs token validation accordingly", c.audience, c.validateToken), func(t *testing.T) {
+				if tokenReviewed == true && !c.validateToken {
+					t.Errorf("Expected token review to be skipped when validate-token is false, but it was performed")
+				}
+				if tokenReviewed == false && c.validateToken {
+					t.Errorf("Expected token review to be performed when validate-token is true, but it was skipped")
 				}
 			})
 		})
@@ -658,10 +668,12 @@ func TestAuthorizationOidcToken(t *testing.T) {
 	cases := []bool{false, true}
 	for _, validateToken := range cases {
 		testCaseWithContext(t, &httpContext{StaticConfig: &config.StaticConfig{RequireOAuth: true, OAuthAudience: "mcp-server", ValidateToken: validateToken}, OidcProvider: oidcProvider}, func(ctx *httpContext) {
+			tokenReviewed := false
 			ctx.mockServer.Handle(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 				if req.URL.EscapedPath() == "/apis/authentication.k8s.io/v1/tokenreviews" {
 					w.Header().Set("Content-Type", "application/json")
 					_, _ = w.Write([]byte(tokenReviewSuccessful))
+					tokenReviewed = true
 					return
 				}
 			}))
@@ -678,6 +690,14 @@ func TestAuthorizationOidcToken(t *testing.T) {
 			t.Run(fmt.Sprintf("Protected resource with validate-token='%t' with VALID OIDC Authorization header returns 200 - OK", validateToken), func(t *testing.T) {
 				if resp.StatusCode != http.StatusOK {
 					t.Errorf("Expected HTTP 200 OK, got %d", resp.StatusCode)
+				}
+			})
+			t.Run(fmt.Sprintf("Protected resource with validate-token='%t' with VALID OIDC Authorization header performs token validation accordingly", validateToken), func(t *testing.T) {
+				if tokenReviewed == true && !validateToken {
+					t.Errorf("Expected token review to be skipped when validate-token is false, but it was performed")
+				}
+				if tokenReviewed == false && validateToken {
+					t.Errorf("Expected token review to be performed when validate-token is true, but it was skipped")
 				}
 			})
 		})

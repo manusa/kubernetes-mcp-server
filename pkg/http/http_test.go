@@ -390,7 +390,7 @@ func TestAuthorizationUnauthorized(t *testing.T) {
 		})
 		t.Run("Protected resource with MISSING Authorization header returns WWW-Authenticate header", func(t *testing.T) {
 			authHeader := resp.Header.Get("WWW-Authenticate")
-			expected := `Bearer realm="Kubernetes MCP Server", audience="mcp-server", error="missing_token"`
+			expected := `Bearer realm="Kubernetes MCP Server", error="missing_token"`
 			if authHeader != expected {
 				t.Errorf("Expected WWW-Authenticate header to be %q, got %q", expected, authHeader)
 			}
@@ -415,7 +415,7 @@ func TestAuthorizationUnauthorized(t *testing.T) {
 		t.Cleanup(func() { _ = resp.Body.Close })
 		t.Run("Protected resource with INCOMPATIBLE Authorization header returns WWW-Authenticate header", func(t *testing.T) {
 			authHeader := resp.Header.Get("WWW-Authenticate")
-			expected := `Bearer realm="Kubernetes MCP Server", audience="mcp-server", error="missing_token"`
+			expected := `Bearer realm="Kubernetes MCP Server", error="missing_token"`
 			if authHeader != expected {
 				t.Errorf("Expected WWW-Authenticate header to be %q, got %q", expected, authHeader)
 			}
@@ -432,7 +432,7 @@ func TestAuthorizationUnauthorized(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed to create request: %v", err)
 		}
-		req.Header.Set("Authorization", "Bearer invalid_base64"+tokenBasicNotExpired)
+		req.Header.Set("Authorization", "Bearer "+strings.ReplaceAll(tokenBasicNotExpired, ".", ".invalid"))
 		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
 			t.Fatalf("Failed to get protected endpoint: %v", err)
@@ -445,13 +445,13 @@ func TestAuthorizationUnauthorized(t *testing.T) {
 		})
 		t.Run("Protected resource with INVALID Authorization header returns WWW-Authenticate header", func(t *testing.T) {
 			authHeader := resp.Header.Get("WWW-Authenticate")
-			expected := `Bearer realm="Kubernetes MCP Server", audience="mcp-server", error="invalid_token"`
+			expected := `Bearer realm="Kubernetes MCP Server", error="invalid_token"`
 			if authHeader != expected {
 				t.Errorf("Expected WWW-Authenticate header to be %q, got %q", expected, authHeader)
 			}
 		})
 		t.Run("Protected resource with INVALID Authorization header logs error", func(t *testing.T) {
-			if !strings.Contains(ctx.LogBuffer.String(), "Authentication failed - JWT validation error") &&
+			if !strings.Contains(ctx.LogBuffer.String(), "Authentication failed - JWT validation error") ||
 				!strings.Contains(ctx.LogBuffer.String(), "error: failed to parse JWT token: illegal base64 data") {
 				t.Errorf("Expected log entry for JWT validation error, got: %s", ctx.LogBuffer.String())
 			}
@@ -476,14 +476,45 @@ func TestAuthorizationUnauthorized(t *testing.T) {
 		})
 		t.Run("Protected resource with EXPIRED Authorization header returns WWW-Authenticate header", func(t *testing.T) {
 			authHeader := resp.Header.Get("WWW-Authenticate")
-			expected := `Bearer realm="Kubernetes MCP Server", audience="mcp-server", error="invalid_token"`
+			expected := `Bearer realm="Kubernetes MCP Server", error="invalid_token"`
 			if authHeader != expected {
 				t.Errorf("Expected WWW-Authenticate header to be %q, got %q", expected, authHeader)
 			}
 		})
 		t.Run("Protected resource with EXPIRED Authorization header logs error", func(t *testing.T) {
-			if !strings.Contains(ctx.LogBuffer.String(), "Authentication failed - JWT validation error") &&
+			if !strings.Contains(ctx.LogBuffer.String(), "Authentication failed - JWT validation error") ||
 				!strings.Contains(ctx.LogBuffer.String(), "validation failed, token is expired (exp)") {
+				t.Errorf("Expected log entry for JWT validation error, got: %s", ctx.LogBuffer.String())
+			}
+		})
+	})
+	// Invalid audience claim Bearer token
+	testCaseWithContext(t, &httpContext{StaticConfig: &config.StaticConfig{RequireOAuth: true, OAuthAudience: "expected-audience"}}, func(ctx *httpContext) {
+		req, err := http.NewRequest("GET", fmt.Sprintf("http://%s/mcp", ctx.HttpAddress), nil)
+		if err != nil {
+			t.Fatalf("Failed to create request: %v", err)
+		}
+		req.Header.Set("Authorization", "Bearer "+tokenBasicExpired)
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatalf("Failed to get protected endpoint: %v", err)
+		}
+		t.Cleanup(func() { _ = resp.Body.Close })
+		t.Run("Protected resource with INVALID AUDIENCE Authorization header returns 401 - Unauthorized", func(t *testing.T) {
+			if resp.StatusCode != 401 {
+				t.Errorf("Expected HTTP 401, got %d", resp.StatusCode)
+			}
+		})
+		t.Run("Protected resource with INVALID AUDIENCE Authorization header returns WWW-Authenticate header", func(t *testing.T) {
+			authHeader := resp.Header.Get("WWW-Authenticate")
+			expected := `Bearer realm="Kubernetes MCP Server", audience="expected-audience", error="invalid_token"`
+			if authHeader != expected {
+				t.Errorf("Expected WWW-Authenticate header to be %q, got %q", expected, authHeader)
+			}
+		})
+		t.Run("Protected resource with INVALID AUDIENCE Authorization header logs error", func(t *testing.T) {
+			if !strings.Contains(ctx.LogBuffer.String(), "Authentication failed - JWT validation error") ||
+				!strings.Contains(ctx.LogBuffer.String(), "invalid audience claim (aud)") {
 				t.Errorf("Expected log entry for JWT validation error, got: %s", ctx.LogBuffer.String())
 			}
 		})
@@ -491,7 +522,7 @@ func TestAuthorizationUnauthorized(t *testing.T) {
 	// Failed OIDC validation
 	key, oidcProvider, httpServer := NewOidcTestServer(t)
 	t.Cleanup(httpServer.Close)
-	testCaseWithContext(t, &httpContext{StaticConfig: &config.StaticConfig{RequireOAuth: true}, OidcProvider: oidcProvider}, func(ctx *httpContext) {
+	testCaseWithContext(t, &httpContext{StaticConfig: &config.StaticConfig{RequireOAuth: true, OAuthAudience: "mcp-server"}, OidcProvider: oidcProvider}, func(ctx *httpContext) {
 		req, err := http.NewRequest("GET", fmt.Sprintf("http://%s/mcp", ctx.HttpAddress), nil)
 		if err != nil {
 			t.Fatalf("Failed to create request: %v", err)
@@ -528,7 +559,7 @@ func TestAuthorizationUnauthorized(t *testing.T) {
 		"aud": "mcp-server"
 	}`
 	validOidcToken := oidctest.SignIDToken(key, "test-oidc-key-id", oidc.RS256, rawClaims)
-	testCaseWithContext(t, &httpContext{StaticConfig: &config.StaticConfig{RequireOAuth: true}, OidcProvider: oidcProvider}, func(ctx *httpContext) {
+	testCaseWithContext(t, &httpContext{StaticConfig: &config.StaticConfig{RequireOAuth: true, OAuthAudience: "mcp-server"}, OidcProvider: oidcProvider}, func(ctx *httpContext) {
 		req, err := http.NewRequest("GET", fmt.Sprintf("http://%s/mcp", ctx.HttpAddress), nil)
 		if err != nil {
 			t.Fatalf("Failed to create request: %v", err)
@@ -576,30 +607,37 @@ func TestAuthorizationRequireOAuthFalse(t *testing.T) {
 }
 
 func TestAuthorizationRawToken(t *testing.T) {
-	testCaseWithContext(t, &httpContext{StaticConfig: &config.StaticConfig{RequireOAuth: true}}, func(ctx *httpContext) {
-		ctx.mockServer.Handle(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-			if req.URL.EscapedPath() == "/apis/authentication.k8s.io/v1/tokenreviews" {
-				w.Header().Set("Content-Type", "application/json")
-				_, _ = w.Write([]byte(tokenReviewSuccessful))
-				return
+	cases := []string{
+		"",
+		"mcp-server",
+	}
+	for _, audience := range cases {
+		testCaseWithContext(t, &httpContext{StaticConfig: &config.StaticConfig{RequireOAuth: true, OAuthAudience: audience}}, func(ctx *httpContext) {
+			ctx.mockServer.Handle(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+				if req.URL.EscapedPath() == "/apis/authentication.k8s.io/v1/tokenreviews" {
+					w.Header().Set("Content-Type", "application/json")
+					_, _ = w.Write([]byte(tokenReviewSuccessful))
+					return
+				}
+			}))
+			req, err := http.NewRequest("GET", fmt.Sprintf("http://%s/mcp", ctx.HttpAddress), nil)
+			if err != nil {
+				t.Fatalf("Failed to create request: %v", err)
 			}
-		}))
-		req, err := http.NewRequest("GET", fmt.Sprintf("http://%s/mcp", ctx.HttpAddress), nil)
-		if err != nil {
-			t.Fatalf("Failed to create request: %v", err)
-		}
-		req.Header.Set("Authorization", "Bearer "+tokenBasicNotExpired)
-		resp, err := http.DefaultClient.Do(req)
-		if err != nil {
-			t.Fatalf("Failed to get protected endpoint: %v", err)
-		}
-		t.Cleanup(func() { _ = resp.Body.Close() })
-		t.Run("Protected resource with VALID Authorization header returns 200 - OK", func(t *testing.T) {
-			if resp.StatusCode != http.StatusOK {
-				t.Errorf("Expected HTTP 200 OK, got %d", resp.StatusCode)
+			req.Header.Set("Authorization", "Bearer "+tokenBasicNotExpired)
+			resp, err := http.DefaultClient.Do(req)
+			if err != nil {
+				t.Fatalf("Failed to get protected endpoint: %v", err)
 			}
+			t.Cleanup(func() { _ = resp.Body.Close() })
+			t.Run("Protected resource with audience = '"+audience+"' with VALID Authorization header returns 200 - OK", func(t *testing.T) {
+				if resp.StatusCode != http.StatusOK {
+					t.Errorf("Expected HTTP 200 OK, got %d", resp.StatusCode)
+				}
+			})
 		})
-	})
+	}
+
 }
 
 func TestAuthorizationOidcToken(t *testing.T) {
@@ -611,7 +649,7 @@ func TestAuthorizationOidcToken(t *testing.T) {
 		"aud": "mcp-server"
 	}`
 	validOidcToken := oidctest.SignIDToken(key, "test-oidc-key-id", oidc.RS256, rawClaims)
-	testCaseWithContext(t, &httpContext{StaticConfig: &config.StaticConfig{RequireOAuth: true}, OidcProvider: oidcProvider}, func(ctx *httpContext) {
+	testCaseWithContext(t, &httpContext{StaticConfig: &config.StaticConfig{RequireOAuth: true, OAuthAudience: "mcp-server"}, OidcProvider: oidcProvider}, func(ctx *httpContext) {
 		ctx.mockServer.Handle(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 			if req.URL.EscapedPath() == "/apis/authentication.k8s.io/v1/tokenreviews" {
 				w.Header().Set("Content-Type", "application/json")

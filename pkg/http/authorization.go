@@ -41,8 +41,9 @@ type KubernetesApiTokenVerifier interface {
 //	 2. requireOAuth is set to true, server is protected:
 //
 //	    2.1. Raw Token Validation (oidcProvider is nil):
-//	         - The token is validated offline for basic sanity checks (audience and expiration).
-//	          - The token is then used against the Kubernetes API Server for TokenReview.
+//	         - The token is validated offline for basic sanity checks (expiration).
+//	         - If audience is set, the token is validated against the audience.
+//	         - The token is then used against the Kubernetes API Server for TokenReview.
 //
 //	    2.2. OIDC Provider Validation (oidcProvider is not nil):
 //	         - The token is validated offline for basic sanity checks (audience and expiration).
@@ -50,7 +51,7 @@ type KubernetesApiTokenVerifier interface {
 //	         - The token is then used against the Kubernetes API Server for TokenReview.
 //
 //	    2.3. OIDC Token Exchange (oidcProvider is not nil and xxx):
-func AuthorizationMiddleware(requireOAuth bool, oidcProvider *oidc.Provider, verifier KubernetesApiTokenVerifier) func(http.Handler) http.Handler {
+func AuthorizationMiddleware(requireOAuth bool, audience string, oidcProvider *oidc.Provider, verifier KubernetesApiTokenVerifier) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if r.URL.Path == healthEndpoint || slices.Contains(WellKnownEndpoints, r.URL.EscapedPath()) {
@@ -62,13 +63,16 @@ func AuthorizationMiddleware(requireOAuth bool, oidcProvider *oidc.Provider, ver
 				return
 			}
 
-			audience := Audience
+			wwwAuthenticateHeader := "Bearer realm=\"Kubernetes MCP Server\""
+			if audience != "" {
+				wwwAuthenticateHeader += fmt.Sprintf(`, audience="%s"`, audience)
+			}
 
 			authHeader := r.Header.Get("Authorization")
 			if authHeader == "" || !strings.HasPrefix(authHeader, "Bearer ") {
 				klog.V(1).Infof("Authentication failed - missing or invalid bearer token: %s %s from %s", r.Method, r.URL.Path, r.RemoteAddr)
 
-				w.Header().Set("WWW-Authenticate", fmt.Sprintf(`Bearer realm="Kubernetes MCP Server", audience="%s", error="missing_token"`, audience))
+				w.Header().Set("WWW-Authenticate", wwwAuthenticateHeader+", error=\"missing_token\"")
 				http.Error(w, "Unauthorized: Bearer token required", http.StatusUnauthorized)
 				return
 			}
@@ -77,12 +81,15 @@ func AuthorizationMiddleware(requireOAuth bool, oidcProvider *oidc.Provider, ver
 
 			claims, err := ParseJWTClaims(token)
 			if err == nil && claims != nil {
-				err = claims.Validate(r.Context(), audience, oidcProvider)
+				err = claims.ValidateOffline(audience)
+			}
+			if err == nil && claims != nil {
+				err = claims.ValidateWithProvider(r.Context(), audience, oidcProvider)
 			}
 			if err != nil {
 				klog.V(1).Infof("Authentication failed - JWT validation error: %s %s from %s, error: %v", r.Method, r.URL.Path, r.RemoteAddr, err)
 
-				w.Header().Set("WWW-Authenticate", fmt.Sprintf(`Bearer realm="Kubernetes MCP Server", audience="%s", error="invalid_token"`, audience))
+				w.Header().Set("WWW-Authenticate", wwwAuthenticateHeader+", error=\"invalid_token\"")
 				http.Error(w, "Unauthorized: Invalid token", http.StatusUnauthorized)
 				return
 			}
@@ -147,16 +154,24 @@ func (c *JWTClaims) GetScopes() []string {
 	return strings.Fields(c.Scope)
 }
 
-// Validate Checks if the JWT claims are valid and if the audience matches the expected one.
-func (c *JWTClaims) Validate(ctx context.Context, audience string, provider *oidc.Provider) error {
-	if err := c.Claims.Validate(jwt.Expected{AnyAudience: jwt.Audience{audience}}); err != nil {
+// ValidateOffline Checks if the JWT claims are valid and if the audience matches the expected one.
+func (c *JWTClaims) ValidateOffline(audience string) error {
+	expected := jwt.Expected{}
+	if audience != "" {
+		expected.AnyAudience = jwt.Audience{audience}
+	}
+	if err := c.Validate(expected); err != nil {
 		return fmt.Errorf("JWT token validation error: %v", err)
 	}
+	return nil
+}
+
+// ValidateWithProvider validates the JWT claims against the OIDC provider.
+func (c *JWTClaims) ValidateWithProvider(ctx context.Context, audience string, provider *oidc.Provider) error {
 	if provider != nil {
 		verifier := provider.Verifier(&oidc.Config{
 			ClientID: audience,
 		})
-
 		_, err := verifier.Verify(ctx, c.Token)
 		if err != nil {
 			return fmt.Errorf("OIDC token validation error: %v", err)

@@ -19,13 +19,17 @@ type StaticConfig struct {
 	// When true, expose only tools annotated with readOnlyHint=true
 	ReadOnly bool `toml:"read_only,omitempty"`
 	// When true, disable tools annotated with destructiveHint=true
-	DisableDestructive   bool     `toml:"disable_destructive,omitempty"`
-	EnabledTools         []string `toml:"enabled_tools,omitempty"`
-	DisabledTools        []string `toml:"disabled_tools,omitempty"`
-	RequireOAuth         bool     `toml:"require_oauth,omitempty"`
-	AuthorizationURL     string   `toml:"authorization_url,omitempty"`
-	CertificateAuthority string   `toml:"certificate_authority,omitempty"`
-	ServerURL            string   `toml:"server_url,omitempty"`
+	DisableDestructive bool     `toml:"disable_destructive,omitempty"`
+	EnabledTools       []string `toml:"enabled_tools,omitempty"`
+	DisabledTools      []string `toml:"disabled_tools,omitempty"`
+	RequireOAuth       bool     `toml:"require_oauth,omitempty"`
+	// OAuthAudience is the valid audience for the OAuth tokens, used for offline JWT claim validation.
+	OAuthAudience string `toml:"oauth_audience,omitempty"`
+	// AuthorizationURL is the URL of the OIDC authorization server.
+	// It is used for token validation and for STS token exchange.
+	AuthorizationURL     string `toml:"authorization_url,omitempty"`
+	CertificateAuthority string `toml:"certificate_authority,omitempty"`
+	ServerURL            string `toml:"server_url,omitempty"`
 }
 
 type GroupVersionKind struct {

@@ -62,6 +62,7 @@ type MCPServerOptions struct {
 	ReadOnly             bool
 	DisableDestructive   bool
 	RequireOAuth         bool
+	OAuthAudience        string
 	AuthorizationURL     string
 	CertificateAuthority string
 	ServerURL            string
@@ -119,6 +120,8 @@ func NewMCPServer(streams genericiooptions.IOStreams) *cobra.Command {
 	cmd.Flags().BoolVar(&o.DisableDestructive, "disable-destructive", o.DisableDestructive, "If true, tools annotated with destructiveHint=true are disabled")
 	cmd.Flags().BoolVar(&o.RequireOAuth, "require-oauth", o.RequireOAuth, "If true, requires OAuth authorization as defined in the Model Context Protocol (MCP) specification. This flag is ignored if transport type is stdio")
 	_ = cmd.Flags().MarkHidden("require-oauth")
+	cmd.Flags().StringVar(&o.OAuthAudience, "oauth-audience", o.OAuthAudience, "OAuth audience for token claims validation. Optional. If not set, the audience is not validated. Only valid if require-oauth is enabled.")
+	_ = cmd.Flags().MarkHidden("oauth-audience")
 	cmd.Flags().StringVar(&o.AuthorizationURL, "authorization-url", o.AuthorizationURL, "OAuth authorization server URL for protected resource endpoint. If not provided, the Kubernetes API server host will be used. Only valid if require-oauth is enabled.")
 	_ = cmd.Flags().MarkHidden("authorization-url")
 	cmd.Flags().StringVar(&o.ServerURL, "server-url", o.ServerURL, "Server URL of this application. Optional. If set, this url will be served in protected resource metadata endpoint and tokens will be validated with this audience. If not set, expected audience is kubernetes-mcp-server. Only valid if require-oauth is enabled.")
@@ -178,6 +181,9 @@ func (m *MCPServerOptions) loadFlags(cmd *cobra.Command) {
 	}
 	if cmd.Flag("require-oauth").Changed {
 		m.StaticConfig.RequireOAuth = m.RequireOAuth
+	}
+	if cmd.Flag("oauth-audience").Changed {
+		m.StaticConfig.OAuthAudience = m.OAuthAudience
 	}
 	if cmd.Flag("authorization-url").Changed {
 		m.StaticConfig.AuthorizationURL = m.AuthorizationURL

@@ -104,14 +104,14 @@ func TestParseJWTClaimsPayloadInvalid(t *testing.T) {
 	})
 }
 
-func TestJWTTokenValidate(t *testing.T) {
+func TestJWTTokenValidateOffline(t *testing.T) {
 	t.Run("expired token returns error", func(t *testing.T) {
 		claims, err := ParseJWTClaims(tokenBasicExpired)
 		if err != nil {
 			t.Fatalf("expected no error for expired token parsing, got %v", err)
 		}
 
-		err = claims.Validate(t.Context(), "mcp-server", nil)
+		err = claims.ValidateOffline("mcp-server")
 		if err == nil {
 			t.Fatalf("expected error for expired token, got nil")
 		}
@@ -130,7 +130,7 @@ func TestJWTTokenValidate(t *testing.T) {
 			t.Fatalf("expected claims to be returned, got nil")
 		}
 
-		err = claims.Validate(t.Context(), "mcp-server", nil)
+		err = claims.ValidateOffline("mcp-server")
 		if err != nil {
 			t.Fatalf("expected no error for valid audience, got %v", err)
 		}
@@ -145,7 +145,7 @@ func TestJWTTokenValidate(t *testing.T) {
 			t.Fatalf("expected claims to be returned, got nil")
 		}
 
-		err = claims.Validate(t.Context(), "missing-audience", nil)
+		err = claims.ValidateOffline("missing-audience")
 		if err == nil {
 			t.Fatalf("expected error for token with wrong audience, got nil")
 		}
